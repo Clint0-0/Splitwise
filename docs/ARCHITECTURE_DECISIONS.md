@@ -44,6 +44,7 @@ MySQL 8.0  (views, triggers, procedures, functions do integrity + reporting)
 | 17 | `expense_groups` table name | `GROUPS` reserved in MySQL 8 | backtick-quoting `groups` everywhere |
 
 ## Security decisions
+- **Least-privilege DB account** `splitwise_app` (`database/security/app_user.sql`, run once as root): SELECT + EXECUTE on the database; INSERT/UPDATE/DELETE only on app-owned tables; **settlements, audit_logs, categories are read-only**, so settlements can only be written through `sp_record_settlement`/`sp_respond_settlement` and audit rows only by triggers (both run with DEFINER rights). No DDL, no GRANT. Verified by tests A1–A7.
 - PDO: `ERRMODE_EXCEPTION`, `EMULATE_PREPARES=false`, `utf8mb4`.
 - Every group-scoped route checks active membership in SQL (`group_members`), not in the UI.
 - CSRF token per session, checked on every POST.

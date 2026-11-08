@@ -1,0 +1,70 @@
+// SplitWise+ conceptual ER diagram — Chen notation
+// Rectangles = entities, double rectangle = weak/associative entity,
+// diamonds = relationships, ovals = key attributes (underlined),
+// labels on lines = cardinality (1, N, M); double line = total participation.
+// Render: dot -Tsvg er_conceptual.dot -o er_conceptual.svg
+graph conceptual {
+  graph [layout=neato, overlap=false, splines=true, sep="+12", fontname="Helvetica",
+         label="SplitWise+ — conceptual ER model (Chen notation)", labelloc=t, fontsize=20];
+  node  [fontname="Helvetica", fontsize=11];
+  edge  [fontname="Helvetica", fontsize=10];
+
+  // Entities
+  node [shape=box, style=filled, fillcolor="#DCE8F5"];
+  USER; EXPENSE_GROUP [label="GROUP"]; EXPENSE; CATEGORY; SETTLEMENT; BUDGET;
+  NOTIFICATION; RECEIPT; TAG; INVITATION;
+  node [shape=box, peripheries=2, fillcolor="#FCE9D6"];
+  SPLIT [label="EXPENSE SPLIT\n(associative)"];
+  MEMBERSHIP [label="MEMBERSHIP\n(associative)"];
+
+  // Relationships
+  node [shape=diamond, style=filled, fillcolor="#FFF6CC", peripheries=1];
+  r_member [label="joins"]; r_member2 [label="has"];
+  r_records [label="records"]; r_pays [label="pays"]; r_class [label="classifies"];
+  r_owes [label="owes"]; r_divided [label="divided\ninto"];
+  r_payer [label="pays\n(payer)"]; r_payee [label="receives\n(payee)"]; r_scope [label="settles\nwithin"];
+  r_ownu [label="owns"]; r_owng [label="owns"]; r_limit [label="limits"];
+  r_notify [label="receives"]; r_proof [label="proved\nby"]; r_tag [label="tagged"];
+  r_parent [label="parent\nof"]; r_inv [label="issues"]; r_invu [label="invited"];
+
+  // Key attributes
+  node [shape=ellipse, style=filled, fillcolor="white"];
+  a_uid [label=<<u>user_id</u>>]; a_email [label="email (unique)"];
+  a_gid [label=<<u>group_id</u>>]; a_eid [label=<<u>expense_id</u>>];
+  a_amt [label="total_amount"]; a_share [label="share_amount"];
+  a_sid [label=<<u>settlement_id</u>>]; a_status [label="status"];
+
+  USER -- a_uid; USER -- a_email; EXPENSE_GROUP -- a_gid; EXPENSE -- a_eid; EXPENSE -- a_amt;
+  SPLIT -- a_share; SETTLEMENT -- a_sid; SETTLEMENT -- a_status;
+
+  // M:N user–group via MEMBERSHIP
+  USER -- r_member [label="1"]; r_member -- MEMBERSHIP [label="N", penwidth=2.5];
+  EXPENSE_GROUP -- r_member2 [label="1"]; r_member2 -- MEMBERSHIP [label="N", penwidth=2.5];
+  EXPENSE_GROUP -- r_inv [label="1"]; r_inv -- INVITATION [label="N", penwidth=2.5];
+  USER -- r_invu [label="1"]; r_invu -- INVITATION [label="N", penwidth=2.5];
+
+  // Expenses
+  EXPENSE_GROUP -- r_records [label="0..1"]; r_records -- EXPENSE [label="N"];
+  USER -- r_pays [label="1"]; r_pays -- EXPENSE [label="N", penwidth=2.5];
+  CATEGORY -- r_class [label="1"]; r_class -- EXPENSE [label="N", penwidth=2.5];
+  CATEGORY -- r_parent [label="0..1"]; r_parent -- CATEGORY [label="N"];
+
+  // M:N expense–user via SPLIT (every expense has at least one split)
+  EXPENSE -- r_divided [label="1", penwidth=2.5]; r_divided -- SPLIT [label="N", penwidth=2.5];
+  USER -- r_owes [label="1"]; r_owes -- SPLIT [label="N", penwidth=2.5];
+
+  EXPENSE -- r_proof [label="1"]; r_proof -- RECEIPT [label="N", penwidth=2.5];
+  EXPENSE -- r_tag [label="M"]; r_tag -- TAG [label="N"];
+
+  // Settlements: two roles of USER
+  USER -- r_payer [label="1"]; r_payer -- SETTLEMENT [label="N", penwidth=2.5];
+  USER -- r_payee [label="1"]; r_payee -- SETTLEMENT [label="N", penwidth=2.5];
+  EXPENSE_GROUP -- r_scope [label="1"]; r_scope -- SETTLEMENT [label="N", penwidth=2.5];
+
+  // Budgets: owned by a user XOR a group
+  USER -- r_ownu [label="0..1"]; r_ownu -- BUDGET [label="N"];
+  EXPENSE_GROUP -- r_owng [label="0..1"]; r_owng -- BUDGET [label="N"];
+  CATEGORY -- r_limit [label="0..1"]; r_limit -- BUDGET [label="N"];
+
+  USER -- r_notify [label="1"]; r_notify -- NOTIFICATION [label="N", penwidth=2.5];
+}

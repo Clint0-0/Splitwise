@@ -4,11 +4,11 @@
 
 | Item | Value |
 |---|---|
-| Date | 2026-11-08 |
+| Date | 2026-11-08 (re-run 2026-11-09 after gap fixes) |
 | DBMS | MySQL 8.0.46 (Ubuntu build), `sql_mode` default (`ONLY_FULL_GROUP_BY, STRICT_TRANS_TABLES, …`) |
 | Client | PHP 8.3 PDO (`ATTR_EMULATE_PREPARES=false`), mysql CLI with `--default-character-set=utf8mb4` |
 | How to reproduce | `tests/database/run.sh` (imports `database/splitwise_plus.sql`, runs all SQL scripts, runs `tests/database/run_db_tests.php`, re-imports) |
-| Result | **All 9 SQL scripts executed without error. 67 / 67 automated tests passed.** |
+| Result | **All 12 SQL scripts executed without error (verify_install: all PASS). 74 / 74 passed.** |
 
 Results below are copied from the actual run output, not written by hand.
 
@@ -21,6 +21,7 @@ Results below are copied from the actual run output, not written by hand.
 - **Q** subquery NULL pitfall
 - **P** stored procedures (validation, idempotency, atomic rollback)
 - **X** concurrency (row lock on settlements)
+- **A** least-privilege app account (tests run as `splitwise_app` over TCP)
 - **W** committing flows (confirm settlement, payee-recorded settlement)
 
 ### Hand-verified expected balances (sample data)
@@ -48,6 +49,7 @@ Pending (₹2,000, ₹4,000), rejected (₹1,000) and cancelled (₹500) settlem
 ### Results
 | Script | Result |
 |---|---|
+| `database/verify_install.sql (all checks PASS)` | OK |
 | `database/queries/01_basic_select.sql` | OK |
 | `database/queries/02_filtering_and_sorting.sql` | OK |
 | `database/queries/03_joins.sql` | OK |
@@ -56,7 +58,9 @@ Pending (₹2,000, ₹4,000), rejected (₹1,000) and cancelled (₹500) settlem
 | `database/queries/06_business_reports.sql` | OK |
 | `database/queries/07_explain.sql` | OK |
 | `database/views/demo_views.sql` | OK |
+| `database/triggers/demo_triggers.sql` | OK |
 | `database/transactions/demo_acid.sql` | OK |
+| `database/security/app_user.sql` | OK |
 
 | ID | Test | Result |
 |---|---|---|
@@ -125,10 +129,18 @@ Pending (₹2,000, ₹4,000), rejected (₹1,000) and cancelled (₹500) settlem
 | P8 | sp_add_equal_expense: malformed participant list rejected | PASS |
 | X1 | Concurrent settlement in same group blocks on FOR UPDATE lock | PASS |
 | X2 | Blocked call left no partial row | PASS |
+| A1 | App user can read tables and views | PASS |
+| A2 | App user can EXECUTE procedures | PASS |
+| A3 | App user can add expense + splits; DEFINER triggers still write audit_logs | PASS |
+| A4 | App user cannot write settlements directly (must use procedures) | PASS |
+| A5 | App user cannot delete or edit audit_logs | PASS |
+| A6 | App user cannot run DDL (CREATE TABLE) | PASS |
+| A7 | App user reaches settlement rules via sp_record_settlement (blocked by rule, not by permission) | PASS |
 | W1 | Aarav confirms Sneha's pending 2000: Sneha -5133.33, Aarav +7991.67, group sum 0 | PASS |
 | W2 | Payee-recorded settlement is confirmed immediately; Kabir settled in College Friends | PASS |
 
-67 / 67 passed
+74 / 74 passed
+
 ### EXPLAIN evidence (`database/queries/07_explain.sql`)
 | Query | Plan with index | Without index |
 |---|---|---|

@@ -22,7 +22,11 @@ All decisions approved as proposed: MySQL 8.0 alongside XAMPP (A1), adjustment s
 | Query collection Q1–Q50 | `queries/01–06` | ✓ all execute |
 | ACID / transaction demo | `transactions/demo_acid.sql` | ✓ |
 | Combined import file | `database/splitwise_plus.sql` via `build.sh` | ✓ |
-| DB test suite: 67/67 pass | `tests/database/` | ✓ |
+| DB test suite: 74/74 pass | `tests/database/` | ✓ |
+| Experiment 8 trigger operations demo | `database/triggers/demo_triggers.sql` | ✓ |
+| Least-privilege app account | `database/security/app_user.sql` | ✓ tests A1–A7 |
+| ER diagrams as images (conceptual Chen + generated physical) | `docs/diagrams/`, `tools/generate_er.py` | ✓ |
+| Per-laptop install check | `database/verify_install.sql` | ✓ all PASS here |
 | Testing report | `docs/TESTING_REPORT.md` | ✓ |
 
 Phase 2 acceptance criteria: tables create ✓ · FKs work ✓ · constraints reject invalid records ✓ · sample data inserts ✓ · queries execute ✓ · triggers behave ✓ · views correct ✓ · transactions preserve consistency ✓ · financial calculations validated ✓.
@@ -30,7 +34,8 @@ Phase 2 acceptance criteria: tables create ✓ · FKs work ✓ · constraints re
 ## Known issues / notes for Phase 3
 - PHP must reject money with more than 2 decimals (MySQL rounds silently).
 - PHP must `SET NAMES utf8mb4` (PDO DSN `charset=utf8mb4`) and `SET @app_user_id = <user>` per request so audit rows record the actor.
-- Create a least-privilege MySQL user (`splitwise_app`: SELECT/INSERT/UPDATE/DELETE/EXECUTE on `splitwise_plus`) instead of root — script to add in Phase 3.
+- App connects as `splitwise_app` (never root). Settlement writes must use the procedures (direct INSERT is denied).
+- **Team action:** each member imports on their own Windows/XAMPP + MySQL 8.0 laptop and runs `database/verify_install.sql` — every row must say PASS.
 - LICENSE not added (team to choose).
 
 ## Roadmap

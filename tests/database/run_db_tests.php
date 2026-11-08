@@ -13,14 +13,14 @@
  */
 declare(strict_types=1);
 
-function connect(): PDO {
-    $host = getenv('DB_HOST') ?: 'localhost';
+function connect(?string $user = null, ?string $pass = null, ?string $forceHost = null): PDO {
+    $host = $forceHost ?? (getenv('DB_HOST') ?: 'localhost');
     $port = getenv('DB_PORT') ?: '3306';
-    $sock = getenv('DB_SOCKET') ?: '';
+    $sock = $forceHost === null ? (getenv('DB_SOCKET') ?: '') : '';
     $dsn  = $sock !== ''
         ? "mysql:unix_socket=$sock;dbname=splitwise_plus;charset=utf8mb4"
         : "mysql:host=$host;port=$port;dbname=splitwise_plus;charset=utf8mb4";
-    return new PDO($dsn, getenv('DB_USER') ?: 'root', getenv('DB_PASS') ?: '', [
+    return new PDO($dsn, $user ?? (getenv('DB_USER') ?: 'root'), $pass ?? (getenv('DB_PASS') ?: ''), [
         PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,
         PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
         PDO::ATTR_EMULATE_PREPARES   => false,
@@ -285,6 +285,40 @@ try { $call($db2, [1, 5, 2, 100, '2026-11-08', 'upi', null, 5, 'conc-1']); recor
 catch (PDOException $e) { record('X1', 'Concurrent settlement in same group blocks on FOR UPDATE lock', str_contains($e->getMessage(), 'Lock wait timeout')); }
 $db->rollBack();
 record('X2', 'Blocked call left no partial row', (int) val($db, "SELECT COUNT(*) FROM settlements WHERE request_token='conc-1'") === 0);
+
+// ---------------------------------------------------------------- least-privilege app user
+// Runs only when APP_DB_PASS is set (run.sh creates the user with database/security/app_user.sql).
+$appPass = getenv('APP_DB_PASS');
+if ($appPass !== false && $appPass !== '') {
+    try {
+        $app = connect('splitwise_app', $appPass, '127.0.0.1');
+        $app->exec('SET @app_user_id = 2');
+        record('A1', 'App user can read tables and views',
+            val($app, 'SELECT net_balance FROM v_group_member_balances WHERE group_id=1 AND user_id=2') === '9991.67');
+        $st = $app->query('CALL sp_get_group_balances(1)'); $n = count($st->fetchAll()); $st->closeCursor();
+        record('A2', 'App user can EXECUTE procedures', $n === 4);
+        record('A3', 'App user can add expense + splits; DEFINER triggers still write audit_logs', inTx($app, function (PDO $d) {
+            exec_($d, "INSERT INTO expenses (group_id,paid_by,created_by,category_id,description,total_amount,expense_date)
+                       VALUES (1,2,2,2,'App user test',200,'2026-10-05')");
+            $id = (int) $d->lastInsertId();
+            exec_($d, 'INSERT INTO expense_splits (expense_id,user_id,share_amount) VALUES (?,2,100),(?,3,100)', [$id, $id]);
+            return (int) val($d, "SELECT COUNT(*) FROM audit_logs WHERE table_name='expenses' AND record_id=? AND changed_by=2", [$id]) === 1; }));
+        expectError($app, 'A4', 'App user cannot write settlements directly (must use procedures)', fn($d) => exec_($d,
+            "INSERT INTO settlements (group_id,payer_id,payee_id,amount,settlement_date,created_by,request_token)
+             VALUES (1,4,2,10,'2026-11-01',2,'priv-test')"), 'command denied');
+        expectError($app, 'A5', 'App user cannot delete or edit audit_logs', fn($d) => exec_($d,
+            'DELETE FROM audit_logs WHERE log_id = 1'), 'command denied');
+        try { $app->exec('CREATE TABLE hack (id INT)'); record('A6', 'App user cannot run DDL', false); }
+        catch (PDOException $e) { record('A6', 'App user cannot run DDL (CREATE TABLE)', str_contains($e->getMessage(), 'command denied')); }
+        try { $call($app, [1, 4, 2, 99999, '2026-11-08', 'cash', null, 2, 'priv-over']); record('A7', 'proc business rule', false); }
+        catch (PDOException $e) { record('A7', 'App user reaches settlement rules via sp_record_settlement (blocked by rule, not by permission)',
+            str_contains($e->getMessage(), 'exceeds')); }
+    } catch (PDOException $e) {
+        record('A0', 'Connect as splitwise_app', false, $e->getMessage());
+    }
+} else {
+    echo "(skipping A-tests: APP_DB_PASS not set)\n";
+}
 
 // ---------------------------------------------------------------- committing flows (last)
 $db->exec("CALL sp_respond_settlement(3, 2, 'confirm')");

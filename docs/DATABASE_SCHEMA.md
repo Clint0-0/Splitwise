@@ -216,7 +216,12 @@ erDiagram
     users ||--o{ notifications : ""
 ```
 
-(Mermaid renders on GitHub. A draw.io/PNG copy goes in `docs/diagrams/` once approved.)
+Image versions for the report (in `docs/diagrams/`):
+
+| Diagram | Files | Notation |
+|---|---|---|
+| Conceptual | `er_conceptual.png` / `.svg` (source `er_conceptual.dot`) | Chen: entities, double-box associative entities, relationship diamonds, key attributes underlined, cardinality labels, thick line = total participation |
+| Physical | `er_physical.png` / `.svg` | every table, column, type, PK/FK/UK, nullability (`?`), FK edges labelled with ON DELETE rule. **Generated from the live database** by `tools/generate_er.py`, so it always matches the real schema — re-run after any schema change |
 
 ---
 
@@ -577,7 +582,7 @@ InnoDB auto-creates an index for an FK only when no usable index exists; the lis
 | `trg_expense_splits_after_delete` | Archive the removed split (during expense edit) into `audit_logs` |
 | `trg_expenses_after_delete` | Audit hard deletes (admin cleanup) |
 
-Implemented: **11 triggers** (all six timing/event pairs).
+Implemented: **11 triggers** (all six timing/event pairs). Operations demo (`SHOW TRIGGERS`, `SHOW CREATE TRIGGER`, firing each pair, `CREATE` → `DROP TRIGGER` lifecycle): `database/triggers/demo_triggers.sql`.
 
 **Money input note (found in testing):** `DECIMAL(12,2)` silently *rounds* `10.005` to `10.01` (only a note, even in strict mode). The PHP layer must reject amounts with more than 2 decimals; out-of-range values are rejected by MySQL.
 

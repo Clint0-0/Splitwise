@@ -1,5 +1,14 @@
 # CHANGELOG — SplitWise+
 
+## [0.2.1] — Phase 2 gap fixes (2026-11-09)
+### Added
+- `database/triggers/demo_triggers.sql`: Experiment 8 operations (SHOW TRIGGERS, SHOW CREATE TRIGGER, all pairs firing, CREATE → DROP lifecycle).
+- `database/security/app_user.sql`: least-privilege `splitwise_app` account; tests A1–A7.
+- `database/verify_install.sql`: 10-check install verification for team laptops.
+- `docs/diagrams/`: conceptual ER (Chen) and physical ER (generated from information_schema by `tools/generate_er.py`), PNG + SVG.
+### Changed
+- Test suite 67 → 74 tests; run.sh also runs verify_install, trigger demo, app-user script.
+
 ## [0.2.0] — Phase 2 database (2026-11-08)
 ### Added
 - `database/schema`: database, 14 tables with PK/FK/UNIQUE/CHECK/DEFAULT, 15 secondary indexes.

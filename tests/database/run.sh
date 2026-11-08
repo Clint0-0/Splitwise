@@ -12,9 +12,19 @@ fail=0
 $MYSQL < "$ROOT/database/splitwise_plus.sql" || { echo "IMPORT FAILED"; exit 1; }
 echo "Import OK"
 
-for f in "$ROOT"/database/queries/*.sql "$ROOT"/database/views/demo_views.sql "$ROOT"/database/transactions/demo_acid.sql; do
+if $MYSQL < "$ROOT/database/verify_install.sql" > /tmp/verify.txt 2>&1 && ! grep -q FAIL /tmp/verify.txt; then
+  echo "SQL  OK   database/verify_install.sql (all checks PASS)"
+else echo "SQL  FAIL database/verify_install.sql"; cat /tmp/verify.txt; fail=1; fi
+
+for f in "$ROOT"/database/queries/*.sql "$ROOT"/database/views/demo_views.sql \
+         "$ROOT"/database/triggers/demo_triggers.sql "$ROOT"/database/transactions/demo_acid.sql; do
   if $MYSQL < "$f" >/dev/null 2>/tmp/sqlerr; then echo "SQL  OK   ${f#$ROOT/}"; else echo "SQL  FAIL ${f#$ROOT/}: $(cat /tmp/sqlerr)"; fail=1; fi
 done
+
+# Least-privilege app user (test password = the placeholder in app_user.sql)
+if $MYSQL < "$ROOT/database/security/app_user.sql" >/dev/null 2>/tmp/sqlerr; then
+  echo "SQL  OK   database/security/app_user.sql"; export APP_DB_PASS="${APP_DB_PASS:-Change_Me_123!}"
+else echo "SQL  FAIL database/security/app_user.sql: $(cat /tmp/sqlerr)"; fail=1; fi
 
 php "$ROOT/tests/database/run_db_tests.php" || fail=1
 

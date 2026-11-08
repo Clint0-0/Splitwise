@@ -13,7 +13,7 @@ Status: **Implemented and executed (Phase 2)** on MySQL 8.0.46 — every script 
 | 5 Joins | Q17 INNER/ON · Q18 3-way · Q19 USING · Q20 double alias · Q21 LEFT · Q22 RIGHT · Q23–Q24 SELF · Q25 CROSS · Q26 FULL OUTER emulation | `queries/03_joins.sql` |
 | 6 Aggregates | Q27–Q34 (SUM, COUNT, AVG, MIN, MAX, GROUP BY expression / multi-column, HAVING) | `queries/04_aggregates.sql` |
 | 7 Subqueries | Q35 scalar · Q36 correlated NOT EXISTS · Q37 nested + derived table · Q38 IN multi-row · Q39 correlated · Q40 NOT EXISTS · Q41 correlated MAX · Q42 ALL/ANY · Q43 NOT IN NULL pitfall | `queries/05_subqueries.sql` |
-| 8 Triggers | 11 triggers; demos = tests T1–T17 | `triggers/triggers.sql` |
+| 8 Triggers | 11 triggers + `triggers/demo_triggers.sql` (SHOW TRIGGERS, SHOW CREATE TRIGGER, each timing/event firing with OLD/NEW, CREATE → DROP TRIGGER); tests T1–T17 | `triggers/` |
 | 9 Views | 11 views + `views/demo_views.sql` (SHOW [FULL] TABLES, CREATE / CREATE OR REPLACE / DROP VIEW, updatable vs not, CHECK OPTION) | `views/` |
 | Reports | Q44–Q50 (procedures, view-on-view, pairwise debts, budgets) | `queries/06_business_reports.sql` |
 | Indexing | EXPLAIN A–E | `queries/07_explain.sql` |
@@ -30,7 +30,7 @@ The tables below explain the concept behind each query (planning numbering).
 | 5 | Joins | all core tables | `database/queries/03_joins.sql` |
 | 6 | GROUP BY, aggregates | expenses, expense_splits, settlements | `database/queries/04_aggregates.sql` |
 | 7 | Subqueries | expenses, users, expense_groups, settlements | `database/queries/05_subqueries.sql` |
-| 8 | Triggers | expenses, expense_splits, settlements, audit_logs, notifications | `database/triggers/*.sql`, demo in `tests/database/test_triggers.sql` |
+| 8 | Triggers | expenses, expense_splits, settlements, audit_logs, notifications, users (demo) | `database/triggers/triggers.sql`, `database/triggers/demo_triggers.sql` |
 | 9 | Views | see view list | `database/views/*.sql` |
 
 ---
