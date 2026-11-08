@@ -1,0 +1,19 @@
+# Secrets
+.env
+
+# Runtime data
+storage/receipts/*
+storage/logs/*
+!storage/receipts/.gitkeep
+!storage/logs/.gitkeep
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.swp
+
+# Dependencies (if ever added)
+vendor/
+node_modules/
