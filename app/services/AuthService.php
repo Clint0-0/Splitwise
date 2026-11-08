@@ -11,9 +11,6 @@ use App\Models\UserModel;
 
 final class AuthService
 {
-    private const MAX_ATTEMPTS = 5;
-    private const LOCK_SECONDS = 900;
-
     public function __construct(private UserModel $users = new UserModel())
     {
     }
@@ -56,21 +53,17 @@ final class AuthService
         return $id;
     }
 
-    public function login(string $login, string $password): void
+    public function login(string $login, string $password, string $ip = ''): void
     {
-        $lock = Session::get('_login_lock', ['count' => 0, 'until' => 0]);
-        if ($lock['until'] > time()) {
-            throw ValidationException::single('login', 'Too many failed attempts. Try again in a few minutes.');
+        $throttle = new LoginThrottle();
+        if ($throttle->tooMany($login, $ip)) {
+            throw ValidationException::single('login', 'Too many failed attempts. Try again in 15 minutes.');
         }
 
         $user = $login !== '' ? $this->users->findForLogin($login) : null;
         // Same message for "no such user" and "wrong password" (no account enumeration).
         if (!$user || !password_verify($password, $user['password_hash'])) {
-            $lock['count']++;
-            if ($lock['count'] >= self::MAX_ATTEMPTS) {
-                $lock = ['count' => 0, 'until' => time() + self::LOCK_SECONDS];
-            }
-            Session::set('_login_lock', $lock);
+            $throttle->hit($login, $ip);
             throw ValidationException::single('login', 'Incorrect username/email or password.');
         }
         if ((int) $user['is_active'] !== 1) {
@@ -79,7 +72,7 @@ final class AuthService
         if (password_needs_rehash($user['password_hash'], PASSWORD_DEFAULT)) {
             $this->users->setPassword((int) $user['user_id'], password_hash($password, PASSWORD_DEFAULT));
         }
-        Session::forget('_login_lock');
+        $throttle->clear($login, $ip);
         $this->users->touchLogin((int) $user['user_id']);
         Auth::login($this->users->find((int) $user['user_id']));
     }

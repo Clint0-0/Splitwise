@@ -323,3 +323,20 @@ Groups: **H** auth · **Z** authorisation · **G** groups/invitations · **E** e
 | 4 | Registration skipped the duplicate username/email check whenever another field (e.g. password) was invalid, so the user only learned about the duplicate on the next try | Uniqueness checked for every well-formed field (test H10) |
 | 5 | Two simultaneous sign-ups with the same username would hit the UNIQUE key and show a 500 page | Duplicate-key error (1062) turned into a form error |
 | 6 | With the repo inside XAMPP `htdocs`, `.env` (DB password), source code and uploaded receipts were reachable by URL | Root `.htaccess` (403 for secrets/source, redirect to `public/`) + `Require all denied` in `storage/`, `app/`, `config/`, `database/`, `tests/`, `tools/`, `docs/` |
+
+
+## Phase 3 — bug-fix round (2026-11-09)
+
+Found by a code review after the first Phase 3 run, fixed, and covered by new tests. Re-run results: **unit 41 / 41 · functional 103 / 103 · database 74 / 74**.
+
+| # | Bug | Fix | Tests |
+|---|---|---|---|
+| 7 | Editing / deleting / restoring an old expense could change the balance of a member who had already left at zero (edit form also silently dropped them) | Expenses that involve a former member are locked; page explains why | K1–K5 |
+| 8 | A member could leave at the same moment someone added an expense that included them | Leave/remove lock the group's membership rows `FOR UPDATE`; expense writes take `FOR SHARE` and re-check inside the transaction | K6 |
+| 9 | Login lockout stored in the session — dropping the cookie reset it | File-based counters: 5 failures per account+IP, 20 per IP, 15 minutes | T1–T3 |
+| 10 | "Email me" profile setting had no effect | Mock mailer appends notifications (including trigger-created ones) to `storage/logs/mail.log` for opted-in users, once each | T4–T6 |
+| 11 | Upload larger than `post_max_size` showed "session expired" (PHP drops the whole form) | Detected before CSRF check; clear "upload too large" message | T7 |
+| 12 | *(new, found while fixing #11)* PHP's default `upload_max_filesize` is 2 MB, but the form promised 5 MB and the error said "larger than 5 MB" | Effective limit = min(5 MB, PHP limits), shown in the form and errors; dev server + README set 6M/8M; verified on Apache (shows 2 MB under default mod_php) | T8 |
+| 13 | Archived groups blocked settling debts that were still owed | Settlements allowed in archived groups; everything else stays read-only | P5b |
+
+Expected log line during T7: PHP's own warning `POST Content-Length … exceeds the limit` (that is the oversized request being rejected).

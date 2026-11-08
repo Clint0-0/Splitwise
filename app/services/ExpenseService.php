@@ -41,17 +41,34 @@ final class ExpenseService
         return $e;
     }
 
-    /** Creator, payer or an active group admin may edit/delete; group must be writable. */
+    /**
+     * Why this expense may not be changed by anyone, or null.
+     * An expense that involves a FORMER member is locked: they left at a zero balance,
+     * so editing, deleting or restoring it would silently change money they no longer
+     * can see or settle.
+     */
+    public function lockReason(array $e): ?string
+    {
+        if ($e['group_id'] === null) {
+            return null;
+        }
+        if ((int) $e['is_archived'] === 1) {
+            return 'The group is archived (read-only).';
+        }
+        $former = $this->expenses->formerMembers((int) $e['expense_id'], (int) $e['group_id']);
+        return $former === [] ? null : sprintf(
+            'Locked: %s %s left the group with a settled balance, so this expense can no longer be changed.',
+            implode(', ', $former), count($former) === 1 ? 'has' : 'have');
+    }
+
+    /** Creator, payer or an active group admin may edit/delete, unless the expense is locked. */
     public function canEdit(array $e, int $userId): bool
     {
         if ($e['group_id'] === null) {
             return (int) $e['paid_by'] === $userId;
         }
-        if ((int) $e['is_archived'] === 1) {
-            return false;
-        }
         $m = $this->groups->membership((int) $e['group_id'], $userId);
-        if (!$m || $m['status'] !== 'active') {
+        if (!$m || $m['status'] !== 'active' || $this->lockReason($e) !== null) {
             return false;
         }
         return in_array($userId, [(int) $e['created_by'], (int) $e['paid_by']], true) || $m['role'] === 'admin';
@@ -69,6 +86,9 @@ final class ExpenseService
         $stored = $receipt ? (new UploadService())->storeReceipt($receipt) : null;
         try {
             $id = Database::transaction(function () use ($actor, $groupId, $data, $stored) {
+                if ($groupId !== null) {
+                    $this->groups->lockMembers($groupId, false);   // nobody leaves mid-write
+                }
                 $id = $this->expenses->create($data['row'] + ['group_id' => $groupId, 'created_by' => $actor]);
                 $this->writeDetails($id, $data, $stored, $actor);
                 return $id;
@@ -86,8 +106,9 @@ final class ExpenseService
     public function update(int $actor, int $expenseId, array $in, ?array $receipt): void
     {
         $e = $this->requireViewable($expenseId, $actor);
-        if ((int) $e['is_deleted'] === 1 || !$this->canEdit($e, $actor)) {
-            throw new HttpException(403, 'You cannot edit this expense.');
+        $this->assertChangeable($e, $actor, 'edit');
+        if ((int) $e['is_deleted'] === 1) {
+            throw new HttpException(403, 'Restore this expense before editing it.');
         }
         $groupId = $e['group_id'] === null ? null : (int) $e['group_id'];
         $data = $this->validate($actor, $groupId, $in);
@@ -95,7 +116,8 @@ final class ExpenseService
 
         $stored = $receipt ? (new UploadService())->storeReceipt($receipt) : null;
         try {
-            Database::transaction(function () use ($expenseId, $version, $data, $stored, $actor) {
+            Database::transaction(function () use ($e, $expenseId, $version, $data, $stored, $actor, $groupId) {
+                $this->lockAndRecheck($e, $groupId);
                 if (!$this->expenses->update($expenseId, $version, $data['row'])) {
                     throw ValidationException::single('version',
                         'Someone else changed this expense while you were editing. Reload and try again.');
@@ -115,27 +137,67 @@ final class ExpenseService
     public function delete(int $actor, int $expenseId): void
     {
         $e = $this->requireViewable($expenseId, $actor);
-        if (!$this->canEdit($e, $actor)) {
-            throw new HttpException(403, 'You cannot delete this expense.');
-        }
-        $this->expenses->softDelete($expenseId, $actor);
+        $this->assertChangeable($e, $actor, 'delete');
+        $groupId = $e['group_id'] === null ? null : (int) $e['group_id'];
+        Database::transaction(function () use ($e, $expenseId, $actor, $groupId) {
+            $this->lockAndRecheck($e, $groupId);
+            $this->expenses->softDelete($expenseId, $actor);
+        });
     }
 
     /** Restore a soft-deleted expense: group admins (or owner for personal). */
     public function restore(int $actor, int $expenseId): void
     {
         $e = $this->requireViewable($expenseId, $actor);
-        $ok = $e['group_id'] === null
+        $groupId = $e['group_id'] === null ? null : (int) $e['group_id'];
+        $ok = $groupId === null
             ? (int) $e['paid_by'] === $actor
-            : (($this->groups->membership((int) $e['group_id'], $actor)['role'] ?? '') === 'admin'
-               && (int) $e['is_archived'] === 0);
+            : (($this->groups->membership($groupId, $actor)['role'] ?? '') === 'admin');
         if (!$ok) {
             throw new HttpException(403, 'Only a group admin can restore expenses.');
         }
+        if (($reason = $this->lockReason($e)) !== null) {
+            throw ValidationException::single('participants', $reason);
+        }
         try {
-            $this->expenses->restore($expenseId);
+            Database::transaction(function () use ($e, $expenseId, $groupId) {
+                $this->lockAndRecheck($e, $groupId);
+                $this->expenses->restore($expenseId);
+            });
         } catch (\PDOException $p) {
             throw $this->friendly($p);
+        }
+    }
+
+    /** Permission (403) first, then the lock rule (shown as a message). */
+    private function assertChangeable(array $e, int $actor, string $verb): void
+    {
+        if ($e['group_id'] === null) {
+            if ((int) $e['paid_by'] !== $actor) {
+                throw new HttpException(403, "You cannot $verb this expense.");
+            }
+            return;
+        }
+        $m = $this->groups->membership((int) $e['group_id'], $actor);
+        $allowed = $m && $m['status'] === 'active'
+            && (in_array($actor, [(int) $e['created_by'], (int) $e['paid_by']], true) || $m['role'] === 'admin');
+        if (!$allowed) {
+            throw new HttpException(403, "You cannot $verb this expense.");
+        }
+        if (($reason = $this->lockReason($e)) !== null) {
+            throw ValidationException::single('participants', $reason);
+        }
+    }
+
+    /** Inside the transaction: lock members, then re-check (someone may have left meanwhile). */
+    private function lockAndRecheck(array $e, ?int $groupId): void
+    {
+        if ($groupId === null) {
+            return;
+        }
+        $this->groups->lockMembers($groupId, false);
+        if (($reason = $this->lockReason($e)) !== null) {
+            throw ValidationException::single('participants', $reason);
         }
     }
 

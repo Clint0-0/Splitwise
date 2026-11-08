@@ -141,15 +141,17 @@ final class GroupService
         if ($userId === $actor) {
             throw ValidationException::single('member', 'Use "Leave group" to remove yourself.');
         }
-        $m = $this->groups->membership($groupId, $userId);
-        if (!$m || $m['status'] !== 'active') {
-            throw new HttpException(404);
-        }
-        $this->assertSettled($groupId, $userId, 'They');
-        if ($m['role'] === 'admin' && $this->groups->activeAdminCount($groupId) <= 1) {
-            throw ValidationException::single('member', 'A group needs at least one admin.');
-        }
         Database::transaction(function () use ($groupId, $userId, $group) {
+            // exclusive lock: waits for in-flight expense/settlement writes, blocks new ones
+            $this->groups->lockMembers($groupId, true);
+            $m = $this->groups->membership($groupId, $userId);
+            if (!$m || $m['status'] !== 'active') {
+                throw new HttpException(404);
+            }
+            $this->assertSettled($groupId, $userId, 'They');
+            if ($m['role'] === 'admin' && $this->groups->activeAdminCount($groupId) <= 1) {
+                throw ValidationException::single('member', 'A group needs at least one admin.');
+            }
             $this->groups->endMembership($groupId, $userId, 'removed');
             $this->notes->create($userId, 'member_removed', 'Removed from group',
                 sprintf('You were removed from "%s".', $group['name']), 'group', $groupId);
@@ -158,13 +160,20 @@ final class GroupService
 
     public function leave(int $actor, int $groupId): void
     {
-        $group = $this->requireMember($groupId, $actor);
-        $this->assertSettled($groupId, $actor, 'You');
-        $others = count($this->groups->activeMemberIds($groupId)) - 1;
-        if ($group['my_role'] === 'admin' && $others > 0 && $this->groups->activeAdminCount($groupId) <= 1) {
-            throw ValidationException::single('member', 'Make another member an admin before you leave.');
-        }
-        $this->groups->endMembership($groupId, $actor, 'left');
+        $this->requireMember($groupId, $actor);
+        Database::transaction(function () use ($groupId, $actor) {
+            $this->groups->lockMembers($groupId, true);
+            $m = $this->groups->membership($groupId, $actor);
+            if (!$m || $m['status'] !== 'active') {
+                throw new HttpException(403);
+            }
+            $this->assertSettled($groupId, $actor, 'You');
+            $others = count($this->groups->activeMemberIds($groupId)) - 1;
+            if ($m['role'] === 'admin' && $others > 0 && $this->groups->activeAdminCount($groupId) <= 1) {
+                throw ValidationException::single('member', 'Make another member an admin before you leave.');
+            }
+            $this->groups->endMembership($groupId, $actor, 'left');
+        });
     }
 
     public function setRole(int $actor, int $groupId, int $userId, string $role): void

@@ -11,8 +11,8 @@ $archived = (int) $group['is_archived'] === 1;
   <div class="d-flex gap-2">
     <?php if (!$archived): ?>
       <a class="btn btn-primary" href="<?= e(url('/expenses/create?group=' . $gid)) ?>"><i class="bi bi-plus"></i> Add expense</a>
-      <a class="btn btn-outline-success" href="<?= e(url("/groups/$gid/settle")) ?>"><i class="bi bi-cash"></i> Settle up</a>
     <?php endif; ?>
+    <a class="btn btn-outline-success" href="<?= e(url("/groups/$gid/settle")) ?>"><i class="bi bi-cash"></i> Settle up</a>
     <?php if ($isAdmin): ?>
       <a class="btn btn-outline-secondary" href="<?= e(url("/groups/$gid/edit")) ?>">Edit</a>
       <form method="post" action="<?= e(url("/groups/$gid/archive")) ?>"><?= csrf_field() ?>
@@ -69,7 +69,7 @@ $archived = (int) $group['is_archived'] === 1;
       <?php foreach ($suggestions as $s): ?>
         <div class="d-flex justify-content-between align-items-center small mb-1">
           <span><?= e($s['from_name']) ?> → <?= e($s['to_name']) ?> <strong class="amount"><?= e(inr($s['amount'])) ?></strong></span>
-          <?php if (!$archived && in_array($uid, [$s['from'], $s['to']], true)): ?>
+          <?php if (in_array($uid, [$s['from'], $s['to']], true)): ?>
             <a class="btn btn-sm btn-outline-success" href="<?= e(url("/groups/$gid/settle?" . http_build_query(['payer' => $s['from'], 'payee' => $s['to'], 'amount' => $s['amount']]))) ?>">Record</a>
           <?php endif; ?>
         </div>

@@ -93,6 +93,19 @@ final class GroupModel extends Model
             [$role, $groupId, $userId]);
     }
 
+    /**
+     * Lock the group's membership rows for the current transaction.
+     * Exclusive (FOR UPDATE) for leave/remove; shared (FOR SHARE) for expense writes.
+     * Leaving waits for in-flight expense writes and vice versa, so a member can never
+     * leave "in between" a balance check and a new expense. Same lock order as
+     * sp_record_settlement (membership rows of one group).
+     */
+    public function lockMembers(int $groupId, bool $exclusive): void
+    {
+        $this->all('SELECT membership_id FROM group_members WHERE group_id = ? ORDER BY membership_id '
+            . ($exclusive ? 'FOR UPDATE' : 'FOR SHARE'), [$groupId]);
+    }
+
     public function activeAdminCount(int $groupId): int
     {
         return (int) $this->value("SELECT COUNT(*) FROM group_members

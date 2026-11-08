@@ -4,8 +4,10 @@
 # Runtime data
 storage/receipts/*
 storage/logs/*
+storage/throttle/
 !storage/receipts/.gitkeep
 !storage/logs/.gitkeep
+!storage/.htaccess
 
 # OS / editor
 .DS_Store

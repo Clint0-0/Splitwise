@@ -9,11 +9,12 @@ PORT="${PORT:-8765}"
 
 $MYSQL < "$ROOT/database/splitwise_plus.sql" || { echo "IMPORT FAILED"; exit 1; }
 $MYSQL < "$ROOT/database/security/app_user.sql" >/dev/null || { echo "APP USER FAILED"; exit 1; }
-rm -f "$ROOT"/storage/receipts/*.{png,jpg,pdf} 2>/dev/null
+rm -f "$ROOT"/storage/receipts/*.{png,jpg,pdf} "$ROOT"/storage/logs/mail.log "$ROOT"/storage/logs/mail.cursor 2>/dev/null
+rm -rf "$ROOT"/storage/throttle
 
 # real environment variables override .env (see App\Core\Env)
 DB_HOST=127.0.0.1 DB_USER=splitwise_app DB_PASS='Change_Me_123!' DB_NAME=splitwise_plus APP_DEBUG=false \
-  php -S 127.0.0.1:$PORT -t "$ROOT/public" "$ROOT/public/router.php" >/tmp/splitwise-server.log 2>&1 &
+  php -d upload_max_filesize=6M -d post_max_size=8M -S 127.0.0.1:$PORT -t "$ROOT/public" "$ROOT/public/router.php" >/tmp/splitwise-server.log 2>&1 &
 SERVER=$!
 trap 'kill $SERVER 2>/dev/null' EXIT
 sleep 1
@@ -22,5 +23,6 @@ APP_URL="http://127.0.0.1:$PORT" php "$ROOT/tests/functional/run_functional_test
 status=$?
 
 $MYSQL < "$ROOT/database/splitwise_plus.sql" && echo "Re-imported clean sample data"
-rm -f "$ROOT"/storage/receipts/*.{png,jpg,pdf} 2>/dev/null
+rm -f "$ROOT"/storage/receipts/*.{png,jpg,pdf} "$ROOT"/storage/logs/mail.log "$ROOT"/storage/logs/mail.cursor 2>/dev/null
+rm -rf "$ROOT"/storage/throttle
 exit $status

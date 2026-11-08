@@ -16,12 +16,13 @@ $labels = ['equal' => 'Split equally', 'percentage' => 'By percentage', 'exact' 
       <a class="btn btn-outline-primary" href="<?= e(url("/expenses/$id/edit")) ?>">Edit</a>
       <form method="post" action="<?= e(url("/expenses/$id/delete")) ?>"><?= csrf_field() ?><button class="btn btn-outline-danger">Delete</button></form>
     <?php endif; ?>
-    <?php if ($deleted && ($isAdmin || ($e['group_id'] === null && (int) $e['paid_by'] === $uid))): ?>
+    <?php if ($deleted && $lock === null && ($isAdmin || ($e['group_id'] === null && (int) $e['paid_by'] === $uid))): ?>
       <form method="post" action="<?= e(url("/expenses/$id/restore")) ?>"><?= csrf_field() ?><button class="btn btn-outline-success">Restore</button></form>
     <?php endif; ?>
   </div>
 </div>
 <?= field_error($errors, 'participants') ?>
+<?php if ($lock !== null): ?><div class="alert alert-secondary small"><i class="bi bi-lock"></i> <?= e($lock) ?></div><?php endif; ?>
 
 <div class="row g-4">
   <div class="col-lg-7">

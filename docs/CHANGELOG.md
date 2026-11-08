@@ -1,5 +1,17 @@
 # CHANGELOG — SplitWise+
 
+## [0.3.1] — Phase 3 bug fixes (2026-11-09)
+### Fixed
+- Editing, deleting or restoring an old expense could change the balance of a member who had already left (settled) — such expenses are now locked; the edit form no longer silently drops former members.
+- Race between "leave group" and a concurrent expense write — membership rows are now locked (FOR UPDATE / FOR SHARE).
+- Login lockout lived in the session and was bypassed by dropping the cookie — now file-based per account+IP and per IP.
+- "Email me" setting did nothing — mock mailer writes opted-in users' notifications to `storage/logs/mail.log`.
+- Uploads over `post_max_size` showed "session expired" — now a clear "upload too large" message.
+- Receipt limit message claimed 5 MB even when PHP only accepts 2 MB — the real effective limit is shown and enforced.
+- Archived groups blocked paying off debts — settling is now allowed.
+### Added
+- 15 functional tests (K1–K6, P5b, T1–T8); suite now 103.
+
 ## [0.3.0] — Phase 3 backend (2026-11-09)
 ### Added
 - MVC-inspired PHP app without a framework: `public/index.php`, `app/core` (Router, Request, Session, Auth, Database, View, Env), `app/models`, `app/services`, `app/controllers`, `app/views`, `config/routes.php`.

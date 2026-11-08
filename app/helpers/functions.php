@@ -89,3 +89,29 @@ function uuid4(): string
     $d[8] = chr((ord($d[8]) & 0x3f) | 0x80);
     return vsprintf('%s%s-%s-%s-%s-%s%s%s', str_split(bin2hex($d), 4));
 }
+
+/** "8M" -> 8388608 (php.ini size notation). */
+function ini_bytes(string $v): int
+{
+    $v = trim($v);
+    if ($v === '' || $v === '-1') {
+        return PHP_INT_MAX;
+    }
+    $n = (int) $v;
+    return match (strtolower(substr($v, -1))) {
+        'g' => $n * 1024 ** 3, 'm' => $n * 1024 ** 2, 'k' => $n * 1024, default => $n,
+    };
+}
+
+/** Referer URL if it points back to this site, else null (no open redirect). */
+function same_origin_referer(): ?string
+{
+    $ref = (string) ($_SERVER['HTTP_REFERER'] ?? '');
+    $host = (string) ($_SERVER['HTTP_HOST'] ?? '');
+    if ($ref === '' || parse_url($ref, PHP_URL_HOST) . (parse_url($ref, PHP_URL_PORT) ? ':' . parse_url($ref, PHP_URL_PORT) : '') !== $host) {
+        return null;
+    }
+    $path = (string) parse_url($ref, PHP_URL_PATH);
+    $query = parse_url($ref, PHP_URL_QUERY);
+    return $path . ($query ? '?' . $query : '');
+}

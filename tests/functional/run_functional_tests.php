@@ -157,6 +157,8 @@ check('H5', 'Login works and redirects to dashboard', $aarav->status === 303 && 
 $aarav->get('/dashboard');
 check('H6', 'Dashboard shows Aarav\'s real overall balance (+₹10,091.67)', $aarav->has('gets back ₹10,091.67'));
 
+$aarav->get('/profile');
+$aarav->post('/profile', ['full_name' => 'Aarav Sharma', 'email' => 'aarav@splitwiseplus.test', 'phone' => '9820011111']); // notify_email unticked
 $aarav->post('/groups', ['name' => 'No token group'], false);
 check('H7', 'Logged-in POST without CSRF token is rejected (419)', $aarav->status === 419);
 
@@ -415,6 +417,57 @@ $aarav->get("/groups/$gid");
 $aarav->post("/groups/$gid/members/2/role", ['role' => 'member'])->follow();
 check('L4', 'Last admin cannot demote themselves', $aarav->has('at least one admin'));
 
+// ======================================================================= former-member lock (bug fix)
+$vik = login($BASE, 'vikram');
+$aarav->get("/groups/$gid");
+$aarav->post("/groups/$gid/invite", ['invite' => 'vikram']);
+$invV = (int) $val("SELECT invitation_id FROM group_invitations WHERE group_id=? AND invited_user_id=8 AND status='pending'", [$gid]);
+$vik->get('/groups');
+$vik->post("/invitations/$invV/accept");
+// two expenses that involve only Vikram (his balance stays 0), one deleted before he leaves
+foreach (['Vikram solo A', 'Vikram solo B'] as $d) {
+    $vik->get("/expenses/create?group=$gid");
+    $vik->post('/expenses', ['group_id' => $gid, 'description' => $d, 'total_amount' => '100', 'category_id' => '2',
+        'expense_date' => $today, 'paid_by' => '8', 'split_method' => 'equal', 'participants' => [8]]);
+}
+$vA = (int) $val("SELECT expense_id FROM expenses WHERE description='Vikram solo A'");
+$vB = (int) $val("SELECT expense_id FROM expenses WHERE description='Vikram solo B'");
+$aarav->get("/expenses/$vB");
+$aarav->post("/expenses/$vB/delete");
+$vik->get("/groups/$gid");
+$vik->post("/groups/$gid/leave");
+check('K1', 'Member with zero balance can leave', $val("SELECT status FROM group_members WHERE group_id=? AND user_id=8", [$gid]) === 'left');
+$aarav->get("/expenses/$vA/edit");
+check('K2', 'Editing an expense that involves a former member is refused (redirect, lock message)',
+    $aarav->status === 303 && $aarav->follow()->has('Vikram Rao has left the group'));
+$aarav->get("/expenses/$vA");
+check('K3', 'Expense page shows the lock and hides Edit/Delete', $aarav->has('bi-lock') && !$aarav->has("/expenses/$vA/edit\""));
+$aarav->post("/expenses/$vA", ['description' => 'Hijack', 'total_amount' => '500', 'category_id' => '2', 'expense_date' => $today,
+    'paid_by' => '2', 'split_method' => 'equal', 'participants' => [2], 'version' => '1']);
+$aarav->get("/expenses/$vA");
+$aarav->post("/expenses/$vA/delete");
+$aarav->get("/expenses/$vB");
+$aarav->post("/expenses/$vB/restore")->follow();
+check('K4', 'Direct POSTs to edit / delete / restore are refused too; data unchanged',
+    $aarav->has('has left the group')
+    && $val('SELECT CONCAT(description,"|",total_amount,"|",is_deleted) FROM expenses WHERE expense_id=?', [$vA]) === 'Vikram solo A|100.00|0'
+    && (int) $val('SELECT is_deleted FROM expenses WHERE expense_id=?', [$vB]) === 1);
+check('K5', 'Former member\'s balance is still exactly 0', $val('SELECT fn_member_net_balance(?, 8)', [$gid]) === '0.00');
+
+// leave vs. expense race: leave/remove take FOR UPDATE, expense writes take FOR SHARE on the same rows
+$appA = new PDO('mysql:host=127.0.0.1;dbname=splitwise_plus', 'splitwise_app', 'Change_Me_123!', [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
+$appB = new PDO('mysql:host=127.0.0.1;dbname=splitwise_plus', 'splitwise_app', 'Change_Me_123!', [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
+$appA->beginTransaction();
+$appA->query("SELECT membership_id FROM group_members WHERE group_id = $gid ORDER BY membership_id FOR UPDATE")->fetchAll();
+$appB->exec('SET SESSION innodb_lock_wait_timeout = 1');
+$appB->beginTransaction();
+try { $appB->query("SELECT membership_id FROM group_members WHERE group_id = $gid ORDER BY membership_id FOR SHARE")->fetchAll(); $blocked = false; }
+catch (PDOException $e) { $blocked = str_contains($e->getMessage(), 'Lock wait timeout'); }
+$appB->rollBack(); $appA->rollBack();
+$src = file_get_contents(__DIR__ . '/../../app/services/ExpenseService.php') . file_get_contents(__DIR__ . '/../../app/services/GroupService.php');
+check('K6', 'A leaving member blocks concurrent expense writes (row locks; services take them)', $blocked
+    && substr_count($src, 'lockMembers($groupId, false)') >= 2 && substr_count($src, 'lockMembers($groupId, true)') === 2);
+
 // ======================================================================= budgets + notifications
 $t->get('/budgets/create');
 $t->post('/budgets', ['scope' => 'personal', 'name' => 'Books budget', 'limit_amount' => '1000', 'category_id' => '13',
@@ -470,6 +523,13 @@ $aarav->post('/expenses', ['group_id' => $gid, 'description' => 'After archive',
     'expense_date' => $today, 'paid_by' => '2', 'split_method' => 'equal', 'participants' => [2]]);
 check('P5', 'Archived group is read-only (new expense refused with 403)', $aarav->status === 403
     && (int) $val("SELECT COUNT(*) FROM expenses WHERE description='After archive'") === 0);
+$aarav->get("/groups/$gid/settle");
+preg_match('/name="request_token" value="([0-9a-f\-]{36})"/', $aarav->body, $am);
+$aarav->post('/settlements', ['group_id' => $gid, 'payer_id' => $tid, 'payee_id' => 2, 'amount' => '20',
+    'settlement_date' => $today, 'method' => 'cash', 'request_token' => $am[1] ?? '']);
+$aarav->follow(); preg_match('/invalid-feedback d-block">([^<]+)/', $aarav->body, $pe);
+check('P5b', 'Debts in an archived group can still be settled',
+    $val('SELECT status FROM settlements WHERE request_token=?', [$am[1] ?? '']) === 'confirmed', ($pe[1] ?? '') . ' status=' . $aarav->status);
 $aarav->get("/groups/$gid");
 $aarav->post("/groups/$gid/archive", ['archive' => '0']);
 check('P6', 'Group admin can unarchive', (int) $val('SELECT is_archived FROM expense_groups WHERE group_id=?', [$gid]) === 0);
@@ -490,6 +550,47 @@ check('D4', 'Deactivated user cannot log in', $t->has('deactivated'));
 $admin->get('/admin/users');
 $admin->post('/admin/users/1/toggle');
 check('D5', 'Admin cannot deactivate themselves', $admin->status === 403);
+
+// ======================================================================= throttle, mail, uploads (bug fixes)
+$m1 = new Browser($BASE);
+for ($i = 0; $i < 5; $i++) {
+    $m1->get('/login');
+    $m1->post('/login', ['login' => 'meera', 'password' => 'wrong' . $i]);
+}
+$m1->get('/login');
+$m1->post('/login', ['login' => 'meera', 'password' => 'Password@123'])->follow();
+check('T1', 'After 5 failures even the right password is refused', $m1->has('Too many failed attempts'));
+$m2 = new Browser($BASE);   // fresh session / no cookies
+$m2->get('/login');
+$m2->post('/login', ['login' => 'meera', 'password' => 'Password@123'])->follow();
+check('T2', 'Lockout survives throwing away the session cookie', $m2->has('Too many failed attempts'));
+$k = login($BASE, 'kabir');
+check('T3', 'Other accounts from the same IP are not locked', $k->status === 303 && str_ends_with($k->location, '/dashboard'));
+
+$mail = (string) @file_get_contents(__DIR__ . '/../../storage/logs/mail.log');
+check('T4', 'Mock e-mail written for opted-in users (invitation + trigger-made expense notice)',
+    str_contains($mail, '<tester@example.com>') && str_contains($mail, 'Subject: [SplitWise+] Group invitation')
+    && str_contains($mail, 'Subject: [SplitWise+] New expense'));
+check('T5', 'No e-mail for a user who unticked "Email me" (Aarav)', !str_contains($mail, '<aarav@splitwiseplus.test>'));
+check('T6', 'Each notification e-mailed once (no duplicates)', substr_count($mail, 'Subject: [SplitWise+] Group invitation') ===
+    (int) $val("SELECT COUNT(*) FROM notifications n JOIN users u USING(user_id) WHERE n.type='group_invite' AND n.created_at >= CURDATE() AND u.username IN ('tester','priya','vikram')"));
+
+$big = tempnam(sys_get_temp_dir(), 'big');
+file_put_contents($big, str_repeat('A', 9 * 1024 * 1024));
+$k->get("/expenses/create");
+$k->post('/expenses', ['group_id' => '', 'description' => 'Huge', 'total_amount' => '1', 'category_id' => '14', 'expense_date' => $today],
+    true, ['receipt' => [$big, 'image/png', 'huge.png']]);
+$k->follow();
+check('T7', 'Upload over post_max_size: clear "too large" message, not "session expired"',
+    $k->has('upload is too large') && !$k->has('session expired'));
+$mid = tempnam(sys_get_temp_dir(), 'mid');
+file_put_contents($mid, "\x89PNG\r\n\x1a\n" . str_repeat("\0", (int) (5.5 * 1024 * 1024)));
+$k->get("/expenses/create");
+$k->post('/expenses', ['group_id' => '', 'description' => 'Too big receipt', 'total_amount' => '1', 'category_id' => '14', 'expense_date' => $today],
+    true, ['receipt' => [$mid, 'image/png', 'mid.png']])->follow();
+check('T8', '5.5 MB receipt rejected with the real limit (5 MB) and no expense saved',
+    $k->has('between 1 byte and 5 MB') && (int) $val("SELECT COUNT(*) FROM expenses WHERE description='Too big receipt'") === 0);
+@unlink($big); @unlink($mid);
 
 // ======================================================================= misc
 $aarav->get('/does-not-exist');

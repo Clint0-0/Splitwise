@@ -2,7 +2,7 @@
 
 DBMS mini project (team of 3). Track shared expenses, split them five ways, see who owes whom, settle up, simplify debts, manage budgets and analyse spending.
 
-**Status:** Phase 3 (backend) complete — the web app works end to end (all modules), with 203 passing tests (41 unit, 88 HTTP end-to-end, 74 database). Phase 4 restyles the screens. See `docs/IMPLEMENTATION_STATUS.md`.
+**Status:** Phase 3 (backend) complete — the web app works end to end (all modules), with 218 passing tests (41 unit, 103 HTTP end-to-end, 74 database). Phase 4 restyles the screens. See `docs/IMPLEMENTATION_STATUS.md`.
 
 ## Stack
 PHP 8.2+ (PDO) · MySQL 8.0 · Bootstrap 5 · JavaScript · Chart.js · XAMPP (Apache + PHP)
@@ -36,10 +36,13 @@ All passwords: `Password@123` (sample data only). Users: `admin` (system admin),
 1. Do the database setup above (including step 5, the app account).
 2. Copy the repo folder into `C:\xampp\htdocs\Splitwise` and start **Apache** in XAMPP (keep XAMPP's MySQL stopped).
 3. Copy `.env.example` to `.env` and set `DB_USER=splitwise_app` and `DB_PASS` to the password you used in step 5.
-4. Open **http://localhost/Splitwise/public/** and log in with a sample account.
+4. Check `C:\xampp\php\php.ini` has `upload_max_filesize` ≥ 6M and `post_max_size` ≥ 8M (XAMPP ships 40M; plain PHP ships only 2M — the receipt field shows the real limit).
+5. Open **http://localhost/Splitwise/public/** and log in with a sample account.
    (`http://localhost/Splitwise/` redirects there. Secrets, source code and receipts are blocked by `.htaccess`; for production use a VirtualHost with DocumentRoot = `Splitwise/public`.)
 
-Without XAMPP: `php -S 127.0.0.1:8000 -t public public/router.php` and open http://127.0.0.1:8000.
+Without XAMPP: `php -d upload_max_filesize=6M -d post_max_size=8M -S 127.0.0.1:8000 -t public public/router.php` and open http://127.0.0.1:8000.
+
+**Mock e-mail:** users who tick "Email me" on their profile get a copy of each notification appended to `storage/logs/mail.log` (nothing is really sent).
 
 ## Running the tests
 ```bash

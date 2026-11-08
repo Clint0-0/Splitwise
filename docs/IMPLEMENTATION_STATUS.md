@@ -45,7 +45,8 @@ Phase 2 acceptance criteria: tables create ✓ · FKs work ✓ · constraints re
 | Admin: stats, users (deactivate/reactivate), groups, audit-log viewer | `AdminController` | ✓ D1–D5 |
 | Security: XSS escaping, SQLi-safe queries, CSRF, IDOR checks, upload MIME sniffing, secrets blocked under XAMPP | throughout, `.htaccess` | ✓ H3–H4, H7, Z1–Z5, E13–E14, R3–R5, Apache probe |
 | Minimal functional screens (all 16) with live split preview | `app/views/`, `public/assets/js/expense-form.js` | ✓ (Phase 4 restyles) |
-| Tests: unit 41/41, functional 88/88, DB 74/74 | `tests/` | ✓ |
+| Bug-fix round (former-member lock, leave race, throttle, mock mail, upload limits, archived settling) | see CHANGELOG 0.3.1 | ✓ K1–K6, P5b, T1–T8 |
+| Tests: unit 41/41, functional 103/103, DB 74/74 | `tests/` | ✓ |
 
 ## Notes for Phase 4 (frontend)
 - Screens already work end-to-end with plain Bootstrap 5.3.8 (stored locally in `public/assets/vendor/`). Phase 4 = visual design, layout polish, responsiveness review, accessibility pass — not new wiring.

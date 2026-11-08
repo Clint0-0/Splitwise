@@ -131,7 +131,7 @@ $labels = ['equal' => 'Equally', 'percentage' => 'By percentage', 'exact' => 'Ex
       <input class="form-control" id="tags" name="tags" value="<?= e(old($old, 'tags', $tags)) ?>" placeholder="goa-2026, weekend">
     </div>
     <div class="col-md-6">
-      <label class="form-label" for="receipt">Receipt (JPG, PNG or PDF, max 5 MB)</label>
+      <label class="form-label" for="receipt">Receipt (JPG, PNG or PDF, max <?= e(App\Services\UploadService::human(App\Services\UploadService::maxBytes())) ?>)</label>
       <input class="form-control<?= is_invalid($errors, 'receipt') ?>" type="file" id="receipt" name="receipt" accept=".jpg,.jpeg,.png,.pdf">
       <?= field_error($errors, 'receipt') ?>
     </div>

@@ -61,6 +61,18 @@ final class ExpenseModel extends Model
                             WHERE s.expense_id = ? ORDER BY u.full_name', [$expenseId]);
     }
 
+    /** Payer/participants of a group expense who are no longer active members of the group. */
+    public function formerMembers(int $expenseId, int $groupId): array
+    {
+        return array_column($this->all("SELECT DISTINCT u.full_name
+                                           FROM (SELECT user_id FROM expense_splits WHERE expense_id = ?
+                                                 UNION SELECT paid_by FROM expenses WHERE expense_id = ?) p
+                                           JOIN users u ON u.user_id = p.user_id
+                                           LEFT JOIN group_members gm ON gm.group_id = ? AND gm.user_id = p.user_id
+                                          WHERE gm.status IS NULL OR gm.status <> 'active'
+                                          ORDER BY u.full_name", [$expenseId, $expenseId, $groupId]), 'full_name');
+    }
+
     public function softDelete(int $id, int $by): bool
     {
         return $this->run('UPDATE expenses SET is_deleted = 1, deleted_at = NOW(), deleted_by = ?

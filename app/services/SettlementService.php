@@ -26,8 +26,8 @@ final class SettlementService
     public function record(int $actor, array $in): int
     {
         $groupId = (int) ($in['group_id'] ?? 0);
-        $groups = new GroupService();
-        $groups->requireWritable($groups->requireMember($groupId, $actor));
+        // Archived groups are read-only for expenses, but debts can still be settled.
+        (new GroupService())->requireMember($groupId, $actor);
 
         $payer  = (int) ($in['payer_id'] ?? 0);
         $payee  = (int) ($in['payee_id'] ?? 0);

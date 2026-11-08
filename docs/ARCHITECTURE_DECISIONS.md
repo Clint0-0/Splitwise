@@ -44,6 +44,11 @@ MySQL 8.0  (views, triggers, procedures, functions do integrity + reporting)
 | 18 | Root `.htaccess` + `Require all denied` in non-public folders | XAMPP users often drop the repo into `htdocs`; without it `.env`, source and receipts are downloadable (verified on Apache) | relying on everyone configuring a VirtualHost |
 | 19 | Real environment variables override `.env` | test runners start the app as `splitwise_app` without editing files | single source |
 | 20 | Group membership/role checks in services, not route middleware | the rule needs the group id and is reused by several controllers | per-route middleware with parameter parsing |
+| 21 | Expenses involving a former member are locked (no edit/delete/restore) | members leave only at a zero balance; changing those expenses later would move money they can no longer see or settle | re-opening membership automatically; allowing edits that silently drop their share |
+| 22 | Leave/remove take `FOR UPDATE`, expense writes take `FOR SHARE` on the group's membership rows | a member cannot leave between a balance check and a new/edited expense (same lock as `sp_record_settlement`) | no locking (race), table locks (too coarse) |
+| 23 | Login throttling in `storage/throttle` files: 5 fails per account+IP, 20 per IP, 15 min | a session-based counter is bypassed by dropping the cookie; account+IP key avoids locking real users out from elsewhere | new DB table (changes the approved 14-table schema) |
+| 24 | Mock e-mail: after each POST, new notifications (PHP- or trigger-made) are appended to `storage/logs/mail.log` for opted-in users; cursor file prevents duplicates | spec allows mock e-mail, no paid services; catches trigger notifications too | hooking every notification call site (misses triggers) |
+| 25 | Archived groups: expenses/invites/edits blocked, **settlements still allowed** | archiving must not trap money that is still owed | fully read-only |
 | 17 | `expense_groups` table name | `GROUPS` reserved in MySQL 8 | backtick-quoting `groups` everywhere |
 
 ## Security decisions

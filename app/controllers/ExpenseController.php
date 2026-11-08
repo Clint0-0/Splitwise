@@ -84,6 +84,7 @@ final class ExpenseController extends Controller
             'receipts' => $model->receipts($id),
             'history'  => $model->history($id),
             'canEdit'  => $service->canEdit($e, $uid),
+            'lock'     => $service->lockReason($e),
             'isAdmin'  => $e['group_id'] !== null
                 && ((new GroupModel())->membership((int) $e['group_id'], $uid)['role'] ?? '') === 'admin',
             'uid'      => $uid,
@@ -95,6 +96,10 @@ final class ExpenseController extends Controller
         $uid = Auth::requireId();
         $service = new ExpenseService();
         $e = $service->requireViewable($id, $uid);
+        if (!$service->canEdit($e, $uid) && ($reason = $service->lockReason($e)) !== null) {
+            \App\Core\Session::flash('warning', $reason);
+            $this->redirect("/expenses/$id");
+        }
         if ((int) $e['is_deleted'] === 1 || !$service->canEdit($e, $uid)) {
             throw new HttpException(403, 'You cannot edit this expense.');
         }
@@ -115,7 +120,11 @@ final class ExpenseController extends Controller
 
     public function delete(int $id): void
     {
-        (new ExpenseService())->delete(Auth::requireId(), $id);
+        try {
+            (new ExpenseService())->delete(Auth::requireId(), $id);
+        } catch (ValidationException $e) {
+            $this->back("/expenses/$id", $e);
+        }
         $this->success('Expense deleted. A group admin can restore it.');
         $this->redirect("/expenses/$id");
     }

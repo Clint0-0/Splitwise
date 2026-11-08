@@ -21,7 +21,15 @@ Session::start();
 $router = new Router();
 require BASE_PATH . '/config/routes.php';
 
+$isPost = ($_SERVER['REQUEST_METHOD'] ?? '') === 'POST';
 try {
+    // A POST bigger than post_max_size arrives with $_POST/$_FILES EMPTY (PHP drops it),
+    // which would otherwise look like a missing CSRF token ("session expired").
+    if ($isPost && $_POST === [] && $_FILES === [] && (int) ($_SERVER['CONTENT_LENGTH'] ?? 0) > ini_bytes((string) ini_get('post_max_size'))) {
+        Session::flash('danger', 'The upload is too large (the server accepts up to '
+            . ini_get('post_max_size') . 'B per form; receipts must be at most 5 MB).');
+        throw new RedirectException(same_origin_referer() ?? url('/dashboard'));
+    }
     $router->dispatch(new Request());
 } catch (RedirectException $r) {
     header('Location: ' . $r->location, true, 303);
@@ -41,4 +49,8 @@ try {
         'status'  => 500,
         'message' => $debug ? $t->getMessage() : 'Something went wrong. Please try again.',
     ], 'layouts/guest');
+} finally {
+    if ($isPost) {
+        App\Services\MockMailer::flush();
+    }
 }

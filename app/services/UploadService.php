@@ -18,15 +18,16 @@ final class UploadService
     /** @return array{path:string, original:string, mime:string, size:int} */
     public function storeReceipt(array $file): array
     {
-        $max = (int) Env::get('UPLOAD_MAX_BYTES', '5242880');
+        $max = self::maxBytes();
+        $limit = self::human($max);
         if (($file['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK) {
             $msg = in_array($file['error'] ?? 0, [UPLOAD_ERR_INI_SIZE, UPLOAD_ERR_FORM_SIZE], true)
-                ? 'Receipt is larger than 5 MB.' : 'Receipt upload failed.';
+                ? "Receipt is too large (maximum $limit)." : 'Receipt upload failed.';
             throw ValidationException::single('receipt', $msg);
         }
         $size = (int) $file['size'];
         if ($size <= 0 || $size > $max) {
-            throw ValidationException::single('receipt', 'Receipt must be between 1 byte and 5 MB.');
+            throw ValidationException::single('receipt', "Receipt must be between 1 byte and $limit.");
         }
         if (!is_uploaded_file($file['tmp_name'])) {
             throw ValidationException::single('receipt', 'Receipt upload failed.');
@@ -42,6 +43,19 @@ final class UploadService
         }
         $original = mb_substr(basename(str_replace('\\', '/', (string) $file['name'])), 0, 255);
         return ['path' => $name, 'original' => $original, 'mime' => $mime, 'size' => $size];
+    }
+
+    /** Effective limit: the app's 5 MB rule, but never more than PHP itself accepts. */
+    public static function maxBytes(): int
+    {
+        return min((int) Env::get('UPLOAD_MAX_BYTES', '5242880'),
+            ini_bytes((string) ini_get('upload_max_filesize')), ini_bytes((string) ini_get('post_max_size')));
+    }
+
+    public static function human(int $bytes): string
+    {
+        return $bytes >= 1048576 ? rtrim(rtrim(number_format($bytes / 1048576, 1), '0'), '.') . ' MB'
+            : (int) ceil($bytes / 1024) . ' KB';
     }
 
     public static function dir(): string

@@ -23,7 +23,8 @@ final class AuthController extends Controller
     public function login(): void
     {
         try {
-            (new AuthService())->login($this->request->str('login'), (string) $this->request->post('password', ''));
+            (new AuthService())->login($this->request->str('login'), (string) $this->request->post('password', ''),
+                (string) ($_SERVER['REMOTE_ADDR'] ?? ''));
         } catch (ValidationException $e) {
             $this->back('/login', $e);
         }
