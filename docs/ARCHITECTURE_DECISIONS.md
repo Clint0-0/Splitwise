@@ -1,0 +1,81 @@
+# ARCHITECTURE_DECISIONS.md — SplitWise+
+
+Format: ADR-n · Decision · Reason · Rejected alternatives. All ADRs approved 2026-11-08.
+
+## Application architecture
+
+```text
+Browser (Bootstrap 5 + JS + Chart.js)
+   │  HTML pages (server-rendered)   │  JSON (charts, live split preview)
+   ▼                                 ▼
+public/index.php  ── front controller ── Router
+   │
+   ├─ Middleware: Session → Auth → CSRF → GroupMember / Admin guard
+   ▼
+Controllers (thin: read request, call service, render view / JSON)
+   ▼
+Services (business rules)
+   SplitCalculator · BalanceService · DebtSimplifier · SettlementService
+   BudgetService · NotificationService · UploadService
+   ▼
+Models / repositories (PDO, prepared statements only)
+   ▼
+MySQL 8.0  (views, triggers, procedures, functions do integrity + reporting)
+```
+
+| ADR | Decision | Reason | Rejected |
+|---|---|---|---|
+| 1 | MVC-inspired PHP, own tiny router + `spl_autoload_register` | Spec forbids frameworks; easy to explain at viva | Laravel (unapproved), page-per-file PHP (no separation) |
+| 2 | Services layer between controllers and models | Split/balance logic must be unit-testable and reused by pages and JSON endpoints | logic in controllers |
+| 3 | Server-rendered pages + small JSON endpoints for charts/previews | Simple, works without SPA framework | React/Vue (unapproved) |
+| 4 | Balances derived, never stored | Rule 11; one source of truth; Σ=0 invariant holds by construction | `balances` table updated by triggers (drift risk, harder to audit) |
+| 5 | Integer-paise arithmetic in PHP, DECIMAL(12,2) in DB | No float error; deterministic rounding | PHP floats; BCMath (extra extension, unnecessary) |
+| 6 | Expense write path = PHP PDO transaction; settlement write path = `sp_record_settlement` | Split math lives in one testable place (PHP); settlement check needs row locks close to data | all logic in procedures (JSON parsing, hard to test) / all in PHP (weaker DB-programming demo) |
+| 7 | Soft delete expenses; immutable confirmed settlements; audit triggers | Historical accuracy, explainable history | hard delete + cascade |
+| 8 | `@app_user_id` session variable set by PDO per connection, read by triggers | Audit rows know who acted without passing user id to every statement | no actor in audit |
+| 9 | Settlement scope = one group | Balances are per group; avoids cross-group netting ambiguity | global user-to-user ledger |
+| 10 | Greedy debt simplification in PHP, suggestions not stored | Simple, correct (Σ preserved), ≤ n−1 transfers | storing suggestions (stale immediately) |
+| 11 | Pending settlement count toward outstanding limit | Blocks duplicate requests | ignore pending |
+| 12 | Uploads in `storage/receipts/` (outside `public/`), served through an authorized controller | Prevents direct access and script execution | uploads under `public/` |
+| 13 | Config via `.env` read by small loader; `.env.example` committed | No secrets in Git | hard-coded `config/database.php` credentials |
+| 14 | Frontend vendor libs stored locally | Viva may have no internet | CDN only |
+| 15 | MySQL 8.0 (not XAMPP MariaDB) | Spec + lab syntax are MySQL; CHECK/JSON/trigger behaviour differs | MariaDB-compatible subset |
+| 16 | Plain-PHP test runner + SQL test scripts | No dependency manager needed | PHPUnit via Composer |
+| 17 | `expense_groups` table name | `GROUPS` reserved in MySQL 8 | backtick-quoting `groups` everywhere |
+
+## Security decisions
+- PDO: `ERRMODE_EXCEPTION`, `EMULATE_PREPARES=false`, `utf8mb4`.
+- Every group-scoped route checks active membership in SQL (`group_members`), not in the UI.
+- CSRF token per session, checked on every POST.
+- `htmlspecialchars()` helper `e()` for all output.
+- Generic error page in production mode; details logged to `storage/logs/`.
+- Login: `session_regenerate_id(true)`, rate-limit by simple failed-attempt counter in session (no extra table).
+
+## Proposed directory structure
+```text
+Splitwise/
+├── app/
+│   ├── controllers/   AuthController, DashboardController, GroupController, ExpenseController,
+│   │                  SettlementController, BalanceController, BudgetController,
+│   │                  AnalyticsController, NotificationController, ProfileController, AdminController
+│   ├── services/      SplitCalculator, BalanceService, DebtSimplifier, SettlementService,
+│   │                  BudgetService, NotificationService, UploadService
+│   ├── models/        User, Group, GroupMember, Invitation, Expense, ExpenseSplit, Settlement,
+│   │                  Budget, Category, Notification, Receipt, Tag, AuditLog
+│   ├── middleware/    Auth, Csrf, GroupMember, Admin
+│   ├── helpers/       money.php (paise ↔ string), view.php (e(), render), validation.php
+│   ├── core/          Router, Database (PDO singleton), Request, Response, Env
+│   └── views/         layouts/, partials/, auth/, dashboard/, groups/, expenses/, ...
+├── config/            app.php, database.php (read from .env)
+├── public/            index.php, .htaccess, assets/{css,js,images,vendor}
+├── storage/           receipts/, logs/   (git-ignored contents)
+├── database/
+│   ├── schema/        01_create_database.sql, 02_tables.sql, 03_indexes.sql
+│   ├── seeders/       sample_data.sql
+│   ├── views/  triggers/  procedures/  functions/  transactions/  queries/
+│   └── splitwise_plus.sql   (single combined import file, generated)
+├── docs/              (this folder) + diagrams/
+├── tests/             database/ (SQL assertions), unit/ (SplitCalculator, DebtSimplifier), functional/ (checklists)
+├── .env.example  .gitignore  README.md  LICENSE
+```
+Change from the master prompt's suggested tree: added `app/services/`, `app/core/`, `storage/`, `tests/unit/`; dropped `database/migrations/` (ordered schema scripts suffice).
