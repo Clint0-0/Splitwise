@@ -2,7 +2,7 @@
 
 DBMS mini project (team of 3). Track shared expenses, split them five ways, see who owes whom, settle up, simplify debts, manage budgets and analyse spending.
 
-**Status:** Phase 2 (database) complete — schema, sample data, views, triggers, procedures, functions, 50 queries, 74 passing DB tests. Application code starts in Phase 3. See `docs/IMPLEMENTATION_STATUS.md`.
+**Status:** Phase 3 (backend) complete — the web app works end to end (all modules), with 203 passing tests (41 unit, 88 HTTP end-to-end, 74 database). Phase 4 restyles the screens. See `docs/IMPLEMENTATION_STATUS.md`.
 
 ## Stack
 PHP 8.2+ (PDO) · MySQL 8.0 · Bootstrap 5 · JavaScript · Chart.js · XAMPP (Apache + PHP)
@@ -32,6 +32,22 @@ PHP 8.2+ (PDO) · MySQL 8.0 · Bootstrap 5 · JavaScript · Chart.js · XAMPP (A
 ### Sample accounts
 All passwords: `Password@123` (sample data only). Users: `admin` (system admin), `aarav`, `priya`, `rohan`, `sneha`, `kabir`, `ananya`, `vikram`, `meera`.
 
+## Running the app (XAMPP)
+1. Do the database setup above (including step 5, the app account).
+2. Copy the repo folder into `C:\xampp\htdocs\Splitwise` and start **Apache** in XAMPP (keep XAMPP's MySQL stopped).
+3. Copy `.env.example` to `.env` and set `DB_USER=splitwise_app` and `DB_PASS` to the password you used in step 5.
+4. Open **http://localhost/Splitwise/public/** and log in with a sample account.
+   (`http://localhost/Splitwise/` redirects there. Secrets, source code and receipts are blocked by `.htaccess`; for production use a VirtualHost with DocumentRoot = `Splitwise/public`.)
+
+Without XAMPP: `php -S 127.0.0.1:8000 -t public public/router.php` and open http://127.0.0.1:8000.
+
+## Running the tests
+```bash
+php tests/unit/run_unit_tests.php     # money + split + debt-simplifier math (no DB)
+tests/functional/run.sh               # whole app over HTTP, as splitwise_app (resets sample data)
+tests/database/run.sh                 # schema, triggers, procedures, views, privileges
+```
+
 ## Running the database tests
 ```bash
 tests/database/run.sh              # needs mysql client + php with pdo_mysql
@@ -40,6 +56,10 @@ MYSQL_ARGS="-uroot -psecret" DB_PASS=secret tests/database/run.sh
 
 ## Repository layout
 ```text
+app/             core/ (router, session, auth, PDO), models/, services/, controllers/, views/
+config/routes.php
+public/          index.php, router.php, assets/ (css, js, vendor: Bootstrap, icons, Chart.js)
+storage/         receipts/, logs/ (not web-accessible)
 database/
   schema/        01_create_database.sql, 02_tables.sql, 03_indexes.sql
   functions/     functions.sql          (3 stored functions)
@@ -56,7 +76,7 @@ docs/diagrams/   ER diagrams (PNG/SVG)
 tools/           generate_er.py (physical ER from live schema)
 docs/            specification, schema, architecture decisions, experiment mapping,
                  traceability, implementation status, testing report, changelog
-tests/database/  run.sh, run_db_tests.php
+tests/            unit/, functional/, database/
 ```
 
 ## Documentation

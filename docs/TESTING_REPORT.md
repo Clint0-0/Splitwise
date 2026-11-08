@@ -152,3 +152,174 @@ Pending (₹2,000, ₹4,000), rejected (₹1,000) and cancelled (₹500) settlem
 ### Known limitations
 - Sample data is small (23 expenses), so EXPLAIN shows plan shape, not timing gains.
 - Trigger notifications are not deduplicated if an expense is edited many times quickly (acceptable for an in-app feed).
+
+
+## Phase 3 — Backend testing
+
+| Item | Value |
+|---|---|
+| Date | 2026-11-09 |
+| Stack | PHP 8.3 (built-in server for tests; Apache 2.4 + mod_php for the sub-folder check), MySQL 8.0.46 |
+| DB account used by the app | `splitwise_app` (least privilege) — never root |
+| Reproduce | `php tests/unit/run_unit_tests.php` · `tests/functional/run.sh` · `tests/database/run.sh` |
+| Result | **Unit 41 / 41 passed · Functional (HTTP end-to-end) 88 / 88 passed · Database 74 / 74 passed** |
+
+### Unit tests (`tests/unit/run_unit_tests.php`) — money, split methods, debt simplification
+Includes two property tests: 3,000 random splits always sum exactly to the total; 2,000 random groups are fully settled by the suggested transfers using at most n−1 payments.
+
+| Test | Result |
+|---|---|
+| Money: "1500.5" -> 150050 paise | PASS |
+| Money: "₹1,23,456.78" accepted | PASS |
+| Money: 3 decimals rejected | PASS |
+| Money: negative rejected by default | PASS |
+| Money: zero rejected by default | PASS |
+| Money: text rejected | PASS |
+| Money: SQL-ish input rejected | PASS |
+| Money: too large rejected | PASS |
+| Money: fromPaise(-5) = "-0.05" | PASS |
+| Money: round-trip DB decimal | PASS |
+| inr(): Indian grouping | PASS |
+| Equal: spec ₹1500 / 3 = 500 each | PASS |
+| Equal: ₹1000/3 -> payer 333.34 (same as sp_add_equal_expense) | PASS |
+| Equal: ₹2780/3 -> payer, then lowest id get the 2 leftover paise | PASS |
+| Equal: payer not a participant -> leftover to lowest ids | PASS |
+| Equal: single participant gets everything | PASS |
+| Equal: no participants rejected | PASS |
+| Percentage: spec 50/30/20 of ₹1200 = 600/360/240 | PASS |
+| Percentage: inputs stored as "50.00" | PASS |
+| Percentage: 33.33/33.33/33.34 of ₹1000 | PASS |
+| Percentage: ₹1 sums exactly to 100 paise | PASS |
+| Percentage: 99% rejected | PASS |
+| Percentage: 101% rejected | PASS |
+| Percentage: 3 decimals rejected | PASS |
+| Exact: 800+800+800 = 2400 | PASS |
+| Exact: short total rejected with amount | PASS |
+| Exact: over total rejected | PASS |
+| Exact: zero share allowed (payer not charged) | PASS |
+| Shares: 1:1:2:1 of ₹18000 = 3600/3600/7200/3600 | PASS |
+| Shares: fractional units 1.5:1:0.5 of ₹1000 | PASS |
+| Shares: zero units rejected | PASS |
+| Adjustment: ₹6000, Priya +600 -> 1350/1950/1350/1350 | PASS |
+| Adjustment: negative adjustment (discount) works | PASS |
+| Adjustment: share pushed below zero rejected | PASS |
+| Adjustment: adjustments above total rejected | PASS |
+| Property: 3000 random splits always sum exactly to the total, never negative | PASS |
+| Simplify: cycle A->B->C->A (all nets 0) -> no transfers | PASS |
+| Simplify: chain A owes B 500, B owes C 500 -> A pays C 500 | PASS |
+| Simplify: Goa group -> 3 transfers | PASS |
+| Simplify: rejects nets that do not sum to 0 | PASS |
+| Property: 2000 random groups — transfers zero every balance, ≤ n−1 transfers | PASS |
+
+41 / 41 passed
+
+### Functional tests (`tests/functional/run_functional_tests.php`) — the real app over HTTP
+A scripted browser (cookies, CSRF tokens, forms, multipart uploads) drives the running application; results are checked in the database.
+Groups: **H** auth · **Z** authorisation · **G** groups/invitations · **E** expenses & splits · **R** receipts · **S** settlements · **L** leave/remove rules · **B/N** budgets & notifications · **A** analytics · **P** profile & archive · **D** admin · **M** misc.
+
+| ID | Test | Result |
+|---|---|---|
+| H1 | Guest is redirected from /dashboard to /login | PASS |
+| H2 | Wrong password: generic error, no login | PASS |
+| H3 | SQL injection in login form does not log in | PASS |
+| H4 | POST with a wrong CSRF token is rejected (419) | PASS |
+| H5 | Login works and redirects to dashboard | PASS |
+| H6 | Dashboard shows Aarav's real overall balance (+₹10,091.67) | PASS |
+| H7 | Logged-in POST without CSRF token is rejected (419) | PASS |
+| H8 | Registration logs the new user in | PASS |
+| H9 | Password stored as bcrypt hash, email lower-cased | PASS |
+| H10 | Duplicate username/email and weak password rejected with field errors | PASS |
+| Z1 | Non-member gets 403 on another group | PASS |
+| Z2 | Non-member gets 403 on another group's expense | PASS |
+| Z3 | Non-member cannot add an expense to another group (403) | PASS |
+| Z4 | Ordinary user gets 403 on /admin | PASS |
+| Z5 | API never leaks other users' groups | PASS |
+| G1 | Group created; creator is its admin | PASS |
+| G2 | Duplicate pending invitation rejected | PASS |
+| G3 | Inviting an unknown user rejected | PASS |
+| G4 | Someone else cannot accept your invitation (403) | PASS |
+| G5 | Invitation notification + pending invite shown to invitee | PASS |
+| G6 | Accepted invitations create active memberships | PASS |
+| E1 | Expense form lists the group members | PASS |
+| E2 | Spec example: ₹1500 equal among 3 -> 500 each; tester owes ₹500 | PASS |
+| E3 | Tags normalised (lower-case, dashes) and saved | PASS |
+| E4 | Participants were notified by the trigger (not the creator) | PASS |
+| E5 | Percentage not 100% rejected with the current total | PASS |
+| E6 | Exact amounts not matching the total rejected | PASS |
+| E7 | Amount with 3 decimals rejected by PHP (MySQL would round it) | PASS |
+| E8 | Future date rejected | PASS |
+| E9 | No partial expense rows were written by failed submissions | PASS |
+| E10 | Shares 1.5:1:0.5 of ₹1000 = 500 / 333.33 / 166.67 | PASS |
+| E11 | Adjustment split: base (900−100)/3 + adj -> 416.67 / 266.67 / 216.66 | PASS |
+| E12 | Every expense written through the app has split gap 0 | PASS |
+| E13 | XSS: description/notes are escaped in the page | PASS |
+| E14 | SQL injection in search box returns no rows (treated as text) | PASS |
+| E15 | Search finds the right expense | PASS |
+| E16 | Expense count matches the database (14) and an out-of-range page is empty, not an error | PASS |
+| E17 | Malformed group filter ignored safely | PASS |
+| E18 | Personal expense: no group, single split to the owner | PASS |
+| E19 | Someone else's personal expense is private (403) | PASS |
+| E20 | Edit re-splits (1800/3 = 600) and bumps the version | PASS |
+| E21 | Stale edit (old version) rejected — no lost update | PASS |
+| E22 | Edit history: old splits archived, UPDATE audited with actor | PASS |
+| E23 | Participant who is not creator/payer/admin cannot delete (403) | PASS |
+| E24 | Creator soft-deletes: row kept, excluded from balances | PASS |
+| E25 | Group admin restores a deleted expense | PASS |
+| R1 | PNG receipt stored outside public/ with a random name | PASS |
+| R2 | Participant can open the receipt | PASS |
+| R3 | Non-member cannot open the receipt (403) | PASS |
+| R4 | PHP file disguised as PNG rejected (MIME from content) and no expense saved | PASS |
+| R5 | Receipts are not reachable by direct URL | PASS |
+| S1 | Payer-recorded settlement is pending; double submit (same token) stored once | PASS |
+| S2 | Pending settlement does not change the balance yet | PASS |
+| S3 | Payer cannot confirm their own payment | PASS |
+| S4 | Payee sees it on the dashboard to confirm | PASS |
+| S5 | After confirmation the debt drops by exactly ₹300 | PASS |
+| S6 | Over-settlement rejected with the procedure's message | PASS |
+| S7 | Cannot record a payment between two other people | PASS |
+| S8 | Group page shows simplified suggestions and pairwise debts | PASS |
+| S9 | Goa group: 3 suggested transfers from the sample data | PASS |
+| L1 | Cannot leave a group with an unsettled balance | PASS |
+| L2 | Admin cannot remove a member who still owes money | PASS |
+| L3 | Non-admin cannot remove members (403) | PASS |
+| L4 | Last admin cannot demote themselves | PASS |
+| B1 | Monthly budget end date computed from start | PASS |
+| B2 | Crossing 80% (₹899 of ₹1000) creates exactly one budget warning | PASS |
+| B3 | No duplicate warning for the same budget period | PASS |
+| B4 | Budgets page shows spent / limit | PASS |
+| B5 | Cannot edit someone else's budget (403) | PASS |
+| N1 | Notifications listed and "mark all read" works | PASS |
+| A1 | Analytics JSON uses real DB numbers (Goa: paid ₹28,000, share ₹13,008.33) | PASS |
+| A2 | Monthly series is continuous (12 months incl. zero months) | PASS |
+| A3 | Analytics page renders with Chart.js | PASS |
+| P1 | Profile: another user's email rejected | PASS |
+| P2 | Profile update saved | PASS |
+| P3 | Password change needs the current password | PASS |
+| P4 | Password changed (new hash verifies) | PASS |
+| P5 | Archived group is read-only (new expense refused with 403) | PASS |
+| P6 | Group admin can unarchive | PASS |
+| D1 | System admin sees statistics | PASS |
+| D2 | Activity log shows trigger-written audit rows | PASS |
+| D3 | Deactivated user is logged out on their next request | PASS |
+| D4 | Deactivated user cannot log in | PASS |
+| D5 | Admin cannot deactivate themselves | PASS |
+| M1 | Unknown page -> 404 page | PASS |
+| M2 | Non-numeric id -> 404 (route only accepts digits) | PASS |
+| M3 | Database totals still consistent: every group balance sums to 0 | PASS |
+| M4 | Logout ends the session | PASS |
+
+88 / 88 passed
+
+### Apache / XAMPP sub-folder check (repo copied to `htdocs/Splitwise`)
+| URL | Result |
+|---|---|
+| `/Splitwise/` , `/Splitwise/login` | 302 → `/Splitwise/public/…` |
+| `/Splitwise/public/login` → log in → dashboard | 200, real balance shown |
+| `/Splitwise/.env`, `/.git/config`, `/app/…`, `/config/…`, `/database/*.sql`, `/storage/receipts/…`, `/tests/…`, `/docs/…`, `README.md` | **403** |
+
+### Issues found and fixed in Phase 3
+| # | Issue | Fix |
+|---|---|---|
+| 4 | Registration skipped the duplicate username/email check whenever another field (e.g. password) was invalid, so the user only learned about the duplicate on the next try | Uniqueness checked for every well-formed field (test H10) |
+| 5 | Two simultaneous sign-ups with the same username would hit the UNIQUE key and show a 500 page | Duplicate-key error (1062) turned into a form error |
+| 6 | With the repo inside XAMPP `htdocs`, `.env` (DB password), source code and uploaded receipts were reachable by URL | Root `.htaccess` (403 for secrets/source, redirect to `public/`) + `Require all denied` in `storage/`, `app/`, `config/`, `database/`, `tests/`, `tools/`, `docs/` |

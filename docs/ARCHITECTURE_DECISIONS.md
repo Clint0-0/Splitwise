@@ -41,6 +41,9 @@ MySQL 8.0  (views, triggers, procedures, functions do integrity + reporting)
 | 14 | Frontend vendor libs stored locally | Viva may have no internet | CDN only |
 | 15 | MySQL 8.0 (not XAMPP MariaDB) | Spec + lab syntax are MySQL; CHECK/JSON/trigger behaviour differs | MariaDB-compatible subset |
 | 16 | Plain-PHP test runner + SQL test scripts | No dependency manager needed | PHPUnit via Composer |
+| 18 | Root `.htaccess` + `Require all denied` in non-public folders | XAMPP users often drop the repo into `htdocs`; without it `.env`, source and receipts are downloadable (verified on Apache) | relying on everyone configuring a VirtualHost |
+| 19 | Real environment variables override `.env` | test runners start the app as `splitwise_app` without editing files | single source |
+| 20 | Group membership/role checks in services, not route middleware | the rule needs the group id and is reused by several controllers | per-route middleware with parameter parsing |
 | 17 | `expense_groups` table name | `GROUPS` reserved in MySQL 8 | backtick-quoting `groups` everywhere |
 
 ## Security decisions
@@ -79,4 +82,6 @@ Splitwise/
 ├── tests/             database/ (SQL assertions), unit/ (SplitCalculator, DebtSimplifier), functional/ (checklists)
 ├── .env.example  .gitignore  README.md  LICENSE
 ```
+**As built (Phase 3):** the tree above is implemented, plus `app/views/partials`, `public/router.php` (PHP dev server), `public/assets/{css,js,vendor}`, `tests/unit`, `tests/functional`.
+
 Change from the master prompt's suggested tree: added `app/services/`, `app/core/`, `storage/`, `tests/unit/`; dropped `database/migrations/` (ordered schema scripts suffice).

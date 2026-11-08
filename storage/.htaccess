@@ -1,0 +1,2 @@
+# Uploaded receipts and logs are never served directly (defence in depth).
+Require all denied

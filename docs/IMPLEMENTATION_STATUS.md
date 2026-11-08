@@ -1,7 +1,7 @@
 # IMPLEMENTATION_STATUS.md — SplitWise+
 
-**Current phase:** 2 — Database implementation · **State:** complete, awaiting review before Phase 3
-**Last updated:** 2026-11-08
+**Current phase:** 3 — Backend · **State:** complete on branch `feature/backend`, awaiting review before Phase 4
+**Last updated:** 2026-11-09
 
 ## Repository
 `https://github.com/Clint0-0/Splitwise` was empty on 2026-11-08. Phase 1 + 2 work is committed locally on branch `develop` (see CHANGELOG). Pushing needs write access (see the Phase 2 review message).
@@ -31,7 +31,28 @@ All decisions approved as proposed: MySQL 8.0 alongside XAMPP (A1), adjustment s
 
 Phase 2 acceptance criteria: tables create ✓ · FKs work ✓ · constraints reject invalid records ✓ · sample data inserts ✓ · queries execute ✓ · triggers behave ✓ · views correct ✓ · transactions preserve consistency ✓ · financial calculations validated ✓.
 
-## Known issues / notes for Phase 3
+## Phase 3 — Backend (done, branch `feature/backend`)
+| Deliverable | Where | Verified |
+|---|---|---|
+| Core: front controller, router (digits-only params, CSRF on every POST), session hardening, PDO (utf8mb4, real prepares, `@app_user_id`, app time zone), views, flash/old input | `public/index.php`, `app/core/` | ✓ |
+| Auth: register, login (generic errors, 5-try lockout, rehash), logout, profile, password change | `AuthService`, `AuthController`, `ProfileController` | ✓ H1–H10, P1–P4 |
+| Groups: create/edit/archive, invite by username/email, accept/decline/cancel, remove, roles, leave (zero balance, ≥1 admin) | `GroupService` | ✓ G1–G6, L1–L4, P5–P6 |
+| Expenses: 5 split methods in integer paise, one PDO transaction + split-gap check, tags, receipts, soft delete/restore, optimistic-lock edits, search/filter/pagination, history | `SplitCalculator`, `ExpenseService`, `UploadService` | ✓ E1–E25, R1–R5, unit tests |
+| Balances: group, overall, pairwise (original/settled/remaining) from views; debt simplification | `BalanceService`, `DebtSimplifier` | ✓ S8–S9, unit tests |
+| Settlements via `sp_record_settlement` / `sp_respond_settlement` (idempotency token, payer→pending, payee confirms) | `SettlementService` | ✓ S1–S7 |
+| Budgets (personal share / group total, auto period end, one warning per period), notifications | `BudgetService`, `NotificationController` | ✓ B1–B5, N1 |
+| Analytics JSON for Chart.js (real data) + page | `AnalyticsController`, `public/assets/js/analytics.js` | ✓ A1–A3 |
+| Admin: stats, users (deactivate/reactivate), groups, audit-log viewer | `AdminController` | ✓ D1–D5 |
+| Security: XSS escaping, SQLi-safe queries, CSRF, IDOR checks, upload MIME sniffing, secrets blocked under XAMPP | throughout, `.htaccess` | ✓ H3–H4, H7, Z1–Z5, E13–E14, R3–R5, Apache probe |
+| Minimal functional screens (all 16) with live split preview | `app/views/`, `public/assets/js/expense-form.js` | ✓ (Phase 4 restyles) |
+| Tests: unit 41/41, functional 88/88, DB 74/74 | `tests/` | ✓ |
+
+## Notes for Phase 4 (frontend)
+- Screens already work end-to-end with plain Bootstrap 5.3.8 (stored locally in `public/assets/vendor/`). Phase 4 = visual design, layout polish, responsiveness review, accessibility pass — not new wiring.
+- Keep form field names, routes and the CSRF hidden field unchanged (functional tests depend on them; re-run `tests/functional/run.sh` after UI changes).
+- `expense-form.js` mirrors `SplitCalculator`; if one changes, change both.
+
+## Known issues / notes (from Phase 2)
 - PHP must reject money with more than 2 decimals (MySQL rounds silently).
 - PHP must `SET NAMES utf8mb4` (PDO DSN `charset=utf8mb4`) and `SET @app_user_id = <user>` per request so audit rows record the actor.
 - App connects as `splitwise_app` (never root). Settlement writes must use the procedures (direct INSERT is denied).
@@ -43,8 +64,8 @@ Phase 2 acceptance criteria: tables create ✓ · FKs work ✓ · constraints re
 |---|---|---|---|
 | 1 Design | docs/ | all | ✅ approved |
 | 2 Database | schema, seed, objects, queries, tests | M1 | ✅ done |
-| 3 Backend | core, auth, groups, expenses+splits, balances, settlements, budgets, notifications, admin, JSON endpoints | M3 (M1 reviews SQL) | next |
-| 4 Frontend | layout + 16 screens, split UI with live preview, charts | M2 | — |
+| 3 Backend | core, auth, groups, expenses+splits, balances, settlements, budgets, notifications, admin, JSON endpoints | M3 (M1 reviews SQL) | ✅ done (review pending) |
+| 4 Frontend | visual design of the 16 working screens, responsiveness, accessibility | M2 | next |
 | 5 Testing | financial scenarios, security, regression | all | — |
 | 6 Docs & viva | report, setup guide, slides, viva Q&A | M3 coordinates | — |
 
@@ -55,8 +76,8 @@ Phase 2 acceptance criteria: tables create ✓ · FKs work ✓ · constraints re
 | **M2 — Frontend** | layout, design system, all screens, split configurator JS, charts, responsiveness | client-side validation; screenshots |
 | **M3 — Backend & integration** | core, middleware, controllers, services (SplitCalculator, BalanceService, DebtSimplifier, SettlementService…), uploads, PDO transactions | docs coordination, README, setup guide |
 
-## Next tasks (Phase 3)
-1. `app/core` (Router, Database/PDO with utf8mb4 + `@app_user_id`, Env, Request/Response), `public/index.php`.
-2. Auth (register/login/logout, CSRF, session hardening) + profile.
-3. `SplitCalculator` (5 methods, integer paise, largest remainder — must match `sp_add_equal_expense`) with unit tests.
-4. Groups/invitations, expenses (PDO transaction + `fn_expense_split_gap` check), balances (views), settlements (`sp_record_settlement`), debt simplifier, budgets, notifications, admin.
+## Next tasks (Phase 4)
+1. Design system: colours, typography, spacing, components (cards, tables, badges, empty states).
+2. Restyle layout + all 16 screens; mobile layouts for expense form and group page.
+3. Accessibility pass (labels, contrast, keyboard, focus states).
+4. Re-run all three test suites.

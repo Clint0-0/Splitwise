@@ -1,5 +1,15 @@
 # CHANGELOG — SplitWise+
 
+## [0.3.0] — Phase 3 backend (2026-11-09)
+### Added
+- MVC-inspired PHP app without a framework: `public/index.php`, `app/core` (Router, Request, Session, Auth, Database, View, Env), `app/models`, `app/services`, `app/controllers`, `app/views`, `config/routes.php`.
+- All modules: auth/profile, groups/invitations/members, expenses (5 split methods, tags, receipts, soft delete, optimistic locking), balances + debt simplification, settlements (via stored procedures), budgets + warnings, notifications, analytics JSON + Chart.js page, admin.
+- Bootstrap 5.3.8, Bootstrap Icons 1.13.2, Chart.js 4.6.1 stored locally (offline viva).
+- Tests: `tests/unit` (41), `tests/functional` (88 HTTP end-to-end), runner scripts.
+- `.htaccess` protection for XAMPP sub-folder installs.
+### Fixed
+- Registration duplicate checks skipped when other fields were invalid; duplicate-key race now a form error.
+
 ## [0.2.1] — Phase 2 gap fixes (2026-11-09)
 ### Added
 - `database/triggers/demo_triggers.sql`: Experiment 8 operations (SHOW TRIGGERS, SHOW CREATE TRIGGER, all pairs firing, CREATE → DROP lifecycle).

@@ -1,0 +1,16 @@
+# Protection for XAMPP setups where the whole repo sits inside htdocs.
+# Best practice is a VirtualHost with DocumentRoot = .../Splitwise/public (see README);
+# this file makes the default "http://localhost/Splitwise/" layout safe too.
+Options -Indexes
+RewriteEngine On
+
+# Never serve secrets, source code, data or tooling
+RewriteRule ^\.  - [F,L]
+RewriteRule ^(app|config|database|storage|tests|tools|docs|vendor)(/|$) - [F,L]
+RewriteRule \.(sql|md|sh|py|dot|log|lock|json)$ - [F,L]
+
+# Everything else: send the browser to the public/ front controller
+# (%1 = the URL folder this file lives in, so it works under any sub-folder name)
+RewriteCond %{REQUEST_URI} !/public/
+RewriteCond %{REQUEST_URI}::$1 ^(.*?/)(.*)::\2$
+RewriteRule ^(.*)$ %1public/$1 [R=302,L]

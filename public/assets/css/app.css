@@ -1,0 +1,5 @@
+/* SplitWise+ base styles. Phase 4 (frontend) owns the visual design. */
+.amount { font-variant-numeric: tabular-nums; white-space: nowrap; }
+.text-gets { color: #198754; }
+.text-owes { color: #dc3545; }
+.table td, .table th { vertical-align: middle; }
