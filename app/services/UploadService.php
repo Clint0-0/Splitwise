@@ -49,7 +49,8 @@ final class UploadService
     /** Effective limit: the app's 5 MB rule, but never more than PHP itself accepts. */
     public static function maxBytes(): int
     {
-        return min((int) Env::get('UPLOAD_MAX_BYTES', '5242880'),
+        // 5242880 = the receipts.file_size CHECK in the database: env can lower the limit, never raise it
+        return min(max(1, (int) Env::get('UPLOAD_MAX_BYTES', '5242880')), 5242880,
             ini_bytes((string) ini_get('upload_max_filesize')), ini_bytes((string) ini_get('post_max_size')));
     }
 

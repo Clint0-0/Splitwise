@@ -10,6 +10,8 @@
  *                              - every sample user gets DEMO_PASSWORD instead of the public
  *                                Password@123 (a public URL must not have a published password)
  *   build/hosted_app_user.sql  least-privilege 'splitwise_app'@'%' with REQUIRE SSL
+ *   build/hosted_verify.sql    database/verify_install.sql for the hosted DB name
+ * --out=DIR writes somewhere else (the tests use a temp folder).
  * Passwords are read from environment variables only — never from the command line
  * (shell history) and never printed. If DEMO_PASSWORD is missing a random one is
  * generated and written to build/demo_password.txt (mode 600).
@@ -17,7 +19,7 @@
  */
 declare(strict_types=1);
 
-$opts = getopt('', ['db:']);
+$opts = getopt('', ['db:', 'out:']);
 $db = $opts['db'] ?? '';
 if (!preg_match('/^[A-Za-z0-9_]{1,64}$/', $db)) {
     fwrite(STDERR, "Usage: DEMO_PASSWORD=… APP_DB_PASSWORD=… php database/build_hosted.php --db=NAME\n");
@@ -29,7 +31,7 @@ if (strlen($appPass) < 16) {
     exit(2);
 }
 $root = dirname(__DIR__);
-$out = "$root/build";
+$out = rtrim($opts['out'] ?? "$root/build", '/');
 if (!is_dir($out) && !mkdir($out, 0700, true)) {
     fwrite(STDERR, "Cannot create build/\n");
     exit(1);
@@ -53,6 +55,8 @@ if ($demo === '') {
     $demo = rtrim(strtr(base64_encode(random_bytes(12)), '+/', 'Aa'), '=') . '@9';
     file_put_contents("$out/demo_password.txt", $demo . "\n");
     chmod("$out/demo_password.txt", 0600);
+} else {
+    @unlink("$out/demo_password.txt");   // no stale password file from an earlier run
 }
 $hashes = [];
 preg_match_all('/\$2y\$\d\d\$[.\/A-Za-z0-9]{53}/', $sql, $hashes);
@@ -80,5 +84,9 @@ $g .= "-- settlements, audit_logs, categories: SELECT only\n";
 file_put_contents("$out/hosted_app_user.sql", $g);
 chmod("$out/hosted_app_user.sql", 0600);
 
-echo "Wrote build/hosted_schema.sql and build/hosted_app_user.sql"
+// ---- install check for the hosted database name
+$v = (string) file_get_contents("$root/database/verify_install.sql");
+file_put_contents("$out/hosted_verify.sql", str_replace(['USE splitwise_plus;', "'splitwise_plus'"], ["USE `$db`;", "'$db'"], $v));
+
+echo "Wrote hosted_schema.sql, hosted_app_user.sql, hosted_verify.sql to $out"
    . (getenv('DEMO_PASSWORD') === false || getenv('DEMO_PASSWORD') === '' ? " (demo password in build/demo_password.txt)" : '') . "\n";

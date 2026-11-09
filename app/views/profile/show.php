@@ -23,7 +23,7 @@
         </div>
         <div class="form-check mb-3">
           <input class="form-check-input" type="checkbox" id="notify_email" name="notify_email" value="1" <?= (int) $user['notify_email'] === 1 ? 'checked' : '' ?>>
-          <label class="form-check-label" for="notify_email">Email me a copy of my notifications <span class="text-muted">(mock: written to storage/logs/mail.log, not really sent)</span></label>
+          <label class="form-check-label" for="notify_email">Email me a copy of my notifications <span class="text-muted">(mock e-mail: written to the server log, nothing is really sent)</span></label>
         </div>
         <button class="btn btn-primary" type="submit">Save details</button>
       </form>

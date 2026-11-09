@@ -77,7 +77,7 @@ Phase 2 acceptance criteria: tables create ✓ · FKs work ✓ · constraints re
 | `/healthz`, `/readyz`, CSP, HSTS, X-Powered-By removed | `Health.php`, `public/index.php` | ✓ tests |
 | Dockerfile (FrankenPHP), Caddyfile, php.ini, .dockerignore | repo root, `deploy/` | ✓ static checks · ☐ **build blocked** (Docker Hub) |
 | Hosted-DB import builder (any DB name, demo passwords replaced, TLS-only app user) | `database/build_hosted.php` | ✓ imported into a separate local DB |
-| Deployment tests (28) | `tests/deployment/` | ✓ 28/28 local |
+| Deployment tests (29) | `tests/deployment/` | ✓ 29/29 local |
 | Managed MySQL comparison + recommendation, migration plan, env table, security review | `docs/DEPLOYMENT.md` | ✓ written · provider facts marked (verify) |
 | Managed MySQL created + data migrated | — | ☐ **blocked — needs provider account** |
 | Vercel preview + production, 20 workflows on deployed URL | — | ☐ **blocked / not tested** |

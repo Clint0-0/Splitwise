@@ -31,8 +31,7 @@ ENV APP_ENV=production \
     APP_TRUST_PROXY=true \
     SESSION_DRIVER=database \
     MAIL_LOG=stderr \
-    PORT=8080 \
-    SERVER_NAME=:8080
+    PORT=8080
 
 USER www-data
 EXPOSE 8080

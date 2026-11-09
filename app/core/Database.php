@@ -56,9 +56,11 @@ final class Database
                     }
                 }
             }
-            if ($ca !== '') {
-                $o[PDO::MYSQL_ATTR_SSL_CA] = $ca;
+            if ($ca === '' || !is_readable($ca)) {
+                // fail closed: never silently fall back to an unencrypted connection
+                throw new \RuntimeException('DB_SSL is on but no readable CA file was found (set DB_SSL_CA).');
             }
+            $o[PDO::MYSQL_ATTR_SSL_CA] = $ca;
             $o[PDO::MYSQL_ATTR_SSL_VERIFY_SERVER_CERT] = strtolower((string) Env::get('DB_SSL_VERIFY', 'true')) !== 'false';
         }
         return $o;

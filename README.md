@@ -57,7 +57,7 @@ One command, Windows or Linux (resets the database to the sample data at the end
 php tests/run_all.php --password=YOUR_ROOT_PASSWORD
 # Windows: C:\xampp\php\php.exe tests\run_all.php --mysql="C:\Program Files\MySQL\MySQL Server 8.0\bin\mysql.exe" --password=...
 ```
-It runs unit (41), every SQL script (11), database (76), functional (115) and money-scenario (23) tests. Linux-only shortcuts: `tests/database/run.sh`, `tests/functional/run.sh`, and `tests/deployment/run.sh` (28 deployment-readiness checks: production mode, hosted-style DB, shared sessions). Before the viva, each member runs `docs/TEAM_TEST_CHECKLIST.md`.
+It runs unit (53), every SQL script (11), database (76), functional (115) and money-scenario (23) tests. Linux-only shortcuts: `tests/database/run.sh`, `tests/functional/run.sh`, and `tests/deployment/run.sh` (29 deployment-readiness checks: production mode, hosted-style DB, shared sessions). Before the viva, each member runs `docs/TEAM_TEST_CHECKLIST.md`.
 
 ## Running the database tests
 ```bash

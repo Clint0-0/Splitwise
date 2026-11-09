@@ -20,7 +20,8 @@
           <span class="sub"><?= e(str_replace('_', ' ', $s['method'])) ?><?= $s['note'] ? ', ' . e($s['note']) : '' ?></span></td>
         <td data-label="Group"><a href="<?= e(url('/groups/' . (int) $s['group_id'])) ?>"><?= e($s['group_name']) ?></a></td>
         <td data-label="Status"><?php require __DIR__ . '/_status.php'; ?></td>
-        <td class="num fw-semibold" data-label="Amount"><?= $mePayee ? '+' : ($mePayer ? '−' : '') ?><?= e(inr($s['amount'])) ?></td>
+        <?php $void = in_array($s['status'], ['rejected', 'cancelled'], true); ?>
+        <td class="num fw-semibold<?= $void ? ' text-muted text-decoration-line-through' : '' ?>" data-label="Amount"><?php if ($void): ?><span class="visually-hidden">not counted: </span><?php endif; ?><?= $void ? '' : ($mePayee ? '+' : ($mePayer ? '−' : '')) ?><?= e(inr($s['amount'])) ?></td>
         <td class="text-end">
           <?php if ($s['status'] === 'pending' && $mePayee): ?>
             <div class="d-inline-flex gap-2">
@@ -36,7 +37,7 @@
     </tbody>
   </table>
   </div>
-  <p class="note mt-2 mb-0">+ is money you received, − is money you paid. Pending payments count once the receiver confirms.</p>
+  <p class="note mt-2 mb-0">+ is money you received, − is money you paid. Pending payments count once the receiver confirms; rejected and cancelled ones (struck through) never count.</p>
   <div class="mt-3"><?php require __DIR__ . '/../partials/pagination.php'; ?></div>
 <?php endif; ?>
 </section>

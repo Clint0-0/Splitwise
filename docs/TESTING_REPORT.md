@@ -442,3 +442,23 @@ Re-run after the fixes (password admin over TCP, as on Windows): **unit 41/41, S
 | Managed MySQL import over the internet | **Blocked** | needs a provider account (simulated locally with a TLS-only user in a separate DB) |
 | Vercel preview/production, 20 workflows on deployed URL | **Not tested** | no Vercel account/credentials; no deployment exists |
 | Official Vercel docs check | **Not done** | fetch not approved in the session; items marked (verify) in `DEPLOYMENT.md` |
+
+### Phase 5.5 — bug-fix round (2026-11-09)
+| # | Bug | Impact | Fix | Verified by |
+|---|---|---|---|---|
+| 32 | `.env.example` had comments after values; the `.env` reader kept them (`SESSION_DRIVER=database   # …`) | a copied `.env` silently used file sessions, wrong DB password, `MAIL_LOG` = a file named "# mock…"; Docker `--env-file` has the same problem | reader strips unquoted ` # comments` (quoted values keep `#`); template comments moved to their own lines | unit Env ×5, deployment C6a |
+| 33 | `DB_SSL=true` with no CA found connected without a CA option | could end up on an unencrypted / unverified connection | fail closed with a clear config error | unit "fails closed" |
+| 34 | Caddy matcher `/*/.*` only blocks dotfiles one folder deep | `/a/b/.secret` would be served | `*/.*` (any depth) | deployment C3 |
+| 35 | Deployment test deleted the developer's `build/` folder | could wipe generated hosted scripts | `build_hosted.php --out=DIR`, test uses a temp folder | `build/` untouched after run |
+| 36 | Stale `build/demo_password.txt` kept when a new `DEMO_PASSWORD` was given | misleading password file | removed on such runs | code path |
+| 37 | Hosted install check pointed at `splitwise_plus` | wrong DB checked | `build/hosted_verify.sql` generated for the hosted name; deployment test runs it | deployment run (no FAIL rows) |
+| 38 | `UPLOAD_MAX_BYTES` above 5 MB accepted | 500 error from the DB CHECK on a big receipt | env can only lower the limit | code path |
+| 39 | Session write errors at shutdown could print a fatal error after the page | stray error text, no log context | write/updateTimestamp catch, log and return false | code path |
+| 40 | Rejected/cancelled payments shown with +/− like real money | misleading list | struck through, muted, no sign, screen-reader "not counted" | screenshots |
+| 41 | Deleted-expense total never struck through (`.num:first-of-type` never matched) | visual bug | selector on `td[data-label="Total"]` | screenshot |
+| 42 | Dates wrapped in table cells at 768–1024 px | cramped rows | `white-space: nowrap` for date cells ≥768 px | screenshots |
+| 43 | Profile said mock mail goes to `storage/logs/mail.log` (wrong in production) | wrong info | "written to the server log" | page |
+| 44 | Dockerfile set unused `SERVER_NAME` | confusing config | removed | — |
+| 45 | Deployment test only worked with passwordless socket root and a fixed CA path | not portable | `DB_ROOT_USER/PASS/TCP`, CA from `@@ssl_ca` or `MYSQL_CA` | run |
+
+Re-run after the fixes: **unit 53/53, SQL scripts 11/11, database 76/76, functional 115/115, scenarios 23/23 (run_all over TCP + Linux runners), deployment 29/29, axe 0 violations, browser console 0 errors/warnings on all 18 screens (CSP blocks nothing the app needs; budget form script works).**

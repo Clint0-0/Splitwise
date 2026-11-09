@@ -15,15 +15,17 @@ DBN=sw_hosted_test
 APPPW="dep-test-$(head -c 9 /dev/urandom | od -An -tx1 | tr -d ' \n')"
 DEMOPW="Demo-$(head -c 6 /dev/urandom | od -An -tx1 | tr -d ' \n')-9"
 TMP="$(mktemp -d)"
-cleanup() { kill ${S1:-} ${S2:-} ${S3:-} 2>/dev/null; $MYSQL -e "DROP DATABASE IF EXISTS $DBN; DROP USER IF EXISTS 'sw_hosted'@'%';" 2>/dev/null; rm -rf "$TMP" "$ROOT/build"; }
+cleanup() { kill ${S1:-} ${S2:-} ${S3:-} 2>/dev/null; $MYSQL -e "DROP DATABASE IF EXISTS $DBN; DROP USER IF EXISTS 'sw_hosted'@'%';" 2>/dev/null; rm -rf "$TMP"; }
 trap cleanup EXIT
 
-DEMO_PASSWORD="$DEMOPW" APP_DB_PASSWORD="$APPPW" php "$ROOT/database/build_hosted.php" --db=$DBN >/dev/null || { echo "BUILD FAILED"; exit 1; }
+DEMO_PASSWORD="$DEMOPW" APP_DB_PASSWORD="$APPPW" php "$ROOT/database/build_hosted.php" --db=$DBN --out="$TMP/build" >/dev/null || { echo "BUILD FAILED"; exit 1; }
 $MYSQL -e "CREATE DATABASE $DBN CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci" || exit 1
-$MYSQL < "$ROOT/build/hosted_schema.sql" >/dev/null || { echo "HOSTED IMPORT FAILED"; exit 1; }
-sed "s/'splitwise_app'@'%'/'sw_hosted'@'%'/g" "$ROOT/build/hosted_app_user.sql" | $MYSQL >/dev/null || { echo "HOSTED USER FAILED"; exit 1; }
+$MYSQL < "$TMP/build/hosted_schema.sql" >/dev/null || { echo "HOSTED IMPORT FAILED"; exit 1; }
+sed "s/'splitwise_app'@'%'/'sw_hosted'@'%'/g" "$TMP/build/hosted_app_user.sql" | $MYSQL >/dev/null || { echo "HOSTED USER FAILED"; exit 1; }
 # CA of the local server, readable copy (managed providers publish theirs)
-cp /var/lib/mysql/ca.pem "$TMP/ca.pem" 2>/dev/null || $MYSQL -N -e "SELECT 1" >/dev/null
+CA_SRC="${MYSQL_CA:-$($MYSQL -N -e "SELECT IF(LEFT(@@ssl_ca,1)='/', @@ssl_ca, CONCAT(@@datadir, @@ssl_ca))" 2>/dev/null)}"
+cp "$CA_SRC" "$TMP/ca.pem" 2>/dev/null || { echo "Cannot read the MySQL server CA ($CA_SRC); set MYSQL_CA=/path/to/ca.pem"; exit 1; }
+$MYSQL < "$TMP/build/hosted_verify.sql" | grep -q FAIL && { echo "hosted_verify.sql reported FAIL"; exit 1; }
 
 common=(APP_ENV=production APP_DEBUG=true APP_TRUST_PROXY=true DB_HOST=127.0.0.1 DB_PORT=3306 DB_NAME=$DBN DB_USER=sw_hosted
         DB_SSL=true DB_SSL_CA="$TMP/ca.pem" DB_SSL_VERIFY=false MAIL_LOG=stderr)

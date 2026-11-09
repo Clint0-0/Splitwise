@@ -11,7 +11,7 @@
 	encode zstd gzip
 
 	# never serve dotfiles or the built-in-server router
-	@blocked path /.* /*/.* /router.php
+	@blocked path */.* /router.php
 	respond @blocked 404
 
 	header {

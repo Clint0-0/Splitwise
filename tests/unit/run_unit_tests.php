@@ -141,5 +141,41 @@ for ($i = 0; $i < 2000; $i++) {
 }
 check('Property: 2000 random groups — transfers zero every balance, ≤ n−1 transfers', $ok);
 
+// ---------------------------------------------------------------- Env parser + proxy helpers (Phase 5.5)
+$envFile = tempnam(sys_get_temp_dir(), 'env');
+file_put_contents($envFile, "UT_A=local        # comment after value\nUT_B=\"p#ss word\"  # quoted keeps # and spaces\nUT_C='x'\nUT_D=a#b\n# UT_E=never\nUT_F=\n");
+App\Core\Env::load($envFile);
+unlink($envFile);
+check('Env: unquoted inline " # comment" stripped', App\Core\Env::get('UT_A') === 'local');
+check('Env: quoted value keeps # and spaces, trailing comment dropped', App\Core\Env::get('UT_B') === 'p#ss word');
+check('Env: single quotes removed', App\Core\Env::get('UT_C') === 'x');
+check('Env: # inside a word is kept (a#b)', App\Core\Env::get('UT_D') === 'a#b');
+check('Env: commented-out line ignored; empty value is ""', App\Core\Env::get('UT_E') === null && App\Core\Env::get('UT_F') === '');
+$_SERVER['REMOTE_ADDR'] = '10.0.0.5';
+$_SERVER['HTTP_X_FORWARDED_FOR'] = '1.2.3.4, 203.0.113.9';
+putenv('APP_TRUST_PROXY=false');
+check('client_ip: X-Forwarded-For ignored unless APP_TRUST_PROXY', client_ip() === '10.0.0.5');
+putenv('APP_TRUST_PROXY=true');
+check('client_ip: right-most X-Forwarded-For entry behind a trusted proxy', client_ip() === '203.0.113.9');
+$_SERVER['HTTP_X_FORWARDED_FOR'] = 'garbage';
+check('client_ip: invalid header falls back to REMOTE_ADDR', client_ip() === '10.0.0.5');
+$_SERVER['HTTP_X_FORWARDED_PROTO'] = 'https';
+putenv('APP_ENV=local');
+check('is_https: X-Forwarded-Proto honoured only with trusted proxy', is_https() === true);
+putenv('APP_TRUST_PROXY=false');
+check('is_https: plain local request is not HTTPS', is_https() === false);
+putenv('APP_TRUST_PROXY'); putenv('APP_ENV');
+$opt = new ReflectionMethod(App\Core\Database::class, 'options');
+putenv('DB_SSL=true'); putenv('DB_SSL_CA=/nonexistent/ca.pem');
+$closed = false;
+try { $opt->invoke(null); } catch (RuntimeException $e) { $closed = str_contains($e->getMessage(), 'DB_SSL'); }
+check('Database: DB_SSL=true with unreadable CA fails closed (no silent plain-text connection)', $closed);
+$caf = tempnam(sys_get_temp_dir(), 'ca'); putenv("DB_SSL_CA=$caf");
+$o = $opt->invoke(null);
+check('Database: DB_SSL=true sets CA + verify; timeout from DB_CONNECT_TIMEOUT; not persistent',
+    ($o[PDO::MYSQL_ATTR_SSL_CA] ?? '') === $caf && ($o[PDO::MYSQL_ATTR_SSL_VERIFY_SERVER_CERT] ?? null) === true
+    && $o[PDO::ATTR_TIMEOUT] === 5 && empty($o[PDO::ATTR_PERSISTENT]));
+unlink($caf); putenv('DB_SSL'); putenv('DB_SSL_CA'); unset($_SERVER['HTTP_X_FORWARDED_FOR'], $_SERVER['HTTP_X_FORWARDED_PROTO']);
+
 echo "\n$pass / " . ($pass + $fail) . " passed\n";
 exit($fail === 0 ? 0 : 1);

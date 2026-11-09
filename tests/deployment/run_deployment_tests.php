@@ -9,7 +9,9 @@ $A = 'http://127.0.0.1:8771';   // instance 1 (production mode, behind "proxy")
 $B = 'http://127.0.0.1:8772';   // instance 2 (same DB) — shared sessions
 $BAD = 'http://127.0.0.1:8773'; // wrong DB password
 $demo = getenv('DEMOPW');
-$db = new PDO('mysql:unix_socket=/var/run/mysqld/mysqld.sock;dbname=' . getenv('DBN') . ';charset=utf8mb4', 'root', '',
+$sock = '/var/run/mysqld/mysqld.sock';
+$db = new PDO((file_exists($sock) && !getenv('DB_ROOT_TCP') ? "mysql:unix_socket=$sock" : 'mysql:host=127.0.0.1;port=3306')
+        . ';dbname=' . getenv('DBN') . ';charset=utf8mb4', getenv('DB_ROOT_USER') ?: 'root', getenv('DB_ROOT_PASS') ?: '',
     [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
 $val = function (string $sql, array $p = []) use ($db) { $s = $db->prepare($sql); $s->execute($p); return $s->fetchColumn(); };
 
@@ -54,13 +56,15 @@ check('C2', 'Dockerfile copies only app/, config/, public/, Caddyfile, deploy/ph
     preg_match_all('/^COPY\s+(\S+)/m', $docker, $m) > 0 && array_diff($m[1], ['app/', 'config/', 'public/', 'Caddyfile', 'deploy/php.ini']) === []);
 check('C3', 'Caddyfile: web root is /app/public only, php_server, admin off, dotfiles + router.php blocked, listens on $PORT',
     str_contains($caddy, 'root * /app/public') && str_contains($caddy, 'php_server') && str_contains($caddy, 'admin off')
-    && str_contains($caddy, '/router.php') && str_contains($caddy, '/.*') && str_contains($caddy, '{$PORT:8080}'));
+    && str_contains($caddy, '/router.php') && str_contains($caddy, '@blocked path */.*') && str_contains($caddy, '{$PORT:8080}'));
 check('C4', '.dockerignore excludes .env, .git, tests, database, docs, build',
     count(array_intersect(['.env', '.git', 'tests/', 'database/', 'docs/', 'build/'], array_map('trim', explode("\n", $ignore)))) === 6);
 $gi = (string) file_get_contents("$ROOT/.gitignore");
 check('C5', '.gitignore excludes .env, .env.* and build/ (generated hosted scripts)',
     preg_match('/^\.env$/m', $gi) && preg_match('/^\.env\.\*$/m', $gi) && preg_match('/^build\/$/m', $gi));
 $ex = (string) file_get_contents("$ROOT/.env.example");
+check('C6a', '.env.example has no trailing comments on value lines (Docker --env-file keeps them as part of the value)',
+    preg_match('/^[A-Z_]+=[^\n]*[ \t]#/m', $ex) === 0);
 check('C6', '.env.example documents every production variable with placeholder values only',
     array_filter(['APP_ENV', 'APP_TRUST_PROXY', 'DB_PASSWORD', 'DB_SSL', 'DB_SSL_CA', 'DB_CONNECT_TIMEOUT', 'SESSION_DRIVER', 'SESSION_LIFETIME', 'MAIL_LOG'],
         fn($k) => !preg_match('/^' . $k . '=/m', $ex)) === [] && preg_match('/^DB_PASSWORD=change_me\b/m', $ex) === 1);

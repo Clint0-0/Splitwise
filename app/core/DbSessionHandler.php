@@ -43,12 +43,18 @@ final class DbSessionHandler implements \SessionHandlerInterface, \SessionUpdate
         return $v === false ? '' : (string) $v;
     }
 
+    /** Runs at shutdown, after the page is sent: never throw from here (would print a fatal error). */
     public function write(string $id, string $data): bool
     {
-        $this->db->prepare('INSERT INTO app_sessions (session_id, payload, last_activity) VALUES (?, ?, ?) AS n
-                            ON DUPLICATE KEY UPDATE payload = n.payload, last_activity = n.last_activity')
-            ->execute([$id, $data, time()]);
-        return true;
+        try {
+            $this->db->prepare('INSERT INTO app_sessions (session_id, payload, last_activity) VALUES (?, ?, ?) AS n
+                                ON DUPLICATE KEY UPDATE payload = n.payload, last_activity = n.last_activity')
+                ->execute([$id, $data, time()]);
+            return true;
+        } catch (\Throwable $t) {
+            error_log('session write failed: ' . $t->getMessage());
+            return false;
+        }
     }
 
     public function destroy(string $id): bool
@@ -74,7 +80,12 @@ final class DbSessionHandler implements \SessionHandlerInterface, \SessionUpdate
 
     public function updateTimestamp(string $id, string $data): bool
     {
-        $this->db->prepare('UPDATE app_sessions SET last_activity = ? WHERE session_id = ?')->execute([time(), $id]);
-        return true;
+        try {
+            $this->db->prepare('UPDATE app_sessions SET last_activity = ? WHERE session_id = ?')->execute([time(), $id]);
+            return true;
+        } catch (\Throwable $t) {
+            error_log('session timestamp update failed: ' . $t->getMessage());
+            return false;
+        }
     }
 }

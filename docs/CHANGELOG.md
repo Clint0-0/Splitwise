@@ -1,5 +1,15 @@
 # CHANGELOG — SplitWise+
 
+## [0.6.1] — Phase 5.5 bug fixes (2026-11-09)
+### Fixed
+- `.env` reader strips trailing ` # comments`; `.env.example` comments on their own lines (a copied template had silently switched to file sessions).
+- `DB_SSL=true` without a readable CA now refuses to connect instead of risking plain text.
+- Caddy blocks dotfiles at any depth; `UPLOAD_MAX_BYTES` can no longer exceed the 5 MB DB rule; session write errors are logged, not printed.
+- Settlements: rejected/cancelled amounts struck through without +/−; deleted expense totals struck through; table dates no longer wrap; profile mock-mail wording.
+- `build_hosted.php --out`, generates `hosted_verify.sql`; deployment tests no longer touch `build/` and work with password/TCP root.
+### Added
+- Unit tests for Env parsing, proxy IP/HTTPS detection and DB TLS options (41 → 53); deployment check C6a (28 → 29).
+
 ## [0.6.0] — Phase 5.5 UI refinement + deployment preparation (2026-11-09)
 ### Changed
 - Dashboard, group and balances pages: greeting hero replaced by a summary band (net balance in words, owed, owing, this month's spending); IOU slips are one ruled ledger; expenses and settlements are data tables that become labelled rows on phones; two-column layout only from 1200 px; smaller page titles; group members table no longer clips.

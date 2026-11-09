@@ -119,13 +119,13 @@ The local database is never modified by any step below.
    unset APP_DB_PASSWORD DEMO_PASSWORD
    ```
    `build/hosted_schema.sql` = full schema + **fictional** sample data (no real personal data), all demo users get
-   `DEMO_PASSWORD` instead of the published `Password@123`. `build/hosted_app_user.sql` = `'splitwise_app'@'%' REQUIRE SSL`
+   `DEMO_PASSWORD` instead of the published `Password@123`. `build/hosted_verify.sql` = the install check for your DB name; `build/hosted_app_user.sql` = `'splitwise_app'@'%' REQUIRE SSL`
    with the same least-privilege grants as locally.
 4. **Import as the provider's admin user, over TLS:**
    ```bash
    mysql --ssl-mode=VERIFY_IDENTITY --ssl-ca=provider-ca.pem -h HOST -u ADMIN -p splitwise_plus < build/hosted_schema.sql
    mysql --ssl-mode=VERIFY_IDENTITY --ssl-ca=provider-ca.pem -h HOST -u ADMIN -p < build/hosted_app_user.sql
-   mysql ... -e "SOURCE database/verify_install.sql"     # expect 10 × PASS (the script names splitwise_plus; replace it if your DB name differs)
+   mysql --ssl-mode=VERIFY_IDENTITY --ssl-ca=provider-ca.pem -h HOST -u ADMIN -p < build/hosted_verify.sql   # expect 10 × PASS
    rm -rf build/
    ```
 5. **Rollback:** drop the hosted database and user; the local database is untouched. Re-running steps 3–4 is safe.
@@ -146,13 +146,13 @@ Dockerfile, never in Git, never in browser JavaScript. Do not paste them into ch
 | `DB_PORT` | `3306` | no | |
 | `DB_NAME` | `splitwise_plus` | no | |
 | `DB_USER` | `splitwise_app` | no | |
-| `DB_PASSWORD` | — | **yes** | the app user's password |
+| `DB_PASSWORD` | — | **yes** | the app user's password (in a `.env` file, quote it if it contains spaces or starts with `#`) |
 | `DB_SSL` | `true` | no | |
-| `DB_SSL_CA` | path to CA file in the image, or empty | no | empty = system CA bundle (works for providers with public CAs) |
+| `DB_SSL_CA` | path to CA file in the image, or empty | no | empty = system CA bundle (works for providers with public CAs). If `DB_SSL=true` and no readable CA is found the app refuses to connect (never falls back to plain text) |
 | `DB_SSL_VERIFY` | `true` | no | keep `true` in production |
 | `DB_CONNECT_TIMEOUT` | `5` | no | seconds |
 | `SESSION_LIFETIME` | `7200` | no | idle timeout, seconds |
-| `UPLOAD_MAX_BYTES` | `5242880` | no | lower to the platform body limit if needed |
+| `UPLOAD_MAX_BYTES` | `5242880` | no | can only lower the limit (5 MB is also a database CHECK); lower it to the platform body limit if needed |
 
 `DB_PASS` (old name) is still accepted. Real environment variables always override a `.env` file.
 
@@ -212,8 +212,8 @@ debts · 16 budgets + alerts · 17 analytics charts + tables · 18 notifications
 
 | Item | Status |
 |---|---|
-| App runs with DB sessions, DB throttle, DB receipts locally (unit 41, DB 76, functional 115, scenarios 23) | **Passed** |
-| Deployment suite `tests/deployment/run.sh` — config checks, hosted-style import, production mode behind simulated proxy, 2 instances sharing sessions, TLS-only DB user, DB-down behaviour (28 checks) | **Passed** (local, PHP built-in server, not FrankenPHP) |
+| App runs with DB sessions, DB throttle, DB receipts locally (unit 53, DB 76, functional 115, scenarios 23) | **Passed** |
+| Deployment suite `tests/deployment/run.sh` — config checks, hosted-style import, production mode behind simulated proxy, 2 instances sharing sessions, TLS-only DB user, DB-down behaviour (29 checks) | **Passed** (local, PHP built-in server, not FrankenPHP) |
 | `docker build` / container run | **Blocked** — Docker Hub pulls refused in the build sandbox |
 | Running FrankenPHP binary locally | **Blocked** — downloaded binary execution not permitted in the build sandbox |
 | Vercel docs check of container setup / `vercel.json` / limits | **Not done** — fetch not approved; marked (verify) |
