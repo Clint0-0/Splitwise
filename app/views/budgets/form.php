@@ -69,12 +69,3 @@
       <button class="btn btn-sm btn-danger-quiet">Delete budget</button></form>
   <?php endif; ?>
 </div>
-<script>
-  // scope select -> hidden group_id
-  (function () {
-    var s = document.getElementById('scope'), g = document.getElementById('group_id');
-    if (!s) return;
-    function sync() { var o = s.options[s.selectedIndex]; g.value = o.dataset.group || ''; }
-    s.addEventListener('change', sync); sync();
-  })();
-</script>

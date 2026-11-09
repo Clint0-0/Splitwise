@@ -69,6 +69,7 @@ final class BudgetController extends Controller
             'categories' => (new CategoryModel())->allActive(),
             'adminGroups'=> array_filter((new GroupModel())->forUser($uid), fn($g) => $g['role'] === 'admin'),
             'periods'    => BudgetModel::PERIODS,
+            'scripts'    => ['js/budget-form.js'],
         ]);
     }
 }

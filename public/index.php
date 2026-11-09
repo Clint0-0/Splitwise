@@ -11,18 +11,32 @@ use App\Core\View;
 
 require dirname(__DIR__) . '/app/bootstrap.php';
 
-// Basic security headers
+// Security headers (every response)
+header_remove('X-Powered-By');
 header('X-Content-Type-Options: nosniff');
 header('X-Frame-Options: DENY');
 header('Referrer-Policy: same-origin');
+header('Permissions-Policy: camera=(), microphone=(), geolocation=()');
+header("Content-Security-Policy: default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; "
+    . "script-src 'self'; font-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'self'; "
+    . "form-action 'self'; frame-ancestors 'none'");
+if (is_https() && is_production()) {
+    header('Strict-Transport-Security: max-age=31536000');
+}
 
-Session::start();
+// Health checks: no session, no login, no details. /healthz = process is up; /readyz = database reachable.
+$path = (new Request())->path;   // base-path aware (works under /Splitwise/public on XAMPP too)
+if ($path === '/healthz' || $path === '/readyz') {
+    App\Core\Health::respond($path);
+    return;
+}
 
 $router = new Router();
 require BASE_PATH . '/config/routes.php';
 
 $isPost = ($_SERVER['REQUEST_METHOD'] ?? '') === 'POST';
 try {
+    Session::start();   // inside try: if MySQL is down the user gets a clean error page, not a stack trace
     // A POST bigger than post_max_size arrives with $_POST/$_FILES EMPTY (PHP drops it),
     // which would otherwise look like a missing CSRF token ("session expired").
     if ($isPost && $_POST === [] && $_FILES === [] && (int) ($_SERVER['CONTENT_LENGTH'] ?? 0) > ini_bytes((string) ini_get('post_max_size'))) {
@@ -44,13 +58,13 @@ try {
 } catch (Throwable $t) {
     error_log((string) $t);
     http_response_code(500);
-    $debug = App\Core\Env::get('APP_DEBUG', 'false') === 'true';
+    $debug = !is_production() && App\Core\Env::get('APP_DEBUG', 'false') === 'true';
     echo View::render('errors/error', [
         'status'  => 500,
         'message' => $debug ? $t->getMessage() : 'Something went wrong. Please try again.',
     ], 'layouts/guest');
 } finally {
-    if ($isPost) {
+    if ($isPost && session_status() === PHP_SESSION_ACTIVE) {
         App\Services\MockMailer::flush();
     }
 }

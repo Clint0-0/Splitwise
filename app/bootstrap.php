@@ -28,8 +28,13 @@ App\Core\Env::load(BASE_PATH . '/.env');
 
 date_default_timezone_set(App\Core\Env::get('APP_TIMEZONE', 'Asia/Kolkata'));
 
-$debug = App\Core\Env::get('APP_DEBUG', 'false') === 'true';
+// Debug output is never allowed in production, whatever APP_DEBUG says.
+$production = App\Core\Env::get('APP_ENV', 'local') === 'production';
+$debug = !$production && App\Core\Env::get('APP_DEBUG', 'false') === 'true';
 ini_set('display_errors', $debug ? '1' : '0');
 ini_set('log_errors', '1');
-ini_set('error_log', BASE_PATH . '/storage/logs/php-error.log');
+ini_set('zend.exception_ignore_args', '1');   // stack traces never contain argument values (e.g. passwords)
+if (!$production) {
+    ini_set('error_log', BASE_PATH . '/storage/logs/php-error.log');
+}                                              // production: the server's own log (stderr -> hosting logs)
 error_reporting(E_ALL);

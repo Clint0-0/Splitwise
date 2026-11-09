@@ -25,15 +25,43 @@ final class Database
                 Env::get('DB_PORT', '3306'),
                 Env::get('DB_NAME', 'splitwise_plus')
             );
-            self::$pdo = new PDO($dsn, Env::get('DB_USER', 'splitwise_app'), Env::get('DB_PASS', ''), [
-                PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,
-                PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
-                PDO::ATTR_EMULATE_PREPARES   => false,
-                PDO::ATTR_STRINGIFY_FETCHES  => false,
-            ]);
+            self::$pdo = new PDO($dsn, Env::get('DB_USER', 'splitwise_app'), Env::get('DB_PASSWORD', Env::get('DB_PASS', '')), self::options());
             self::$pdo->exec("SET time_zone = '" . (new \DateTime())->format('P') . "'");
         }
         return self::$pdo;
+    }
+
+    /**
+     * Connection options. No persistent connections: on serverless containers they
+     * pile up idle connections against the provider's limit. One short-lived
+     * connection per request, opened only when needed.
+     */
+    private static function options(): array
+    {
+        $o = [
+            PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,
+            PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+            PDO::ATTR_EMULATE_PREPARES   => false,
+            PDO::ATTR_STRINGIFY_FETCHES  => false,
+            PDO::ATTR_TIMEOUT            => max(1, (int) Env::get('DB_CONNECT_TIMEOUT', '5')),
+        ];
+        // TLS for managed MySQL: DB_SSL=true, optional DB_SSL_CA (path to the provider's CA file)
+        if (in_array(strtolower((string) Env::get('DB_SSL', 'false')), ['1', 'true', 'required', 'on'], true)) {
+            $ca = (string) Env::get('DB_SSL_CA', '');
+            if ($ca === '') {
+                foreach (['/etc/ssl/certs/ca-certificates.crt', '/etc/pki/tls/certs/ca-bundle.crt', '/etc/ssl/cert.pem'] as $bundle) {
+                    if (is_readable($bundle)) {
+                        $ca = $bundle;
+                        break;
+                    }
+                }
+            }
+            if ($ca !== '') {
+                $o[PDO::MYSQL_ATTR_SSL_CA] = $ca;
+            }
+            $o[PDO::MYSQL_ATTR_SSL_VERIFY_SERVER_CERT] = strtolower((string) Env::get('DB_SSL_VERIFY', 'true')) !== 'false';
+        }
+        return $o;
     }
 
     public static function setActor(?int $userId): void
