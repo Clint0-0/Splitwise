@@ -1,5 +1,12 @@
 # CHANGELOG — SplitWise+
 
+## [0.5.1] — Phase 5 bug fixes (2026-11-09)
+### Fixed
+- `tests/run_all.php`: waits until the app really answers (clear message if the port is busy); always stops the test server; stops if a re-import fails; passes the root password through a temporary option file instead of the command line.
+- Tests use the app's time zone (`APP_TIMEZONE`, default Asia/Kolkata) for "today".
+### Added
+- `.gitattributes` keeping LF line endings on Windows.
+
 ## [0.5.0] — Phase 5 testing (2026-11-09)
 ### Added
 - `tests/functional/run_scenarios.php` (23 checks) and `docs/TEST_SCENARIOS.md` — money stories with hand-worked amounts.

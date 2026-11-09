@@ -6,6 +6,9 @@
  */
 declare(strict_types=1);
 
+// "today" must be the app's date, not the test machine's (APP_TIMEZONE, default India)
+date_default_timezone_set(getenv('APP_TIMEZONE') ?: 'Asia/Kolkata');
+
 $GLOBALS['__pass'] = 0;
 $GLOBALS['__fail'] = 0;
 

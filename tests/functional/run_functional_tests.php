@@ -11,6 +11,9 @@
  */
 declare(strict_types=1);
 
+// "today" must be the app's date, not the test machine's (APP_TIMEZONE, default India)
+date_default_timezone_set(getenv('APP_TIMEZONE') ?: 'Asia/Kolkata');
+
 $BASE = rtrim(getenv('APP_URL') ?: 'http://127.0.0.1:8000', '/');
 $pass = 0; $fail = 0;
 

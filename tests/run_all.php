@@ -25,6 +25,21 @@ $APPPASS = $opt['app-pass'] ?? 'Change_Me_123!';   // must match database/securi
 $APPPORT = $opt['app-port'] ?? '8765';
 $PHP     = PHP_BINARY;
 $results = [];
+date_default_timezone_set(getenv('APP_TIMEZONE') ?: 'Asia/Kolkata');
+
+// The root password goes into a temporary option file (mode 600), not onto the command
+// line where other programs could read it and where mysql prints a warning each time.
+$cnf = tempnam(sys_get_temp_dir(), 'swcnf');
+file_put_contents($cnf, "[client]\npassword=\"" . addcslashes($PASS, "\\\"") . "\"\n");
+@chmod($cnf, 0600);
+$server = null;
+register_shutdown_function(function () use (&$server, $cnf) {
+    // 2. never leave the test web server running, even after a crash
+    if (is_resource($server)) {
+        proc_terminate($server);
+    }
+    @unlink($cnf);
+});
 
 function step(string $title): void { echo "\n=== $title\n"; }
 
@@ -42,8 +57,7 @@ function run(array $cmd, ?string $stdinFile = null, array $env = []): array
     return [proc_close($p), $out];
 }
 
-$mysqlArgs = fn(): array => array_merge([$MYSQL, '--default-character-set=utf8mb4', '-h', $HOST, '-P', $PORT, '-u', $USER],
-    $PASS !== '' ? ["-p$PASS"] : []);
+$mysqlArgs = fn(): array => [$MYSQL, "--defaults-extra-file=$cnf", '--default-character-set=utf8mb4', '-h', $HOST, '-P', $PORT, '-u', $USER];
 $sql = function (string $file) use ($mysqlArgs): array { return run($mysqlArgs(), $file); };
 $import = function () use ($sql, $ROOT): bool {
     [$c, $o] = $sql("$ROOT/database/splitwise_plus.sql");
@@ -51,6 +65,12 @@ $import = function () use ($sql, $ROOT): bool {
     [$c, $o] = $sql("$ROOT/database/security/app_user.sql");
     if ($c !== 0) { echo $o; return false; }
     return true;
+};
+$mustImport = function () use ($import): void {
+    if (!$import()) {
+        echo "Re-import failed — stopping so no test runs on stale data.\n";
+        exit(1);
+    }
 };
 $cleanStorage = function () use ($ROOT): void {
     foreach (['png', 'jpg', 'pdf'] as $ext) { foreach (glob("$ROOT/storage/receipts/*.$ext") ?: [] as $f) { @unlink($f); } }
@@ -105,13 +125,28 @@ $suite('Database (schema, triggers, procedures, privileges)', [$PHP, "$ROOT/test
 
 // ---------------------------------------------------------------- 4. app server
 step('Start the app on PHP\'s built-in server as splitwise_app');
-$import(); $cleanStorage();
+$mustImport(); $cleanStorage();
 $appEnv = array_merge(getenv(), ['DB_HOST' => $HOST, 'DB_PORT' => $PORT, 'DB_USER' => 'splitwise_app', 'DB_PASS' => $APPPASS,
     'DB_NAME' => 'splitwise_plus', 'APP_DEBUG' => 'false']);
 $log = sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'splitwise-server.log';
 $server = proc_open([$PHP, '-d', 'upload_max_filesize=6M', '-d', 'post_max_size=8M', '-S', "127.0.0.1:$APPPORT",
     '-t', "$ROOT/public", "$ROOT/public/router.php"], [0 => ['pipe', 'r'], 1 => ['file', $log, 'w'], 2 => ['file', $log, 'a']], $pipes, null, $appEnv);
-usleep(1_200_000);
+$up = false;
+for ($i = 0; $i < 40 && !$up; $i++) {          // up to ~10 seconds
+    usleep(250_000);
+    $st = proc_get_status($server);
+    if (!$st['running']) {
+        break;                                   // e.g. port already in use
+    }
+    $ctx = stream_context_create(['http' => ['timeout' => 2, 'ignore_errors' => true]]);
+    $up = @file_get_contents("http://127.0.0.1:$APPPORT/login", false, $ctx) !== false;
+}
+if (!$up) {
+    echo "The app did not start on port $APPPORT. Is the port in use? Try --app-port=8899.\nServer log:\n"
+        . @file_get_contents($log) . "\n";
+    exit(1);
+}
+echo "App is up on http://127.0.0.1:$APPPORT\n";
 $httpEnv = ['APP_URL' => "http://127.0.0.1:$APPPORT", 'DB_HOST' => $HOST, 'DB_PORT' => $PORT, 'DB_ROOT_TCP' => '1',
     'DB_ROOT_USER' => $USER, 'DB_ROOT_PASS' => $PASS, 'APP_DB_PASS' => $APPPASS];
 
@@ -119,12 +154,13 @@ step('Functional tests (whole app over HTTP)');
 $suite('Functional (HTTP end-to-end)', [$PHP, "$ROOT/tests/functional/run_functional_tests.php"], $httpEnv);
 
 step('Money scenarios');
-$import(); $cleanStorage();
+$mustImport(); $cleanStorage();
 $suite('Money scenarios', [$PHP, "$ROOT/tests/functional/run_scenarios.php"], $httpEnv);
 
 // ---------------------------------------------------------------- 5. clean up
 proc_terminate($server);
-$import(); $cleanStorage();
+$server = null;
+$mustImport(); $cleanStorage();
 echo "\nRe-imported clean sample data.\n";
 
 step('Summary');

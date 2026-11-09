@@ -390,3 +390,18 @@ Final regression run, with the database reached **over TCP with a password-prote
 | Windows + XAMPP Apache + MySQL 8.0 | sandbox is Linux | `docs/TEAM_TEST_CHECKLIST.md` (install, `run_all.php`, 12-step click-through) |
 | Firefox / Edge / Safari rendering | browser downloads are blocked from the sandbox (only Chrome available) | checklist runs the click-through in Chrome **and** a second browser |
 | Real users on phones | — | checklist step 10 (phone width) |
+
+
+### Phase 5 — bug-fix round (2026-11-09)
+Found by reviewing the Phase 5 code; each fix was exercised for real.
+
+| # | Bug | Fix | How it was verified |
+|---|---|---|---|
+| 17 | `run_all.php` waited a fixed 1.2 s for the app; on a slow laptop the first requests could fail, and a busy port gave confusing test failures | Polls `/login` for up to 10 s; if the server dies or never answers, prints its log and says "Is the port in use? Try --app-port" | Ran with port 8765 deliberately occupied: clear message, exit 1 |
+| 18 | If the runner crashed, the test web server kept running | Shutdown handler always stops it | No `php -S` process left after any run |
+| 19 | A failed re-import mid-run was ignored, so later suites could run on stale data | Re-imports are checked; the run stops with a message | Code path reviewed |
+| 20 | Root password was passed as `-pPASSWORD` (visible to other processes; mysql printed a warning on every call) | Password written to a temporary option file (mode 600, `--defaults-extra-file`), deleted at exit | Full run with password `Wi"n R\oot #26;` (quote, backslash, space, #, ;): all suites pass, 0 warnings, temp file gone |
+| 21 | Tests took "today" from the test machine's PHP time zone, the app from India time — on a machine set ahead of India the app could reject the tests' dates as future | Test helpers use `APP_TIMEZONE` (default Asia/Kolkata), same as the app | Code path; all suites pass |
+| 22 | Git for Windows checks files out with CRLF by default | `.gitattributes` pins LF (CRLF breaks the `.sh` runners under Git Bash/WSL). Also checked: MySQL imports a CRLF copy of `splitwise_plus.sql` cleanly (10/10 install checks, no `\r` in data) | Imported a CRLF copy |
+
+Re-run after the fixes (password admin over TCP, as on Windows): **unit 41/41, SQL scripts 11/11, database 74/74, functional 103/103, scenarios 23/23 — all passing.** Linux shortcut runners also pass.
