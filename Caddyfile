@@ -1,0 +1,28 @@
+# FrankenPHP / Caddy config for SplitWise+ (used by the Dockerfile).
+# Only /app/public is the web root; app/, config/, storage/ are not reachable.
+{
+	frankenphp
+	auto_https off   # TLS ends at the platform edge (Vercel); the container speaks plain HTTP
+	admin off        # no Caddy admin API inside the container
+}
+
+:{$PORT:8080} {
+	root * /app/public
+	encode zstd gzip
+
+	# never serve dotfiles or the built-in-server router
+	@blocked path /.* /*/.* /router.php
+	respond @blocked 404
+
+	header {
+		X-Content-Type-Options nosniff
+		Referrer-Policy same-origin
+		-Server
+		-X-Powered-By
+	}
+	@assets path /assets/* /favicon.svg
+	header @assets Cache-Control "public, max-age=604800"
+
+	# everything that is not a static file goes to public/index.php
+	php_server
+}
