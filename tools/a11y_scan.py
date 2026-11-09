@@ -16,7 +16,7 @@ with sync_playwright() as p:
         sessions = {}
         for name, user, path in S.PAGES:
             if user not in sessions:
-                ctx = b.new_context(viewport={'width': vp[0], 'height': vp[1]}); pg = ctx.new_page()
+                ctx = b.new_context(viewport={'width': vp[0], 'height': vp[1]}, bypass_csp=True); pg = ctx.new_page()  # bypass_csp: axe is injected inline, the app's CSP would block it
                 if user:
                     pg.goto(base + '/login'); pg.fill('#login', user); pg.fill('#password', 'Password@123'); pg.click('button[type=submit]'); pg.wait_for_load_state('networkidle')
                 sessions[user] = pg

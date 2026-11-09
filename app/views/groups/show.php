@@ -35,12 +35,14 @@ $kinds = ['trip' => 'Trip', 'home' => 'Home', 'family' => 'Family', 'friends' =>
 </div>
 <?= field_error($errors, 'member') ?>
 
-<?php if ($mine): $myNet = (string) $mine['net_balance']; $c = bccomp_str($myNet, '0'); ?>
-<section class="hero" aria-label="Your balance in this group">
-  <p class="hero-line"><?= $c > 0 ? 'In this group you get back' : ($c < 0 ? 'In this group you owe' : 'In this group you are') ?></p>
-  <span class="hero-figure <?= $c > 0 ? 'text-gets' : ($c < 0 ? 'text-owes' : '') ?>"><?= $c === 0 ? 'settled up' : e(inr(abs_amount($myNet))) ?></span>
-  <div class="hero-split"><span>You paid <strong class="amount"><?= e(inr($mine['total_paid'])) ?></strong></span><span>Your share <strong class="amount"><?= e(inr($mine['total_owed'])) ?></strong></span></div>
-</section>
+<?php if ($mine): [$fig, $words, $cls] = net_parts((string) $mine['net_balance']);
+  $groupTotal = '0.00'; foreach ($members as $m) { $groupTotal = App\Helpers\Money::fromPaise(App\Helpers\Money::toPaise($groupTotal) + App\Helpers\Money::toPaise((string) $m['total_paid'])); } ?>
+<dl class="summary" aria-label="Your balance in this group">
+  <div class="is-key"><dt>Your balance in this group</dt> <dd class="<?= $cls ?>"><?= e($fig) ?> <small><?= e($words) ?></small></dd></div>
+  <div><dt>You paid</dt> <dd><?= e(inr($mine['total_paid'])) ?></dd></div>
+  <div><dt>Your share</dt> <dd><?= e(inr($mine['total_owed'])) ?></dd></div>
+  <div><dt>Group has spent</dt> <dd><?= e(inr($groupTotal)) ?></dd></div>
+</dl>
 <?php endif; ?>
 
 <div class="grid-2">
@@ -77,15 +79,14 @@ $kinds = ['trip' => 'Trip', 'home' => 'Home', 'family' => 'Family', 'friends' =>
       <h2 id="mem-h">Members</h2>
       <div class="table-responsive" tabindex="0" role="region" aria-label="Scrollable table">
       <table class="table">
-        <thead><tr><th scope="col">Member</th><th scope="col" class="num">Paid</th><th scope="col" class="num">Share</th><th scope="col" class="num">Balance</th><?php if ($isAdmin && !$archived): ?><th scope="col"><span class="visually-hidden">Actions</span></th><?php endif; ?></tr></thead>
+        <thead><tr><th scope="col">Member</th><th scope="col" class="num">Balance</th><?php if ($isAdmin && !$archived): ?><th scope="col"><span class="visually-hidden">Actions</span></th><?php endif; ?></tr></thead>
         <tbody>
         <?php foreach ($active as $m): ?>
           <tr>
             <td class="who"><span class="fw-semibold"><?= e($m['full_name']) ?></span><?= (int) $m['user_id'] === $uid ? ' (you)' : '' ?>
-              <?= $m['role'] === 'admin' ? ' <span class="pill pill-admin">admin</span>' : '' ?></td>
-            <td class="num small"><?= e(inr($m['total_paid'])) ?></td>
-            <td class="num small"><?= e(inr($m['total_owed'])) ?></td>
-            <td class="num small"><?php $net = $m['net_balance']; require __DIR__ . '/../partials/balance.php'; ?></td>
+              <?= $m['role'] === 'admin' ? ' <span class="pill pill-admin">admin</span>' : '' ?>
+              <div class="small text-muted">paid <?= e(inr($m['total_paid'])) ?> · share <?= e(inr($m['total_owed'])) ?></div></td>
+            <td class="num small text-nowrap"><?php $net = $m['net_balance']; require __DIR__ . '/../partials/balance.php'; ?></td>
             <?php if ($isAdmin && !$archived): ?>
             <td class="text-end">
               <?php if ((int) $m['user_id'] !== $uid): ?>

@@ -1,16 +1,13 @@
-<?php $net = (string) $overall['net_balance']; $cmp = bccomp_str($net, '0'); ?>
+<?php [$fig, $words, $cls] = net_parts((string) $overall['net_balance']); ?>
 <div class="page-head"><h1 class="page-title">Balances</h1></div>
 
-<section class="hero" aria-label="Overall balance">
-  <p class="hero-line"><?= $cmp > 0 ? 'Overall, you get back' : ($cmp < 0 ? 'Overall, you owe' : 'Overall, you are') ?></p>
-  <span class="hero-figure <?= $cmp > 0 ? 'text-gets' : ($cmp < 0 ? 'text-owes' : '') ?>"><?= $cmp === 0 ? 'settled up' : e(inr(abs_amount($net))) ?></span>
-  <dl class="stat-line mt-3 mb-0">
-    <div><dt>You paid in groups</dt><dd><?= e(inr($overall['total_paid'])) ?></dd></div>
-    <div><dt>Your share of it</dt><dd><?= e(inr($overall['total_owed'])) ?></dd></div>
-    <div><dt>Others owe you</dt><dd class="<?= bccomp_str((string) $overall['receivable'], '0') > 0 ? 'text-gets' : '' ?>"><?= e(inr($overall['receivable'])) ?></dd></div>
-    <div><dt>You owe others</dt><dd class="<?= bccomp_str((string) $overall['payable'], '0') > 0 ? 'text-owes' : '' ?>"><?= e(inr($overall['payable'])) ?></dd></div>
-  </dl>
-</section>
+<dl class="summary" aria-label="Overall balance">
+  <div class="is-key"><dt>Net balance, all groups</dt> <dd class="<?= $cls ?>"><?= e($fig) ?> <small><?= e($words) ?></small></dd></div>
+  <div><dt>You paid in groups</dt> <dd><?= e(inr($overall['total_paid'])) ?></dd></div>
+  <div><dt>Your share of it</dt> <dd><?= e(inr($overall['total_owed'])) ?></dd></div>
+  <div><dt>Owed to you</dt> <dd><?= e(inr($overall['receivable'])) ?></dd></div>
+  <div><dt>You owe</dt> <dd><?= e(inr($overall['payable'])) ?></dd></div>
+</dl>
 
 <div class="grid-2">
   <section class="section" aria-labelledby="iou-h">

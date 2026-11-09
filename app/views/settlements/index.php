@@ -8,31 +8,35 @@
 <?php if (!$settlements): ?>
   <div class="empty"><i class="bi bi-arrow-left-right" aria-hidden="true"></i><p>No payments here. Open a group and choose Settle up to record one.</p></div>
 <?php else: ?>
-  <ul class="rows">
-    <?php foreach ($settlements as $s): $sid = (int) $s['settlement_id']; [$day, $mon] = date_parts($s['settlement_date']);
+  <div class="table-responsive" tabindex="0" role="region" aria-label="Settlements">
+  <table class="table data-table">
+    <thead><tr><th scope="col">Date</th><th scope="col">Payment</th><th scope="col">Group</th><th scope="col">Status</th><th scope="col" class="num">Amount</th><th scope="col"><span class="visually-hidden">Actions</span></th></tr></thead>
+    <tbody>
+    <?php foreach ($settlements as $s): $sid = (int) $s['settlement_id'];
       $mePayer = (int) $s['payer_id'] === $uid; $mePayee = (int) $s['payee_id'] === $uid; ?>
-      <li><div class="row-item">
-        <div class="row-date" aria-hidden="true"><b><?= e($day) ?></b><span><?= e($mon) ?></span></div>
-        <div class="row-main">
-          <span class="fw-semibold"><?= $mePayer ? 'You' : e($s['payer_name']) ?> paid <?= $mePayee ? 'you' : e($s['payee_name']) ?></span>
-          <div class="row-sub"><?php require __DIR__ . '/_status.php'; ?>
-            <a href="<?= e(url('/groups/' . (int) $s['group_id'])) ?>"><?= e($s['group_name']) ?></a>, <?= e(str_replace('_', ' ', $s['method'])) ?><?= $s['note'] ? ', ' . e($s['note']) : '' ?></div>
-          <?php if ($s['status'] === 'pending'): ?>
-          <div class="d-flex flex-wrap gap-2 mt-2">
-            <?php if ($mePayee): ?>
+      <tr>
+        <td class="text-nowrap" data-label="Date"><?= e(nice_date($s['settlement_date'])) ?></td>
+        <td class="desc"><strong><?= $mePayer ? 'You' : e($s['payer_name']) ?> paid <?= $mePayee ? 'you' : e($s['payee_name']) ?></strong>
+          <span class="sub"><?= e(str_replace('_', ' ', $s['method'])) ?><?= $s['note'] ? ', ' . e($s['note']) : '' ?></span></td>
+        <td data-label="Group"><a href="<?= e(url('/groups/' . (int) $s['group_id'])) ?>"><?= e($s['group_name']) ?></a></td>
+        <td data-label="Status"><?php require __DIR__ . '/_status.php'; ?></td>
+        <td class="num fw-semibold" data-label="Amount"><?= $mePayee ? '+' : ($mePayer ? '−' : '') ?><?= e(inr($s['amount'])) ?></td>
+        <td class="text-end">
+          <?php if ($s['status'] === 'pending' && $mePayee): ?>
+            <div class="d-inline-flex gap-2">
               <form method="post" action="<?= e(url("/settlements/$sid/confirm")) ?>"><?= csrf_field() ?><button class="btn btn-sm btn-confirm">Confirm</button></form>
               <form method="post" action="<?= e(url("/settlements/$sid/reject")) ?>"><?= csrf_field() ?><button class="btn btn-sm btn-danger-quiet">Reject</button></form>
-            <?php elseif ((int) $s['created_by'] === $uid): ?>
-              <span class="note align-self-center">Waiting for <?= e($s['payee_name']) ?> to confirm.</span>
-              <form method="post" action="<?= e(url("/settlements/$sid/cancel")) ?>"><?= csrf_field() ?><button class="btn btn-sm btn-quiet">Cancel</button></form>
-            <?php endif; ?>
-          </div>
+            </div>
+          <?php elseif ($s['status'] === 'pending' && (int) $s['created_by'] === $uid): ?>
+            <form method="post" action="<?= e(url("/settlements/$sid/cancel")) ?>"><?= csrf_field() ?><button class="btn btn-sm btn-quiet" aria-label="Cancel payment to <?= e($s['payee_name']) ?>">Cancel</button></form>
           <?php endif; ?>
-        </div>
-        <div class="row-amounts"><span class="total <?= $mePayee ? 'text-gets' : ($mePayer ? 'text-owes' : '') ?>"><?= e(inr($s['amount'])) ?></span></div>
-      </div></li>
+        </td>
+      </tr>
     <?php endforeach; ?>
-  </ul>
+    </tbody>
+  </table>
+  </div>
+  <p class="note mt-2 mb-0">+ is money you received, − is money you paid. Pending payments count once the receiver confirms.</p>
   <div class="mt-3"><?php require __DIR__ . '/../partials/pagination.php'; ?></div>
 <?php endif; ?>
 </section>

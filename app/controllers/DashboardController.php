@@ -29,6 +29,7 @@ final class DashboardController extends Controller
             'budgetAlerts'=> $budgets,
             'pairs'       => (new BalanceService())->pairwise(null, $uid),
             'uid'         => $uid,
+            'monthSpend'  => (string) ((new \App\Models\AnalyticsModel())->monthShare($uid, date('Y-m')) ?? '0.00'),
         ]);
     }
 }

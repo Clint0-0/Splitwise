@@ -29,6 +29,13 @@ final class AnalyticsModel extends Model
                             ORDER BY spend_month', [$userId, $fromMonth]);
     }
 
+    /** The user's share of all expenses in one month ('2026-11'). */
+    public function monthShare(int $userId, string $month): ?string
+    {
+        $v = $this->value('SELECT my_share FROM v_monthly_user_spending WHERE user_id = ? AND spend_month = ?', [$userId, $month]);
+        return $v === null ? null : (string) $v;
+    }
+
     /** Spending of each of the user's groups. */
     public function groups(int $userId): array
     {

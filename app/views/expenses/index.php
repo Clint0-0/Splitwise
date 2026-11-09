@@ -40,6 +40,6 @@
 
 <section class="panel" aria-label="Expense list">
   <p class="note mb-1"><?= (int) $total ?> expense<?= $total === 1 ? '' : 's' ?></p>
-  <?php require __DIR__ . '/../partials/expense_rows.php'; ?>
+  <?php require __DIR__ . '/../partials/expense_table.php'; ?>
   <div class="mt-3"><?php require __DIR__ . '/../partials/pagination.php'; ?></div>
 </section>
