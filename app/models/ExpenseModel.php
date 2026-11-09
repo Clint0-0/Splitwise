@@ -180,17 +180,28 @@ final class ExpenseModel extends Model
     }
 
     // ---- receipts -----------------------------------------------------------
-    public function addReceipt(int $expenseId, string $path, string $original, string $mime, int $size, int $by): void
+    public function addReceipt(int $expenseId, string $path, string $original, string $mime, int $size, int $by, string $content): void
     {
-        $this->run('INSERT INTO receipts (expense_id, file_path, original_name, mime_type, file_size, uploaded_by)
-                    VALUES (?, ?, ?, ?, ?, ?)', [$expenseId, $path, $original, $mime, $size, $by]);
+        $st = $this->db->prepare('INSERT INTO receipts (expense_id, file_path, original_name, mime_type, file_size, content, uploaded_by)
+                                  VALUES (?, ?, ?, ?, ?, ?, ?)');
+        $st->bindValue(1, $expenseId, \PDO::PARAM_INT);
+        $st->bindValue(2, $path);
+        $st->bindValue(3, $original);
+        $st->bindValue(4, $mime);
+        $st->bindValue(5, $size, \PDO::PARAM_INT);
+        $st->bindValue(6, $content, \PDO::PARAM_LOB);
+        $st->bindValue(7, $by, \PDO::PARAM_INT);
+        $st->execute();
     }
 
+    /** Receipt list without the file bytes. */
     public function receipts(int $expenseId): array
     {
-        return $this->all('SELECT * FROM receipts WHERE expense_id = ? ORDER BY uploaded_at', [$expenseId]);
+        return $this->all('SELECT receipt_id, expense_id, file_path, original_name, mime_type, file_size, uploaded_by, uploaded_at
+                             FROM receipts WHERE expense_id = ? ORDER BY uploaded_at', [$expenseId]);
     }
 
+    /** One receipt including its bytes (for download). */
     public function receipt(int $receiptId): ?array
     {
         return $this->one('SELECT * FROM receipts WHERE receipt_id = ?', [$receiptId]);

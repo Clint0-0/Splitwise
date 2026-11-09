@@ -34,19 +34,22 @@ def main():
     ap.add_argument('--out', default='docs/screenshots')
     ap.add_argument('--only', default='')
     ap.add_argument('--chrome', default='/usr/bin/google-chrome')
+    ap.add_argument('--widths', default='desktop,mobile', help='comma list of: desktop(1366) wide(1440) laptop(1024) tablet(768) mobile(390)')
     a = ap.parse_args()
     only = set(filter(None, a.only.split(',')))
     os.makedirs(a.out, exist_ok=True)
     with sync_playwright() as p:
         browser = p.chromium.launch(executable_path=a.chrome if os.path.exists(a.chrome) else None)
-        for vp, size in [('desktop', (1366, 900)), ('mobile', (390, 844))]:
+        sizes = {'desktop': (1366, 900), 'wide': (1440, 900), 'laptop': (1024, 768), 'tablet': (768, 1024), 'mobile': (390, 844)}
+        for vp in a.widths.split(','):
+            size = sizes[vp]
             sessions = {}
             for name, user, path in PAGES:
                 if only and name not in only:
                     continue
                 if user not in sessions:
                     ctx = browser.new_context(viewport={'width': size[0], 'height': size[1]},
-                                              device_scale_factor=1 if vp == 'desktop' else 2)
+                                              device_scale_factor=2 if vp == 'mobile' else 1)
                     pg = ctx.new_page()
                     if user:
                         pg.goto(a.base + '/login')

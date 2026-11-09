@@ -144,3 +144,58 @@ function abs_amount(string $v): string
 {
     return ltrim($v, '-');
 }
+
+/**
+ * Net balance as a signed figure plus words: ['+₹100.00', 'you get back', 'text-gets'].
+ * Sign + words carry the meaning; colour only reinforces it.
+ */
+function net_parts(string $net, string $who = 'you'): array
+{
+    $c = bccomp_str($net, '0');
+    if ($c === 0) {
+        return ['₹0.00', 'settled up', ''];
+    }
+    $verb = $who === 'you' ? ($c > 0 ? 'you get back' : 'you owe') : ($c > 0 ? 'gets back' : 'owes');
+    return [($c > 0 ? '+' : '−') . inr(abs_amount($net)), $verb, $c > 0 ? 'text-gets' : 'text-owes'];
+}
+
+function is_production(): bool
+{
+    return App\Core\Env::get('APP_ENV', 'local') === 'production';
+}
+
+/** Trust X-Forwarded-* only when the app sits behind a known proxy (Vercel): APP_TRUST_PROXY=true. */
+function trust_proxy(): bool
+{
+    return in_array(strtolower((string) App\Core\Env::get('APP_TRUST_PROXY', 'false')), ['1', 'true', 'on'], true);
+}
+
+/**
+ * Real visitor IP behind ONE trusted proxy (the platform edge).
+ * Uses the RIGHT-most X-Forwarded-For entry: that is the address the edge itself saw.
+ * Entries further left were sent by the client and can be forged, so rotating fake
+ * X-Forwarded-For values cannot dodge the login throttle.
+ */
+function client_ip(): string
+{
+    if (trust_proxy()) {
+        $parts = array_reverse(explode(',', (string) ($_SERVER['HTTP_X_FORWARDED_FOR'] ?? '')));
+        $ip = trim($parts[0] ?? '');
+        if (filter_var($ip, FILTER_VALIDATE_IP)) {
+            return $ip;
+        }
+    }
+    return (string) ($_SERVER['REMOTE_ADDR'] ?? '');
+}
+
+/** Is the visitor's connection HTTPS (also when TLS ends at a trusted proxy)? */
+function is_https(): bool
+{
+    if (($_SERVER['HTTPS'] ?? '') !== '' && $_SERVER['HTTPS'] !== 'off') {
+        return true;
+    }
+    if (trust_proxy() && strtolower((string) ($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '')) === 'https') {
+        return true;
+    }
+    return is_production();
+}

@@ -1,0 +1,20 @@
+# Keep secrets, history and non-runtime files out of the image
+.git
+.github
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+build/
+database/
+docs/
+tests/
+tools/
+storage/logs/*
+node_modules/
+vendor/
+**/__pycache__
+*.md
+Dockerfile
+.dockerignore

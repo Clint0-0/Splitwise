@@ -20,8 +20,10 @@ final class Env
             }
             [$key, $value] = explode('=', $line, 2);
             $value = trim($value);
-            if (strlen($value) >= 2 && ($value[0] === '"' || $value[0] === "'") && $value[-1] === $value[0]) {
-                $value = substr($value, 1, -1);
+            if (strlen($value) >= 2 && ($value[0] === '"' || $value[0] === "'") && strrpos($value, $value[0]) > 0) {
+                $value = substr($value, 1, strrpos($value, $value[0]) - 1);   // quoted: keep # and spaces inside
+            } else {
+                $value = trim((string) preg_replace('/(^|\s)#.*$/', '', $value));   // unquoted: drop " # comment"
             }
             self::$vars[trim($key)] = $value;
         }

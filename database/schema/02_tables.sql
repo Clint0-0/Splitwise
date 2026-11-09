@@ -251,6 +251,7 @@ CREATE TABLE receipts (
   original_name VARCHAR(255) NOT NULL,
   mime_type     VARCHAR(50)  NOT NULL,
   file_size     INT UNSIGNED NOT NULL,
+  content       LONGBLOB     NULL,           -- file bytes (Phase 5.5: stored in MySQL, not on disk)
   uploaded_by   INT UNSIGNED NOT NULL,
   uploaded_at   DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
   CONSTRAINT pk_receipts PRIMARY KEY (receipt_id),

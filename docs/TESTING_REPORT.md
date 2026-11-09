@@ -405,3 +405,60 @@ Found by reviewing the Phase 5 code; each fix was exercised for real.
 | 22 | Git for Windows checks files out with CRLF by default | `.gitattributes` pins LF (CRLF breaks the `.sh` runners under Git Bash/WSL). Also checked: MySQL imports a CRLF copy of `splitwise_plus.sql` cleanly (10/10 install checks, no `\r` in data) | Imported a CRLF copy |
 
 Re-run after the fixes (password admin over TCP, as on Windows): **unit 41/41, SQL scripts 11/11, database 74/74, functional 103/103, scenarios 23/23 — all passing.** Linux shortcut runners also pass.
+
+## Phase 5.5 — UI refinement + deployment preparation (2026-11-09)
+
+### Results (all run in the build sandbox, MySQL 8.0.46, PHP 8.x built-in server)
+| Suite | Result |
+|---|---|
+| `php tests/run_all.php` (password admin over TCP, as on Windows): unit / SQL scripts / database / functional / scenarios | **41/41, 11/11, 76/76, 115/115, 23/23 — all pass** |
+| Linux runners `tests/database/run.sh`, `tests/functional/run.sh` | pass |
+| `tests/deployment/run.sh` | **28/28** |
+| axe-core (WCAG 2.1 AA + best practice), all screens, desktop + phone | **0 violations** |
+| Screenshots 1440 / 1366 / 1024 / 768 / 390 px, 18 screens | reviewed; fixes below |
+
+### New tests
+- Functional **P1–P12**: `/healthz`, `/readyz`, 405 on POST, CSP header, no inline scripts on 11 pages, session row in `app_sessions`, row deleted on logout, attacker-chosen session id replaced, idle session expired server-side, throttle counters in `app_kv` with hashed keys, mail cursor in `app_kv`, cookie flags on local HTTP. **R1** now checks receipt bytes in MySQL.
+- Database **A8–A9**: app user can write `app_sessions`/`app_kv` and store receipt bytes.
+- Deployment **C1–C7** (Dockerfile/Caddyfile/.dockerignore/.gitignore/.env.example/git-tracked secrets), **H1–H4** (hosted-style import into a separate DB, demo passwords replaced, TLS-only user refused without TLS), **E1–E12** (production mode behind a simulated HTTPS proxy: HSTS, Secure cookie, login with hosted demo password, session shared by two instances, throttle by real IP and not dodgeable with forged X-Forwarded-For, no secrets in logs), **F1–F4** (DB unreachable: `/readyz` 503 generic, `/healthz` 200, generic 500 page even with `APP_DEBUG=true`, failure logged without password).
+
+### Issues found and fixed in Phase 5.5
+| # | Issue | Fix |
+|---|---|---|
+| 23 | Five runtime stores on local disk would break on Vercel (sessions, throttle, mail cursor, receipts, error log) | moved to MySQL / stderr |
+| 24 | Two-column grid at 1024 px made IOU slips and the hero figure overflow | two columns from 1200 px; clamp() font sizes |
+| 25 | Group members table clipped the balance column at half width | paid/share moved under the name |
+| 26 | Dashboard group list had no inner padding | inset rows |
+| 27 | Budget form used an inline `<script>` (incompatible with a strict CSP) | moved to `budget-form.js` |
+| 28 | Session started before the error handler: DB outage would print a raw fatal error | `Session::start()` inside the `try` |
+| 29 | First `client_ip()` draft used the left-most `X-Forwarded-For` entry (spoofable) | right-most entry; test E10b |
+| 30 | Built-in server sent `X-Powered-By: PHP/x.y` | `header_remove()` in the front controller (image also has `expose_php=Off`) |
+| 31 | Summary band text ran together for screen-reader text extraction ("group₹0.00settled up") | whitespace between term, figure and caption |
+
+### Not tested / blocked
+| Item | Status | Why |
+|---|---|---|
+| `docker build`, container run, FrankenPHP serving | **Blocked** | Docker Hub pulls refused; executing a downloaded FrankenPHP binary not permitted in the sandbox |
+| Managed MySQL import over the internet | **Blocked** | needs a provider account (simulated locally with a TLS-only user in a separate DB) |
+| Vercel preview/production, 20 workflows on deployed URL | **Not tested** | no Vercel account/credentials; no deployment exists |
+| Official Vercel docs check | **Not done** | fetch not approved in the session; items marked (verify) in `DEPLOYMENT.md` |
+
+### Phase 5.5 — bug-fix round (2026-11-09)
+| # | Bug | Impact | Fix | Verified by |
+|---|---|---|---|---|
+| 32 | `.env.example` had comments after values; the `.env` reader kept them (`SESSION_DRIVER=database   # …`) | a copied `.env` silently used file sessions, wrong DB password, `MAIL_LOG` = a file named "# mock…"; Docker `--env-file` has the same problem | reader strips unquoted ` # comments` (quoted values keep `#`); template comments moved to their own lines | unit Env ×5, deployment C6a |
+| 33 | `DB_SSL=true` with no CA found connected without a CA option | could end up on an unencrypted / unverified connection | fail closed with a clear config error | unit "fails closed" |
+| 34 | Caddy matcher `/*/.*` only blocks dotfiles one folder deep | `/a/b/.secret` would be served | `*/.*` (any depth) | deployment C3 |
+| 35 | Deployment test deleted the developer's `build/` folder | could wipe generated hosted scripts | `build_hosted.php --out=DIR`, test uses a temp folder | `build/` untouched after run |
+| 36 | Stale `build/demo_password.txt` kept when a new `DEMO_PASSWORD` was given | misleading password file | removed on such runs | code path |
+| 37 | Hosted install check pointed at `splitwise_plus` | wrong DB checked | `build/hosted_verify.sql` generated for the hosted name; deployment test runs it | deployment run (no FAIL rows) |
+| 38 | `UPLOAD_MAX_BYTES` above 5 MB accepted | 500 error from the DB CHECK on a big receipt | env can only lower the limit | code path |
+| 39 | Session write errors at shutdown could print a fatal error after the page | stray error text, no log context | write/updateTimestamp catch, log and return false | code path |
+| 40 | Rejected/cancelled payments shown with +/− like real money | misleading list | struck through, muted, no sign, screen-reader "not counted" | screenshots |
+| 41 | Deleted-expense total never struck through (`.num:first-of-type` never matched) | visual bug | selector on `td[data-label="Total"]` | screenshot |
+| 42 | Dates wrapped in table cells at 768–1024 px | cramped rows | `white-space: nowrap` for date cells ≥768 px | screenshots |
+| 43 | Profile said mock mail goes to `storage/logs/mail.log` (wrong in production) | wrong info | "written to the server log" | page |
+| 44 | Dockerfile set unused `SERVER_NAME` | confusing config | removed | — |
+| 45 | Deployment test only worked with passwordless socket root and a fixed CA path | not portable | `DB_ROOT_USER/PASS/TCP`, CA from `@@ssl_ca` or `MYSQL_CA` | run |
+
+Re-run after the fixes: **unit 53/53, SQL scripts 11/11, database 76/76, functional 115/115, scenarios 23/23 (run_all over TCP + Linux runners), deployment 29/29, axe 0 violations, browser console 0 errors/warnings on all 18 screens (CSP blocks nothing the app needs; budget form script works).**

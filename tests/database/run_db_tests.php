@@ -67,7 +67,7 @@ $db->exec('SET @app_user_id = 1');
 // ---------------------------------------------------------------- structure
 $cnt = fn(string $type) => (int) val($db,
     "SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA='splitwise_plus' AND TABLE_TYPE=?", [$type]);
-record('S1', '14 base tables exist', $cnt('BASE TABLE') === 14);
+record('S1', '16 base tables exist (14 business + app_sessions, app_kv)', $cnt('BASE TABLE') === 16);
 record('S2', '11 views exist', $cnt('VIEW') === 11);
 record('S3', '11 triggers covering all 6 timing/event pairs',
     (int) val($db, "SELECT COUNT(*) FROM information_schema.TRIGGERS WHERE TRIGGER_SCHEMA='splitwise_plus'") === 11
@@ -313,6 +313,18 @@ if ($appPass !== false && $appPass !== '') {
         try { $call($app, [1, 4, 2, 99999, '2026-11-08', 'cash', null, 2, 'priv-over']); record('A7', 'proc business rule', false); }
         catch (PDOException $e) { record('A7', 'App user reaches settlement rules via sp_record_settlement (blocked by rule, not by permission)',
             str_contains($e->getMessage(), 'exceeds')); }
+        record('A8', 'App user can store/refresh/delete sessions (app_sessions) and counters (app_kv)', inTx($app, function (PDO $d) {
+            exec_($d, "INSERT INTO app_sessions (session_id,payload,last_activity) VALUES ('t1','x',1) AS n
+                       ON DUPLICATE KEY UPDATE payload=n.payload");
+            exec_($d, "UPDATE app_sessions SET last_activity=2 WHERE session_id='t1'");
+            exec_($d, "INSERT INTO app_kv (kv_key,kv_value,expires_at) VALUES ('t:k','1',NULL)");
+            exec_($d, "DELETE FROM app_sessions WHERE session_id='t1'");
+            exec_($d, "DELETE FROM app_kv WHERE kv_key='t:k'");
+            return true; }));
+        record('A9', 'App user can store receipt bytes (receipts.content LONGBLOB)', inTx($app, function (PDO $d) {
+            exec_($d, "INSERT INTO receipts (expense_id,file_path,original_name,mime_type,file_size,content,uploaded_by)
+                       VALUES (1,'t.png','t.png','image/png',3,'abc',2)");
+            return val($d, 'SELECT content FROM receipts WHERE receipt_id=?', [(int) $d->lastInsertId()]) === 'abc'; }));
     } catch (PDOException $e) {
         record('A0', 'Connect as splitwise_app', false, $e->getMessage());
     }

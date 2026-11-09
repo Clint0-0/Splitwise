@@ -322,3 +322,70 @@ legend.form-label { font-size: 1rem; font-family: var(--font-body); }
   .page-actions { width: 100%; }
 }
 .stat-line dd.note { font-family: var(--font-body); font-weight: 400; font-size: .85rem; color: var(--muted); }
+
+/* =====================================================================
+   Phase 5.5 refinement: denser, table-first financial layout
+   ===================================================================== */
+.page-title { font-size: clamp(1.6rem, 1.3rem + 0.9vw, 2rem); }
+.page-head { margin-bottom: 1.25rem; }
+
+/* two columns only when there is real room (rail 232px + 2 readable columns) */
+.grid-2 { grid-template-columns: minmax(0, 1fr) !important; }
+@media (min-width: 1200px) {
+  .grid-2 { grid-template-columns: minmax(0, 5fr) minmax(0, 7fr) !important; }
+  .grid-2.even { grid-template-columns: 1fr 1fr !important; }
+}
+
+/* summary band: the key figures of a page in one bordered strip with dividers */
+.summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-panel); margin: 0 0 1.5rem; }
+.summary > div { padding: .9rem 1.1rem; border-left: 1px solid var(--line); min-width: 0; }
+.summary > div:first-child { border-left: 0; }
+.summary dt { font-weight: 500; font-size: .85rem; color: var(--muted); }
+.summary dd { margin: .15rem 0 0; font-family: var(--font-display); font-weight: 700; font-size: 1.5rem; line-height: 1.15; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.summary dd small { display: block; font-family: var(--font-body); font-weight: 500; font-size: .8rem; color: var(--muted); }
+.summary .is-key dd { font-size: 1.85rem; }
+@media (max-width: 575.98px) {
+  .summary { grid-template-columns: 1fr 1fr; }
+  .summary > div { border-left: 0; border-top: 1px solid var(--line); }
+  .summary > div:nth-child(-n+2) { border-top: 0; }
+  .summary > div:nth-child(even) { border-left: 1px solid var(--line); }
+  .summary .is-key { grid-column: 1 / -1; border-top: 0 !important; border-left: 0 !important; border-bottom: 1px solid var(--line); }
+  .summary .is-key + div { border-top: 0; border-left: 0; }
+  .summary .is-key + div + div { border-top: 0; }
+}
+
+/* IOU list: one ledger with dividers instead of a stack of separate cards */
+.slips { gap: 0; background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-panel); overflow: hidden; }
+.slip { border: 0; border-radius: 0; border-top: 1px solid var(--line); padding: .65rem .9rem .65rem 1.1rem; }
+.slip:first-child { border-top: 0; }
+.slip::before { width: 4px; }
+.slip .avatar { width: 32px; height: 32px; font-size: .8rem; }
+.slip-amount { font-size: 1.15rem; }
+
+/* data tables that collapse into labelled rows on phones */
+.data-table { width: 100%; }
+.data-table td.desc a { font-weight: 700; color: var(--ink); text-decoration: none; }
+.data-table td.desc a:hover { text-decoration: underline; }
+.data-table td.desc .sub { display: block; color: var(--muted); font-size: .8rem; }
+.data-table tr.is-deleted td { color: var(--muted); }
+.data-table tr.is-deleted td.desc a, .data-table tr.is-deleted td[data-label="Total"] { text-decoration: line-through; }
+.data-table .muted-cell { color: var(--muted); }
+@media (max-width: 767.98px) {
+  .data-table thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+  .data-table, .data-table tbody, .data-table tr, .data-table td { display: block; width: 100%; }
+  .data-table tr { padding: .65rem 0; border-bottom: 1px solid var(--line); }
+  .data-table td { border: 0; padding: .1rem 0; text-align: left !important; }
+  .data-table td[data-label]::before { content: attr(data-label) ": "; color: var(--muted); font-size: .85rem; }
+  .data-table td.desc { font-size: 1.02rem; }
+}
+.summary { grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); }
+.summary dd { font-size: clamp(1.2rem, 0.9rem + 0.8vw, 1.5rem); }
+.summary .is-key dd { font-size: clamp(1.35rem, 1rem + 1vw, 1.85rem); }
+* + .grid-2 { margin-top: 1.5rem; }
+.summary { grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); }
+
+/* dashboard group list: inset rows, no rule under the last one */
+.group-list > li:last-child { border-bottom: 0 !important; }
+
+/* dates never break across lines in wide tables */
+@media (min-width: 768px) { .data-table td[data-label="Date"] { white-space: nowrap; } }

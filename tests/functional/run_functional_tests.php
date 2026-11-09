@@ -30,6 +30,7 @@ final class Browser
     public int $status = 0;
     public string $body = '';
     public string $location = '';
+    public string $headers = '';
 
     public function __construct(private string $base)
     {
@@ -79,6 +80,31 @@ final class Browser
         return str_contains($this->body, $text);
     }
 
+    /** Value of a response header of the last request ('' if absent). */
+    public function header(string $name): string
+    {
+        return preg_match('/^' . preg_quote($name, '/') . ':\s*(.*?)\r?$/mi', $this->headers, $m) ? $m[1] : '';
+    }
+
+    /** Current value of a cookie in this browser's jar. */
+    public function cookie(string $name): string
+    {
+        foreach (file($this->jar, FILE_IGNORE_NEW_LINES) ?: [] as $line) {
+            $f = explode("\t", $line);
+            if (count($f) === 7 && $f[5] === $name) {
+                return $f[6];
+            }
+        }
+        return '';
+    }
+
+    /** Plant a cookie (e.g. an attacker-chosen session id). */
+    public function setCookie(string $name, string $value): void
+    {
+        $host = parse_url($this->base, PHP_URL_HOST);
+        file_put_contents($this->jar, "$host\tFALSE\t/\tFALSE\t0\t$name\t$value\n");
+    }
+
     private function send(string $method, string $path, array $data = [], array $files = []): self
     {
         $ch = curl_init($this->base . $path);
@@ -103,9 +129,10 @@ final class Browser
         $this->status = (int) curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
         $hs = (int) curl_getinfo($ch, CURLINFO_HEADER_SIZE);
         $headers = substr($raw, 0, $hs);
+        $this->headers = $headers;
         $this->body = substr($raw, $hs);
         $this->location = preg_match('/^Location:\s*(\S+)/mi', $headers, $m) ? $m[1] : '';
-        curl_close($ch);
+        unset($ch);   // frees the handle -> cookie jar written now
         return $this;
     }
 
@@ -350,8 +377,10 @@ $aarav->post('/expenses', ['group_id' => $gid, 'description' => 'Snacks with bil
 $eR = (int) $val("SELECT expense_id FROM expenses WHERE description='Snacks with bill'");
 $rid = (int) $val('SELECT receipt_id FROM receipts WHERE expense_id=?', [$eR]);
 $stored = (string) $val('SELECT file_path FROM receipts WHERE receipt_id=?', [$rid]);
-check('R1', 'PNG receipt stored outside public/ with a random name',
-    $rid > 0 && preg_match('/^[0-9a-f]{32}\.png$/', $stored) === 1 && is_file(__DIR__ . '/../../storage/receipts/' . $stored));
+check('R1', 'PNG receipt bytes stored in MySQL (receipts.content) under a random key, not on local disk',
+    $rid > 0 && preg_match('/^[0-9a-f]{32}\.png$/', $stored) === 1
+    && $val('SELECT content FROM receipts WHERE receipt_id=?', [$rid]) === file_get_contents($png)
+    && !is_file(__DIR__ . '/../../storage/receipts/' . $stored));
 $t->get("/receipts/$rid");
 check('R2', 'Participant can open the receipt', $t->status === 200 && str_starts_with($t->body, "\x89PNG"));
 $sneha = login($BASE, 'sneha');
@@ -597,6 +626,56 @@ $k->post('/expenses', ['group_id' => '', 'description' => 'Too big receipt', 'to
 check('T8', '5.5 MB receipt rejected with the real limit (5 MB) and no expense saved',
     $k->has('between 1 byte and 5 MB') && (int) $val("SELECT COUNT(*) FROM expenses WHERE description='Too big receipt'") === 0);
 @unlink($big); @unlink($mid);
+
+// ======================================================================= deployment readiness (Phase 5.5)
+$p = new Browser($BASE);
+$p->get('/healthz');
+check('P1', '/healthz -> 200 {"status":"ok"}, no session cookie, no-store',
+    $p->status === 200 && trim($p->body) === '{"status":"ok"}' && $p->cookie('splitwise_sess') === '' && $p->header('Cache-Control') === 'no-store');
+$p->get('/readyz');
+check('P2', '/readyz -> 200 {"status":"ready"} (DB reachable), body leaks nothing else',
+    $p->status === 200 && trim($p->body) === '{"status":"ready"}');
+$p->post('/readyz', [], false);
+check('P3', 'Health endpoints accept only GET/HEAD (405)', $p->status === 405);
+$p->get('/login');
+$csp = $p->header('Content-Security-Policy');
+check('P4', 'CSP header: scripts only from self, no framing, no plugins',
+    str_contains($csp, "script-src 'self'") && str_contains($csp, "frame-ancestors 'none'") && str_contains($csp, "object-src 'none'")
+    && !str_contains($csp, "script-src 'self' 'unsafe-inline'"));
+$inline = 0;
+$pv = login($BASE, 'priya');
+foreach (['/dashboard', '/groups', '/expenses', '/expenses/create', '/settlements', '/balances', '/budgets', '/budgets/create', '/analytics', '/notifications', '/profile'] as $pg) {
+    $pv->get($pg);
+    $inline += preg_match_all('/<script(?![^>]*\bsrc=)[^>]*>|\son[a-z]+\s*=\s*"/i', $pv->body);
+}
+check('P5', 'No inline <script> or on*= handlers on 11 main pages (CSP-safe)', $inline === 0, "found $inline");
+$sid = $pv->cookie('splitwise_sess');
+check('P6', 'Session stored in MySQL app_sessions (shared by all instances)',
+    $sid !== '' && (int) $val('SELECT COUNT(*) FROM app_sessions WHERE session_id=?', [$sid]) === 1
+    && str_contains((string) $val('SELECT payload FROM app_sessions WHERE session_id=?', [$sid]), 'user_id'));
+$pv->post('/logout');
+check('P7', 'Logout deletes the session row', (int) $val('SELECT COUNT(*) FROM app_sessions WHERE session_id=?', [$sid]) === 0);
+$fx = new Browser($BASE);
+$fx->setCookie('splitwise_sess', 'attackerchosenid1234567890abcdef');
+$fx->get('/login');
+check('P8', 'Unknown session id from the client is replaced (strict mode, no fixation)',
+    $fx->cookie('splitwise_sess') !== 'attackerchosenid1234567890abcdef' && $fx->cookie('splitwise_sess') !== ''
+    && (int) $val("SELECT COUNT(*) FROM app_sessions WHERE session_id='attackerchosenid1234567890abcdef'") === 0);
+$old = login($BASE, 'kabir');
+$oldSid = $old->cookie('splitwise_sess');
+$db->prepare('UPDATE app_sessions SET last_activity = UNIX_TIMESTAMP() - 8000 WHERE session_id=?')->execute([$oldSid]);
+$old->get('/dashboard');
+check('P9', 'Session idle longer than SESSION_LIFETIME (2 h) is expired server-side', $old->status === 303 && str_ends_with($old->location, '/login'));
+check('P10', 'Login-throttle counters kept in MySQL (app_kv), hashed keys (no e-mail/IP in clear)',
+    (int) $val("SELECT COUNT(*) FROM app_kv WHERE kv_key LIKE 'thr:a:%'") >= 1
+    && (int) $val("SELECT COUNT(*) FROM app_kv WHERE kv_key LIKE '%meera%' OR kv_key LIKE '%127.0.0.1%'") === 0);
+check('P11', 'Mock-mail cursor kept in MySQL (app_kv), equals newest notification',
+    (int) $val("SELECT kv_value FROM app_kv WHERE kv_key='mail:cursor'") === (int) $val('SELECT MAX(notification_id) FROM notifications'));
+$x = new Browser($BASE);
+$x->get('/login');
+check('P12', 'Local http: session cookie not forced Secure; HttpOnly + SameSite=Lax set',
+    (bool) preg_match('/^Set-Cookie: splitwise_sess=[^\r\n]*HttpOnly[^\r\n]*SameSite=Lax/mi', $x->headers)
+    && !preg_match('/^Set-Cookie: splitwise_sess=[^\r\n]*;\s*secure/mi', $x->headers));
 
 // ======================================================================= misc
 $aarav->get('/does-not-exist');

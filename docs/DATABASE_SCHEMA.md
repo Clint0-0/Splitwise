@@ -385,7 +385,12 @@ The spec's "Expense Participants" and "Expense Splits" are merged: a participant
 `INDEX (user_id, is_read, created_at)`.
 
 ### 4.11 `receipts`
-`receipt_id` PK; `expense_id` FK → expenses CASCADE; `file_path VARCHAR(255)` (random stored name under `storage/receipts/`, outside web root); `original_name VARCHAR(255)`; `mime_type VARCHAR(50)` CHECK IN ('image/jpeg','image/png','application/pdf'); `file_size INT UNSIGNED` CHECK `<= 5242880`; `uploaded_by` FK → users RESTRICT; `uploaded_at`.
+`receipt_id` PK; `expense_id` FK → expenses CASCADE; `file_path VARCHAR(255)` (random key, e.g. `3f…a1.png`); `content LONGBLOB NULL` (the file bytes — stored in MySQL since Phase 5.5 so every app server sees them); `original_name VARCHAR(255)`; `mime_type VARCHAR(50)` CHECK IN ('image/jpeg','image/png','application/pdf'); `file_size INT UNSIGNED` CHECK `<= 5242880`; `uploaded_by` FK → users RESTRICT; `uploaded_at`.
+
+### Runtime tables (Phase 5.5, `schema/04_infrastructure.sql`) — not part of the business model
+- `app_sessions(session_id VARCHAR(128) PK, payload MEDIUMBLOB, last_activity INT UNSIGNED, INDEX(last_activity))` — PHP sessions, shared by all app instances.
+- `app_kv(kv_key VARCHAR(100) PK, kv_value VARCHAR(255), expires_at INT UNSIGNED NULL, INDEX(expires_at))` — login-throttle counters (hashed keys) and the mock-mail cursor.
+No foreign keys (sessions exist before login; counters are keyed by hashes). The 14-table business design is unchanged; total base tables = 16.
 
 ### 4.12 `tags` / 4.13 `expense_tags`
 `tags(tag_id PK, name VARCHAR(30) NOT NULL UNIQUE)` — lower-case labels like `goa-2026`, `office`.

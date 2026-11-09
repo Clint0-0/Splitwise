@@ -105,7 +105,7 @@ $settle($chet, $G, $B, $C, '460');   // receiver records -> confirmed at once
 $settle($asha, $G, $B, $A, '100');
 $asha->get("/groups/$G");
 check('SC-B2', 'After the two payments everyone is at ₹0 and the page says so',
-    $nets($G, [$A, $B, $C]) === ['0.00', '0.00', '0.00'] && $asha->says('Everyone is settled up') && $asha->says('In this group you are settled up'));
+    $nets($G, [$A, $B, $C]) === ['0.00', '0.00', '0.00'] && $asha->says('Everyone is settled up') && $asha->says('Your balance in this group ₹0.00 settled up'));
 
 $e1 = (int) $val("SELECT expense_id FROM expenses WHERE description = 'Dinner' AND group_id = ?", [$G]);
 $asha->get("/expenses/$e1/edit");
@@ -124,7 +124,7 @@ check('SC-B5', 'Deleting the ₹1,200 movie after settling flips directions: Ash
     && (int) $val("SELECT COUNT(*) FROM settlements WHERE group_id = ? AND status = 'confirmed'", [$G]) === 3);
 $chet->get("/groups/$G");
 check('SC-B6', 'Chetan now sees he owes ₹1,060.00 and is told who to pay',
-    $chet->says('In this group you owe ₹1,060.00') && $chet->says('You pay Asha Kulkarni ₹800.00') && $chet->says('You pay Bala Murugan ₹260.00'));
+    $chet->says('Your balance in this group −₹1,060.00 you owe') && $chet->says('You pay Asha Kulkarni ₹800.00') && $chet->says('You pay Bala Murugan ₹260.00'));
 $asha->get("/expenses/$e2");
 $asha->post("/expenses/$e2/restore");
 check('SC-B7', 'Group admin restores it: back to Asha +200, Bala −100, Chetan −100',

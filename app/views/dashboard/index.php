@@ -1,30 +1,15 @@
-<?php
-$net = (string) $overall['net_balance'];
-$cmp = bccomp_str($net, '0');
-$first = explode(' ', (string) (App\Core\Auth::user()['full_name'] ?? ''))[0];
-?>
+<?php [$fig, $words, $cls] = net_parts((string) $overall['net_balance']); ?>
 <div class="page-head">
-  <div>
-    <h1 class="page-title">Hi <?= e($first) ?></h1>
-  </div>
+  <h1 class="page-title">Dashboard</h1>
+  <div class="page-actions"><a class="btn btn-primary" href="<?= e(url('/expenses/create')) ?>"><i class="bi bi-plus-lg" aria-hidden="true"></i> Add expense</a></div>
 </div>
 
-<section class="hero" aria-label="Your overall balance">
-  <?php if ($cmp > 0): ?>
-    <p class="hero-line">Across all your groups, you get back</p>
-    <span class="hero-figure text-gets"><?= e(inr($net)) ?></span>
-  <?php elseif ($cmp < 0): ?>
-    <p class="hero-line">Across all your groups, you owe</p>
-    <span class="hero-figure text-owes"><?= e(inr(abs_amount($net))) ?></span>
-  <?php else: ?>
-    <p class="hero-line">Across all your groups, you are</p>
-    <span class="hero-figure">settled up</span>
-  <?php endif; ?>
-  <div class="hero-split">
-    <span>Others owe you <strong class="amount"><?= e(inr($overall['receivable'])) ?></strong></span>
-    <span>You owe others <strong class="amount"><?= e(inr($overall['payable'])) ?></strong></span>
-  </div>
-</section>
+<dl class="summary" aria-label="Your money at a glance">
+  <div class="is-key"><dt>Net balance, all groups</dt> <dd class="<?= $cls ?>"><?= e($fig) ?> <small><?= e($words) ?></small></dd></div>
+  <div><dt>Owed to you</dt> <dd><?= e(inr($overall['receivable'])) ?></dd></div>
+  <div><dt>You owe</dt> <dd><?= e(inr($overall['payable'])) ?></dd></div>
+  <div><dt>Your spending in <?= e(date('F')) ?></dt> <dd><?= e(inr($monthSpend)) ?> <small>your share, incl. personal</small></dd></div>
+</dl>
 
 <?php if ($invitations): ?>
   <section class="todo" aria-labelledby="inv-h">
@@ -61,7 +46,7 @@ $first = explode(' ', (string) (App\Core\Auth::user()['full_name'] ?? ''))[0];
   </div>
 <?php endif; ?>
 
-<div class="grid-2 mt-4">
+<div class="grid-2">
   <div class="stack">
     <section class="section" aria-labelledby="iou-h">
       <h2 id="iou-h">Who owes whom</h2>
@@ -74,7 +59,7 @@ $first = explode(' ', (string) (App\Core\Auth::user()['full_name'] ?? ''))[0];
         <div class="empty"><i class="bi bi-people" aria-hidden="true"></i><p>You are not in a group yet. Make one for your flat, a trip or your friends.</p>
           <a class="btn btn-primary" href="<?= e(url('/groups/create')) ?>">Create a group</a></div>
       <?php else: ?>
-        <ul class="rows panel py-1">
+        <ul class="rows panel group-list px-3 py-1">
           <?php foreach ($groups as $g): ?>
             <li class="d-flex justify-content-between align-items-center gap-3 py-2 border-bottom">
               <a class="fw-bold text-decoration-none" href="<?= e(url('/groups/' . (int) $g['group_id'])) ?>"><?= e($g['name']) ?></a>
