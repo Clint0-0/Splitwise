@@ -2,10 +2,7 @@
 .env
 
 # Runtime data
-storage/receipts/*
 storage/logs/*
-storage/throttle/
-!storage/receipts/.gitkeep
 !storage/logs/.gitkeep
 !storage/.htaccess
 
@@ -23,3 +20,8 @@ node_modules/
 # Python cache
 __pycache__/
 *.pyc
+
+# Generated hosted-DB import scripts (contain demo password hashes / grants)
+build/
+.env.*
+!.env.example

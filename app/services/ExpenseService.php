@@ -213,7 +213,7 @@ final class ExpenseService
         }
         $this->expenses->setTags($expenseId, $data['tags']);
         if ($stored) {
-            $this->expenses->addReceipt($expenseId, $stored['path'], $stored['original'], $stored['mime'], $stored['size'], $actor);
+            $this->expenses->addReceipt($expenseId, $stored['path'], $stored['original'], $stored['mime'], $stored['size'], $actor, $stored['content']);
         }
     }
 

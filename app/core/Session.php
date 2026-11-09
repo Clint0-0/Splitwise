@@ -11,16 +11,24 @@ final class Session
         if (session_status() === PHP_SESSION_ACTIVE) {
             return;
         }
+        $lifetime = max(300, (int) Env::get('SESSION_LIFETIME', '7200'));   // idle timeout, seconds
         session_name(Env::get('SESSION_NAME', 'splitwise_sess'));
         session_set_cookie_params([
-            'lifetime' => 0,
+            'lifetime' => 0,                 // browser-session cookie; the server enforces the idle timeout
             'path'     => '/',
-            'secure'   => (($_SERVER['HTTPS'] ?? '') !== '' && $_SERVER['HTTPS'] !== 'off'),
+            'secure'   => is_https(),
             'httponly' => true,
             'samesite' => 'Lax',
         ]);
         ini_set('session.use_strict_mode', '1');
         ini_set('session.use_only_cookies', '1');
+        ini_set('session.gc_maxlifetime', (string) $lifetime);
+        ini_set('session.gc_probability', '1');
+        ini_set('session.gc_divisor', '100');
+        // Sessions in MySQL by default, so every app instance shares them (SESSION_DRIVER=files to opt out)
+        if (Env::get('SESSION_DRIVER', 'database') === 'database') {
+            session_set_save_handler(new DbSessionHandler(Database::pdo(), $lifetime), true);
+        }
         session_start();
     }
 

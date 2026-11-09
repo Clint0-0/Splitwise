@@ -40,6 +40,9 @@ GRANT INSERT, UPDATE, DELETE ON splitwise_plus.notifications     TO 'splitwise_a
 GRANT INSERT, UPDATE, DELETE ON splitwise_plus.receipts          TO 'splitwise_app'@'localhost', 'splitwise_app'@'127.0.0.1';
 GRANT INSERT, UPDATE, DELETE ON splitwise_plus.tags              TO 'splitwise_app'@'localhost', 'splitwise_app'@'127.0.0.1';
 GRANT INSERT, UPDATE, DELETE ON splitwise_plus.expense_tags      TO 'splitwise_app'@'localhost', 'splitwise_app'@'127.0.0.1';
+-- shared runtime state (sessions, throttle counters, mail cursor) — Phase 5.5
+GRANT INSERT, UPDATE, DELETE ON splitwise_plus.app_sessions      TO 'splitwise_app'@'localhost', 'splitwise_app'@'127.0.0.1';
+GRANT INSERT, UPDATE, DELETE ON splitwise_plus.app_kv            TO 'splitwise_app'@'localhost', 'splitwise_app'@'127.0.0.1';
 -- settlements, audit_logs, categories: SELECT only (granted above)
 
 SHOW GRANTS FOR 'splitwise_app'@'localhost';

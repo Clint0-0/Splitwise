@@ -8,14 +8,15 @@ use App\Core\ValidationException;
 
 /**
  * Receipt uploads. The MIME type is detected from the file CONTENT (finfo),
- * never trusted from the browser. Files get random names and live in
- * storage/receipts/ (outside public/), served only through an authorised route.
+ * never trusted from the browser. The bytes are stored in MySQL (receipts.content)
+ * — not on the server's disk, which is temporary on Vercel — under a random key,
+ * and served only through an authorised route (ExpenseController::receipt).
  */
 final class UploadService
 {
     private const ALLOWED = ['image/jpeg' => 'jpg', 'image/png' => 'png', 'application/pdf' => 'pdf'];
 
-    /** @return array{path:string, original:string, mime:string, size:int} */
+    /** @return array{path:string, original:string, mime:string, size:int, content:string} */
     public function storeReceipt(array $file): array
     {
         $max = self::maxBytes();
@@ -36,13 +37,13 @@ final class UploadService
         if (!isset(self::ALLOWED[$mime])) {
             throw ValidationException::single('receipt', 'Receipt must be a JPG, PNG or PDF file.');
         }
-        $name = bin2hex(random_bytes(16)) . '.' . self::ALLOWED[$mime];
-        $dest = self::dir() . '/' . $name;
-        if (!move_uploaded_file($file['tmp_name'], $dest)) {
-            throw ValidationException::single('receipt', 'Could not save the receipt.');
+        $content = file_get_contents($file['tmp_name']);
+        if ($content === false || strlen($content) !== $size) {
+            throw ValidationException::single('receipt', 'Could not read the receipt.');
         }
+        $name = bin2hex(random_bytes(16)) . '.' . self::ALLOWED[$mime];
         $original = mb_substr(basename(str_replace('\\', '/', (string) $file['name'])), 0, 255);
-        return ['path' => $name, 'original' => $original, 'mime' => $mime, 'size' => $size];
+        return ['path' => $name, 'original' => $original, 'mime' => $mime, 'size' => $size, 'content' => $content];
     }
 
     /** Effective limit: the app's 5 MB rule, but never more than PHP itself accepts. */
@@ -58,16 +59,8 @@ final class UploadService
             : (int) ceil($bytes / 1024) . ' KB';
     }
 
-    public static function dir(): string
-    {
-        return BASE_PATH . '/storage/receipts';
-    }
-
+    /** Nothing to clean up: a failed transaction rolls the receipt row back with the expense. */
     public function discard(string $name): void
     {
-        $path = self::dir() . '/' . basename($name);
-        if (is_file($path)) {
-            unlink($path);
-        }
     }
 }

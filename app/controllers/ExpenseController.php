@@ -145,15 +145,15 @@ final class ExpenseController extends Controller
     {
         $r = (new ExpenseModel())->receipt($id) ?? throw new HttpException(404);
         (new ExpenseService())->requireViewable((int) $r['expense_id'], Auth::requireId());
-        $path = UploadService::dir() . '/' . basename($r['file_path']);
-        if (!is_file($path)) {
+        if ($r['content'] === null) {
             throw new HttpException(404, 'Receipt file is missing.');
         }
         header('Content-Type: ' . $r['mime_type']);
-        header('Content-Length: ' . filesize($path));
+        header('Content-Length: ' . strlen($r['content']));
         header('Content-Disposition: inline; filename="' . rawurlencode($r['original_name']) . '"');
         header('X-Content-Type-Options: nosniff');
-        readfile($path);
+        header('Cache-Control: private, max-age=0');
+        echo $r['content'];
     }
 
     private function form(string $title, ?array $e, ?array $group, int $uid): void
