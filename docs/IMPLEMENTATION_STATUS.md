@@ -1,6 +1,6 @@
 # IMPLEMENTATION_STATUS.md — SplitWise+
 
-**Current phase:** 5 — Testing · **State:** complete on branch `feature/testing` (includes Phase 4), awaiting the team-laptop checklist and review
+**Current phase:** 5.5 — UI refinement + deployment preparation · **State:** code and local validation done on branch `feature/ui-refinement-vercel-deployment`; **real deployment blocked** (needs Vercel + MySQL provider accounts) — Phase 5.5 is **not fully complete**. Phase 6 not started.
 **Last updated:** 2026-11-09
 
 ## Repository
@@ -51,7 +51,7 @@ Phase 2 acceptance criteria: tables create ✓ · FKs work ✓ · constraints re
 ## Phase 4 — Frontend (done, branch `feature/frontend`)
 | Deliverable | Where | Verified |
 |---|---|---|
-| Design system "Hisaab": rupee-note palette, Baloo 2 + Mukta (local), tokens, components | `docs/DESIGN_SYSTEM.md`, `public/assets/css/app.css`, `public/assets/vendor/fonts/` | ✓ |
+| Design system "Hisaab": rupee-note palette, Baloo 2 + Mukta (local), tokens, components | `docs/UI_DESIGN_SYSTEM.md` (was DESIGN_SYSTEM.md), `public/assets/css/app.css`, `public/assets/vendor/fonts/` | ✓ |
 | New shell: left rail (desktop), top bar + drawer (mobile), skip link, favicon | `app/views/layouts/`, `app/views/partials/nav.php` | ✓ |
 | All 16 screens restyled; balances as sentences + IOU slips; expense lists as rows | `app/views/**` | ✓ screenshots |
 | Charts rebuilt with the dataviz method (single-hue bars, validated 2-colour pair, legends, "Show as table") | `public/assets/js/analytics.js` | ✓ palette validator |
@@ -67,6 +67,20 @@ Phase 2 acceptance criteria: tables create ✓ · FKs work ✓ · constraints re
 | Team laptop checklist (install, tests, 2-browser click-through) | `docs/TEAM_TEST_CHECKLIST.md` | ☐ **each member to run** |
 | Login limit per IP raised for shared Wi-Fi | `LoginThrottle` | ✓ |
 | Final regression | `docs/TESTING_REPORT.md` | ✓ 252 tests + 11 scripts, 0 a11y violations |
+
+## Phase 5.5 — UI refinement + Vercel deployment preparation (branch `feature/ui-refinement-vercel-deployment`)
+| Deliverable | Where | Status |
+|---|---|---|
+| UI audit at 1440/1366/1024/768/390; hero → summary band, slip stack → ledger, lists → data tables, laptop breakpoint fix | `app/views/**`, `app.css`, `docs/UI_DESIGN_SYSTEM.md`, `docs/PHASE_5_5_AUDIT.md` | ✓ screenshots, axe 0 violations |
+| Sessions, throttle counters, mail cursor, receipts moved from disk to MySQL (`app_sessions`, `app_kv`, `receipts.content`) | `database/schema/04_infrastructure.sql`, `DbSessionHandler`, `LoginThrottle`, `MockMailer`, `UploadService` | ✓ tests |
+| Env config (DB_PASSWORD, TLS, timeout, APP_ENV, APP_TRUST_PROXY, SESSION_*) | `Database.php`, `bootstrap.php`, `.env.example` | ✓ tests |
+| `/healthz`, `/readyz`, CSP, HSTS, X-Powered-By removed | `Health.php`, `public/index.php` | ✓ tests |
+| Dockerfile (FrankenPHP), Caddyfile, php.ini, .dockerignore | repo root, `deploy/` | ✓ static checks · ☐ **build blocked** (Docker Hub) |
+| Hosted-DB import builder (any DB name, demo passwords replaced, TLS-only app user) | `database/build_hosted.php` | ✓ imported into a separate local DB |
+| Deployment tests (28) | `tests/deployment/` | ✓ 28/28 local |
+| Managed MySQL comparison + recommendation, migration plan, env table, security review | `docs/DEPLOYMENT.md` | ✓ written · provider facts marked (verify) |
+| Managed MySQL created + data migrated | — | ☐ **blocked — needs provider account** |
+| Vercel preview + production, 20 workflows on deployed URL | — | ☐ **blocked / not tested** |
 
 ## Notes for Phase 5 (testing) — kept for reference
 - Phase 3/4 suites are automated; Phase 5 adds the financial scenario walk-throughs, manual cross-browser check on a team laptop (Windows + XAMPP + MySQL 8.0), and the final regression run.
@@ -90,7 +104,8 @@ Phase 2 acceptance criteria: tables create ✓ · FKs work ✓ · constraints re
 | 2 Database | schema, seed, objects, queries, tests | M1 | ✅ done |
 | 3 Backend | core, auth, groups, expenses+splits, balances, settlements, budgets, notifications, admin, JSON endpoints | M3 (M1 reviews SQL) | ✅ done (review pending) |
 | 4 Frontend | visual design of the 16 working screens, responsiveness, accessibility | M2 | ✅ done (review pending) |
-| 5 Testing | financial scenarios, security, regression | all | ✅ done here; laptop checklist pending |
+| 5 Testing | financial scenarios, security, regression | all | ✅ done; laptop checklist pending |
+| 5.5 UI + deploy prep | UI refinement, Docker/FrankenPHP, MySQL-backed state, deployment docs/tests | M2 (UI), M3 (deploy), M1 (hosted DB) | 🟡 local done; real deployment blocked |
 | 6 Docs & viva | report, setup guide, slides, viva Q&A | M3 coordinates | — |
 
 ## Team allocation
@@ -101,6 +116,7 @@ Phase 2 acceptance criteria: tables create ✓ · FKs work ✓ · constraints re
 | **M3 — Backend & integration** | core, middleware, controllers, services (SplitCalculator, BalanceService, DebtSimplifier, SettlementService…), uploads, PDO transactions | docs coordination, README, setup guide |
 
 ## Next tasks
-1. **Every member:** run `docs/TEAM_TEST_CHECKLIST.md` on their own laptop and report problems.
-2. Merge `feature/testing` (Phases 4 + 5) into `develop` and `main` after review.
-3. Phase 6: project report, setup guide, slides, viva Q&A, final README.
+1. Review Phase 5.5; on a machine with Docker Hub access run `docker build -t splitwise-plus .` and the container checks in `docs/DEPLOYMENT.md` §2.
+2. Create the managed MySQL 8.0 server and Vercel project (owner enters credentials in the consoles only), follow `docs/DEPLOYMENT.md` §4 + §9, verify the 20 workflows on the preview URL.
+3. **Every member:** re-import (`database/splitwise_plus.sql` now has 16 tables) and run `docs/TEAM_TEST_CHECKLIST.md`.
+4. Phase 6 only after approval.

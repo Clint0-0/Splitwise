@@ -1,5 +1,21 @@
 # CHANGELOG — SplitWise+
 
+## [0.6.0] — Phase 5.5 UI refinement + deployment preparation (2026-11-09)
+### Changed
+- Dashboard, group and balances pages: greeting hero replaced by a summary band (net balance in words, owed, owing, this month's spending); IOU slips are one ruled ledger; expenses and settlements are data tables that become labelled rows on phones; two-column layout only from 1200 px; smaller page titles; group members table no longer clips.
+- Sessions stored in MySQL (`app_sessions`) instead of files; login-throttle counters and mock-mail cursor in `app_kv`; receipt bytes in `receipts.content`. Combined import now has **16 tables**.
+- `DB_PASSWORD` (old `DB_PASS` still read); production mode forces debug off and logs to stderr.
+- `docs/DESIGN_SYSTEM.md` renamed to `docs/UI_DESIGN_SYSTEM.md`.
+### Added
+- `Dockerfile` (FrankenPHP, PHP 8.3), `Caddyfile`, `deploy/php.ini`, `.dockerignore`; `database/build_hosted.php`.
+- `/healthz`, `/readyz`; Content-Security-Policy, HSTS (production), Permissions-Policy; TLS options and connect timeout for MySQL; `APP_TRUST_PROXY` (right-most X-Forwarded-For).
+- Tests: functional P1–P12, DB A8–A9, `tests/deployment/` (28 checks).
+- `docs/DEPLOYMENT.md`, `docs/PHASE_5_5_AUDIT.md`.
+### Removed
+- `storage/receipts/` and `storage/throttle/` (no runtime data on local disk except the local mock-mail log).
+### Not done (blocked)
+- Container build, managed MySQL, Vercel deployment and deployed-URL workflow checks — see `docs/DEPLOYMENT.md` §10.
+
 ## [0.5.1] — Phase 5 bug fixes (2026-11-09)
 ### Fixed
 - `tests/run_all.php`: waits until the app really answers (clear message if the port is busy); always stops the test server; stops if a re-import fails; passes the root password through a temporary option file instead of the command line.
@@ -19,7 +35,7 @@
 
 ## [0.4.0] — Phase 4 frontend (2026-11-09)
 ### Added
-- "Hisaab" design system (`docs/DESIGN_SYSTEM.md`): rupee-note palette (lavender ₹100, marigold ₹200), Baloo 2 + Mukta by Ek Type stored locally, CSS tokens and components.
+- "Hisaab" design system (`docs/DESIGN_SYSTEM.md`, now `UI_DESIGN_SYSTEM.md`): rupee-note palette (lavender ₹100, marigold ₹200), Baloo 2 + Mukta by Ek Type stored locally, CSS tokens and components.
 - App shell with left rail on desktop and drawer on mobile; skip link; favicon.
 - IOU slips for person-to-person debts; balances written as sentences; expense lists as rows that work on phones.
 - Charts rebuilt per the dataviz method, each with a "Show as table" view.

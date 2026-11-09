@@ -37,14 +37,19 @@ All passwords: `Password@123` (sample data only). Users: `admin` (system admin),
 ## Running the app (XAMPP)
 1. Do the database setup above (including step 5, the app account).
 2. Copy the repo folder into `C:\xampp\htdocs\Splitwise` and start **Apache** in XAMPP (keep XAMPP's MySQL stopped).
-3. Copy `.env.example` to `.env` and set `DB_USER=splitwise_app` and `DB_PASS` to the password you used in step 5.
+3. Copy `.env.example` to `.env` and set `DB_USER=splitwise_app` and `DB_PASSWORD` to the password you used in step 5.
 4. Check `C:\xampp\php\php.ini` has `upload_max_filesize` ≥ 6M and `post_max_size` ≥ 8M (XAMPP ships 40M; plain PHP ships only 2M — the receipt field shows the real limit).
 5. Open **http://localhost/Splitwise/public/** and log in with a sample account.
-   (`http://localhost/Splitwise/` redirects there. Secrets, source code and receipts are blocked by `.htaccess`; for production use a VirtualHost with DocumentRoot = `Splitwise/public`.)
+   (`http://localhost/Splitwise/` redirects there. Secrets and source code are blocked by `.htaccess`; for production use a VirtualHost with DocumentRoot = `Splitwise/public`.)
 
 Without XAMPP: `php -d upload_max_filesize=6M -d post_max_size=8M -S 127.0.0.1:8000 -t public public/router.php` and open http://127.0.0.1:8000.
 
 **Mock e-mail:** users who tick "Email me" on their profile get a copy of each notification appended to `storage/logs/mail.log` (nothing is really sent).
+
+**Where runtime data lives:** sessions, login-throttle counters and uploaded receipts are stored in MySQL (tables `app_sessions`, `app_kv`, `receipts.content`), so several app servers can share them.
+
+## Deployment (Vercel + managed MySQL)
+Prepared, **not deployed yet**: `Dockerfile` + `Caddyfile` (FrankenPHP), health checks `/healthz` and `/readyz`, hosted-DB builder `database/build_hosted.php`. Full guide, provider comparison, env variables and current status: [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md).
 
 ## Running the tests
 One command, Windows or Linux (resets the database to the sample data at the end):
@@ -52,7 +57,7 @@ One command, Windows or Linux (resets the database to the sample data at the end
 php tests/run_all.php --password=YOUR_ROOT_PASSWORD
 # Windows: C:\xampp\php\php.exe tests\run_all.php --mysql="C:\Program Files\MySQL\MySQL Server 8.0\bin\mysql.exe" --password=...
 ```
-It runs unit (41), every SQL script (11), database (74), functional (103) and money-scenario (23) tests. Linux-only shortcuts: `tests/database/run.sh`, `tests/functional/run.sh`. Before the viva, each member runs `docs/TEAM_TEST_CHECKLIST.md`.
+It runs unit (41), every SQL script (11), database (76), functional (115) and money-scenario (23) tests. Linux-only shortcuts: `tests/database/run.sh`, `tests/functional/run.sh`, and `tests/deployment/run.sh` (28 deployment-readiness checks: production mode, hosted-style DB, shared sessions). Before the viva, each member runs `docs/TEAM_TEST_CHECKLIST.md`.
 
 ## Running the database tests
 ```bash
@@ -65,9 +70,9 @@ MYSQL_ARGS="-uroot -psecret" DB_PASS=secret tests/database/run.sh
 app/             core/ (router, session, auth, PDO), models/, services/, controllers/, views/
 config/routes.php
 public/          index.php, router.php, assets/ (css, js, vendor: Bootstrap, icons, Chart.js)
-storage/         receipts/, logs/ (not web-accessible)
+storage/         logs/ (local only; not web-accessible)
 database/
-  schema/        01_create_database.sql, 02_tables.sql, 03_indexes.sql
+  schema/        01_create_database.sql, 02_tables.sql, 03_indexes.sql, 04_infrastructure.sql (sessions, key-value)
   functions/     functions.sql          (3 stored functions)
   views/         views.sql (11 views), demo_views.sql (Experiment 9 operations)
   triggers/      triggers.sql (11 triggers, all 6 timing/event pairs), demo_triggers.sql
@@ -77,12 +82,13 @@ database/
   transactions/  demo_acid.sql
   security/      app_user.sql           (least-privilege app account)
   verify_install.sql                    (per-laptop install check)
-  build.sh, splitwise_plus.sql (combined import)
+  build.sh, splitwise_plus.sql (combined import), build_hosted.php (managed-MySQL import)
 docs/diagrams/   ER diagrams (PNG/SVG)
 tools/           generate_er.py (physical ER from live schema), screenshots.py (all screens)
 docs/            specification, schema, architecture decisions, experiment mapping,
                  traceability, implementation status, testing report, changelog
-tests/            run_all.php (everything), unit/, functional/ (incl. scenarios), database/
+tests/            run_all.php (everything), unit/, functional/ (incl. scenarios), database/, deployment/
+Dockerfile, Caddyfile, deploy/php.ini, .dockerignore   FrankenPHP container
 ```
 
 ## Documentation
@@ -93,3 +99,5 @@ tests/            run_all.php (everything), unit/, functional/ (incl. scenarios)
 | `docs/SQL_EXPERIMENT_MAPPING.md` | Experiments 1–9 → real queries/objects |
 | `docs/ARCHITECTURE_DECISIONS.md` | application architecture, ADRs, directory plan |
 | `docs/TESTING_REPORT.md` | actual test results |
+| `docs/UI_DESIGN_SYSTEM.md` | colours, type, components, breakpoints |
+| `docs/DEPLOYMENT.md` | Vercel/FrankenPHP, managed MySQL, migration, env vars, status |
