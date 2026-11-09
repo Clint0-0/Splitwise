@@ -1,5 +1,15 @@
 # CHANGELOG — SplitWise+
 
+## [0.5.0] — Phase 5 testing (2026-11-09)
+### Added
+- `tests/functional/run_scenarios.php` (23 checks) and `docs/TEST_SCENARIOS.md` — money stories with hand-worked amounts.
+- `tests/run_all.php` — runs every suite on Windows or Linux, as the least-privilege app account.
+- `docs/TEAM_TEST_CHECKLIST.md` — 15-minute install + test + two-browser click-through per laptop.
+- `tests/functional/lib.php` shared HTTP test helpers.
+### Changed
+- Per-IP login limit 20 → 100 failures per 15 minutes (shared Wi-Fi).
+- Functional tests can reach MySQL over TCP with a password (Windows).
+
 ## [0.4.0] — Phase 4 frontend (2026-11-09)
 ### Added
 - "Hisaab" design system (`docs/DESIGN_SYSTEM.md`): rupee-note palette (lavender ₹100, marigold ₹200), Baloo 2 + Mukta by Ek Type stored locally, CSS tokens and components.

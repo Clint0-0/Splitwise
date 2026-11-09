@@ -22,6 +22,11 @@ sleep 1
 APP_URL="http://127.0.0.1:$PORT" php "$ROOT/tests/functional/run_functional_tests.php"
 status=$?
 
+# money scenarios on a fresh copy of the sample data
+$MYSQL < "$ROOT/database/splitwise_plus.sql" >/dev/null && rm -rf "$ROOT"/storage/throttle
+echo; echo "== Scenarios"
+APP_URL="http://127.0.0.1:$PORT" php "$ROOT/tests/functional/run_scenarios.php" || status=1
+
 $MYSQL < "$ROOT/database/splitwise_plus.sql" && echo "Re-imported clean sample data"
 rm -f "$ROOT"/storage/receipts/*.{png,jpg,pdf} "$ROOT"/storage/logs/mail.log "$ROOT"/storage/logs/mail.cursor 2>/dev/null
 rm -rf "$ROOT"/storage/throttle

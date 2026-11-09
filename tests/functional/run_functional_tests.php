@@ -121,7 +121,10 @@ final class Browser
     }
 }
 
-$db = new PDO('mysql:unix_socket=/var/run/mysqld/mysqld.sock;dbname=splitwise_plus;charset=utf8mb4',
+$sock = '/var/run/mysqld/mysqld.sock';
+$db = new PDO((PHP_OS_FAMILY !== 'Windows' && file_exists($sock) && !getenv('DB_ROOT_TCP'))
+        ? "mysql:unix_socket=$sock;dbname=splitwise_plus;charset=utf8mb4"
+        : 'mysql:host=' . (getenv('DB_HOST') ?: '127.0.0.1') . ';port=' . (getenv('DB_PORT') ?: '3306') . ';dbname=splitwise_plus;charset=utf8mb4',
     getenv('DB_ROOT_USER') ?: 'root', getenv('DB_ROOT_PASS') ?: '',
     [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION, PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC]);
 $val = function (string $sql, array $p = []) use ($db) { $s = $db->prepare($sql); $s->execute($p); return $s->fetchColumn(); };
@@ -455,8 +458,8 @@ check('K4', 'Direct POSTs to edit / delete / restore are refused too; data uncha
 check('K5', 'Former member\'s balance is still exactly 0', $val('SELECT fn_member_net_balance(?, 8)', [$gid]) === '0.00');
 
 // leave vs. expense race: leave/remove take FOR UPDATE, expense writes take FOR SHARE on the same rows
-$appA = new PDO('mysql:host=127.0.0.1;dbname=splitwise_plus', 'splitwise_app', 'Change_Me_123!', [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
-$appB = new PDO('mysql:host=127.0.0.1;dbname=splitwise_plus', 'splitwise_app', 'Change_Me_123!', [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
+$appA = new PDO('mysql:host=' . (getenv('DB_HOST') ?: '127.0.0.1') . ';port=' . (getenv('DB_PORT') ?: '3306') . ';dbname=splitwise_plus', 'splitwise_app', getenv('APP_DB_PASS') ?: 'Change_Me_123!', [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
+$appB = new PDO('mysql:host=' . (getenv('DB_HOST') ?: '127.0.0.1') . ';port=' . (getenv('DB_PORT') ?: '3306') . ';dbname=splitwise_plus', 'splitwise_app', getenv('APP_DB_PASS') ?: 'Change_Me_123!', [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
 $appA->beginTransaction();
 $appA->query("SELECT membership_id FROM group_members WHERE group_id = $gid ORDER BY membership_id FOR UPDATE")->fetchAll();
 $appB->exec('SET SESSION innodb_lock_wait_timeout = 1');

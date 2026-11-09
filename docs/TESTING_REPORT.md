@@ -355,3 +355,38 @@ Expected log line during T7: PHP's own warning `POST Content-Length … exceeds 
 Three functional assertions were updated because the page wording changed on purpose (e.g. "gets back ₹10,091.67" → hero sentence "you get back ₹10,091.67"; "Sneha → Aarav" → "Sneha pays Aarav"); they still check the same numbers.
 
 Visual issues found in screenshot review and fixed: navigation wrapping, rail colour ending mid-page, invisible avatar on the rail, member names wrapping, misaligned analytics columns, cramped expense form, truncated titles on phones, ₹0.00 shown in red.
+
+
+## Phase 5 — System testing (2026-11-09)
+
+### One command for everything
+`php tests/run_all.php` runs every suite on **Windows (XAMPP) or Linux** — no bash needed. It imports the database, runs the install check and every SQL script, the database suite, starts the app on PHP's built-in server **as the least-privilege `splitwise_app` account**, runs the functional suite and the money scenarios, and restores clean sample data. It also warns when `splitwise_plus.sql` is out of date (`--build` regenerates it).
+
+Final regression run, with the database reached **over TCP with a password-protected admin account** (the way a Windows/XAMPP laptop connects):
+
+| Suite | Result |
+|---|---|
+| Unit (money, splits, simplifier) | 41 / 41 PASS |
+| SQL scripts (11: install check, Q1–Q50 files, EXPLAIN, view/trigger/ACID demos) | 11 / 11 PASS |
+| Database (schema, triggers, procedures, privileges) | 74 / 74 PASS |
+| Functional (HTTP end-to-end) | 103 / 103 PASS |
+| Money scenarios (`docs/TEST_SCENARIOS.md`) | 23 / 23 PASS |
+| Accessibility (axe-core, 36 page views) | 0 violations |
+| **Total automated checks** | **252 tests + 11 scripts, all passing** |
+
+### Money scenarios
+`tests/functional/run_scenarios.php` drives five stories with brand-new users: the brief's own examples (₹1,500 dinner; ₹500 → ₹300 → ₹200 partial settlement; 50/30/20 of ₹1,200; ₹10,000 budget at ₹7,500), settling everything and then editing / deleting / restoring history, rounding, a debt cycle, and guard rails. Amounts were worked out by hand first (tables in `docs/TEST_SCENARIOS.md`); every step passed on the first run.
+
+### Changes made in Phase 5
+| # | Change | Reason |
+|---|---|---|
+| 14 | Per-IP login limit raised 20 → 100 failures / 15 min (per account+IP stays 5) | many students can share one hostel/college Wi-Fi address; 20 could lock a whole hostel out |
+| 15 | Functional tests can reach MySQL over TCP (`DB_ROOT_TCP`, `DB_HOST/PORT`, `APP_DB_PASS`) | they assumed the Linux socket; Windows needs TCP |
+| 16 | `tests/functional/lib.php` shared helpers | used by the scenario suite |
+
+### Not covered here (needs a team laptop)
+| Item | Why not here | How it is covered |
+|---|---|---|
+| Windows + XAMPP Apache + MySQL 8.0 | sandbox is Linux | `docs/TEAM_TEST_CHECKLIST.md` (install, `run_all.php`, 12-step click-through) |
+| Firefox / Edge / Safari rendering | browser downloads are blocked from the sandbox (only Chrome available) | checklist runs the click-through in Chrome **and** a second browser |
+| Real users on phones | — | checklist step 10 (phone width) |

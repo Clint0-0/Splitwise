@@ -7,14 +7,14 @@ namespace App\Services;
  * Brute-force protection that does NOT live in the session (a session can be thrown away).
  * Counters are small files in storage/throttle/ (not web-accessible), updated under flock.
  *   - 5 failed logins per (account, IP) in 15 minutes  -> that pair is locked
- *   - 20 failed logins per IP in 15 minutes           -> the IP is locked
+ *   - 100 failed logins per IP in 15 minutes          -> the IP is locked (many students can share one Wi-Fi address)
  * Keying the account counter by IP too means an attacker cannot lock a real user
  * out from somewhere else (no account-lockout denial of service).
  */
 final class LoginThrottle
 {
     public const MAX_PER_ACCOUNT = 5;
-    public const MAX_PER_IP = 20;
+    public const MAX_PER_IP = 100;   // high enough for a shared hostel/college Wi-Fi address
     public const WINDOW = 900;
 
     private string $dir;

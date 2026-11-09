@@ -2,7 +2,7 @@
 
 DBMS mini project (team of 3). Track shared expenses, split them five ways, see who owes whom, settle up, simplify debts, manage budgets and analyse spending.
 
-**Status:** Phase 4 (frontend) complete — all 16 screens designed ("Hisaab" design system, see `docs/DESIGN_SYSTEM.md` and `docs/screenshots/`), 0 automated accessibility violations, 218 passing tests (41 unit, 103 HTTP end-to-end, 74 database). See `docs/IMPLEMENTATION_STATUS.md`.
+**Status:** Phase 5 (testing) complete — 252 automated tests + 11 SQL scripts pass (`php tests/run_all.php`), 0 accessibility violations, money scenarios in `docs/TEST_SCENARIOS.md`. Next: team-laptop checklist, then Phase 6 (report and viva). See `docs/IMPLEMENTATION_STATUS.md`.
 
 ## Stack
 PHP 8.2+ (PDO), MySQL 8.0, Bootstrap 5.3, JavaScript, Chart.js 4, XAMPP (Apache + PHP). Fonts: Baloo 2 and Mukta (Ek Type, SIL Open Font License), stored locally.
@@ -47,11 +47,12 @@ Without XAMPP: `php -d upload_max_filesize=6M -d post_max_size=8M -S 127.0.0.1:8
 **Mock e-mail:** users who tick "Email me" on their profile get a copy of each notification appended to `storage/logs/mail.log` (nothing is really sent).
 
 ## Running the tests
+One command, Windows or Linux (resets the database to the sample data at the end):
 ```bash
-php tests/unit/run_unit_tests.php     # money + split + debt-simplifier math (no DB)
-tests/functional/run.sh               # whole app over HTTP, as splitwise_app (resets sample data)
-tests/database/run.sh                 # schema, triggers, procedures, views, privileges
+php tests/run_all.php --password=YOUR_ROOT_PASSWORD
+# Windows: C:\xampp\php\php.exe tests\run_all.php --mysql="C:\Program Files\MySQL\MySQL Server 8.0\bin\mysql.exe" --password=...
 ```
+It runs unit (41), every SQL script (11), database (74), functional (103) and money-scenario (23) tests. Linux-only shortcuts: `tests/database/run.sh`, `tests/functional/run.sh`. Before the viva, each member runs `docs/TEAM_TEST_CHECKLIST.md`.
 
 ## Running the database tests
 ```bash
@@ -81,7 +82,7 @@ docs/diagrams/   ER diagrams (PNG/SVG)
 tools/           generate_er.py (physical ER from live schema), screenshots.py (all screens)
 docs/            specification, schema, architecture decisions, experiment mapping,
                  traceability, implementation status, testing report, changelog
-tests/            unit/, functional/, database/
+tests/            run_all.php (everything), unit/, functional/ (incl. scenarios), database/
 ```
 
 ## Documentation
