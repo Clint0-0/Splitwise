@@ -2,10 +2,12 @@
 
 DBMS mini project (team of 3). Track shared expenses, split them five ways, see who owes whom, settle up, simplify debts, manage budgets and analyse spending.
 
-**Status:** Phase 3 (backend) complete — the web app works end to end (all modules), with 218 passing tests (41 unit, 103 HTTP end-to-end, 74 database). Phase 4 restyles the screens. See `docs/IMPLEMENTATION_STATUS.md`.
+**Status:** Phase 4 (frontend) complete — all 16 screens designed ("Hisaab" design system, see `docs/DESIGN_SYSTEM.md` and `docs/screenshots/`), 0 automated accessibility violations, 218 passing tests (41 unit, 103 HTTP end-to-end, 74 database). See `docs/IMPLEMENTATION_STATUS.md`.
 
 ## Stack
-PHP 8.2+ (PDO) · MySQL 8.0 · Bootstrap 5 · JavaScript · Chart.js · XAMPP (Apache + PHP)
+PHP 8.2+ (PDO), MySQL 8.0, Bootstrap 5.3, JavaScript, Chart.js 4, XAMPP (Apache + PHP). Fonts: Baloo 2 and Mukta (Ek Type, SIL Open Font License), stored locally.
+
+![Dashboard](docs/screenshots/desktop-dashboard.png)
 
 ## Database setup
 
@@ -76,7 +78,7 @@ database/
   verify_install.sql                    (per-laptop install check)
   build.sh, splitwise_plus.sql (combined import)
 docs/diagrams/   ER diagrams (PNG/SVG)
-tools/           generate_er.py (physical ER from live schema)
+tools/           generate_er.py (physical ER from live schema), screenshots.py (all screens)
 docs/            specification, schema, architecture decisions, experiment mapping,
                  traceability, implementation status, testing report, changelog
 tests/            unit/, functional/, database/

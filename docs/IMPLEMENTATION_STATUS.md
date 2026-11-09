@@ -1,6 +1,6 @@
 # IMPLEMENTATION_STATUS.md — SplitWise+
 
-**Current phase:** 3 — Backend · **State:** complete on branch `feature/backend`, awaiting review before Phase 4
+**Current phase:** 4 — Frontend · **State:** complete on branch `feature/frontend`, awaiting review before Phase 5
 **Last updated:** 2026-11-09
 
 ## Repository
@@ -48,7 +48,21 @@ Phase 2 acceptance criteria: tables create ✓ · FKs work ✓ · constraints re
 | Bug-fix round (former-member lock, leave race, throttle, mock mail, upload limits, archived settling) | see CHANGELOG 0.3.1 | ✓ K1–K6, P5b, T1–T8 |
 | Tests: unit 41/41, functional 103/103, DB 74/74 | `tests/` | ✓ |
 
-## Notes for Phase 4 (frontend)
+## Phase 4 — Frontend (done, branch `feature/frontend`)
+| Deliverable | Where | Verified |
+|---|---|---|
+| Design system "Hisaab": rupee-note palette, Baloo 2 + Mukta (local), tokens, components | `docs/DESIGN_SYSTEM.md`, `public/assets/css/app.css`, `public/assets/vendor/fonts/` | ✓ |
+| New shell: left rail (desktop), top bar + drawer (mobile), skip link, favicon | `app/views/layouts/`, `app/views/partials/nav.php` | ✓ |
+| All 16 screens restyled; balances as sentences + IOU slips; expense lists as rows | `app/views/**` | ✓ screenshots |
+| Charts rebuilt with the dataviz method (single-hue bars, validated 2-colour pair, legends, "Show as table") | `public/assets/js/analytics.js` | ✓ palette validator |
+| Accessibility: axe-core WCAG 2.1 AA + best practice on 18 screens × 2 viewports | `tools/a11y_scan.py` | ✓ 0 violations |
+| Screenshots of every screen (desktop + mobile) | `docs/screenshots/`, `tools/screenshots.py` | ✓ |
+| Tests still green: unit 41/41, functional 103/103, DB 74/74 | `tests/` | ✓ |
+
+## Notes for Phase 5 (testing)
+- Phase 3/4 suites are automated; Phase 5 adds the financial scenario walk-throughs, manual cross-browser check on a team laptop (Windows + XAMPP + MySQL 8.0), and the final regression run.
+
+## Notes for Phase 4 (frontend) — kept for reference
 - Screens already work end-to-end with plain Bootstrap 5.3.8 (stored locally in `public/assets/vendor/`). Phase 4 = visual design, layout polish, responsiveness review, accessibility pass — not new wiring.
 - Keep form field names, routes and the CSRF hidden field unchanged (functional tests depend on them; re-run `tests/functional/run.sh` after UI changes).
 - `expense-form.js` mirrors `SplitCalculator`; if one changes, change both.
@@ -66,8 +80,8 @@ Phase 2 acceptance criteria: tables create ✓ · FKs work ✓ · constraints re
 | 1 Design | docs/ | all | ✅ approved |
 | 2 Database | schema, seed, objects, queries, tests | M1 | ✅ done |
 | 3 Backend | core, auth, groups, expenses+splits, balances, settlements, budgets, notifications, admin, JSON endpoints | M3 (M1 reviews SQL) | ✅ done (review pending) |
-| 4 Frontend | visual design of the 16 working screens, responsiveness, accessibility | M2 | next |
-| 5 Testing | financial scenarios, security, regression | all | — |
+| 4 Frontend | visual design of the 16 working screens, responsiveness, accessibility | M2 | ✅ done (review pending) |
+| 5 Testing | financial scenarios, security, regression | all | next |
 | 6 Docs & viva | report, setup guide, slides, viva Q&A | M3 coordinates | — |
 
 ## Team allocation
@@ -77,8 +91,7 @@ Phase 2 acceptance criteria: tables create ✓ · FKs work ✓ · constraints re
 | **M2 — Frontend** | layout, design system, all screens, split configurator JS, charts, responsiveness | client-side validation; screenshots |
 | **M3 — Backend & integration** | core, middleware, controllers, services (SplitCalculator, BalanceService, DebtSimplifier, SettlementService…), uploads, PDO transactions | docs coordination, README, setup guide |
 
-## Next tasks (Phase 4)
-1. Design system: colours, typography, spacing, components (cards, tables, badges, empty states).
-2. Restyle layout + all 16 screens; mobile layouts for expense form and group page.
-3. Accessibility pass (labels, contrast, keyboard, focus states).
-4. Re-run all three test suites.
+## Next tasks (Phase 5)
+1. Financial scenario walk-throughs (every split method, partial settlements, edits after settlements) documented with screenshots.
+2. Install + run on a team laptop (Windows, XAMPP Apache, MySQL 8.0); run `database/verify_install.sql` and all suites.
+3. Final regression, then Phase 6 (report, slides, viva Q&A).

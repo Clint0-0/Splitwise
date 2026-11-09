@@ -1,22 +1,39 @@
-<h1 class="h3 mb-4">Analytics</h1>
-<div class="row g-3 mb-4">
-  <div class="col-md-4"><div class="card card-body"><div class="small text-muted">Personal spending (all time)</div><div class="fs-5 amount"><?= e(inr($totals['personal_spend'])) ?></div></div></div>
-  <div class="col-md-4"><div class="card card-body"><div class="small text-muted">Your share of group spending</div><div class="fs-5 amount"><?= e(inr($totals['group_share'])) ?></div></div></div>
-</div>
-<div class="row g-4" id="analytics" data-base="<?= e(url('/api/analytics')) ?>">
-  <div class="col-lg-6"><div class="card"><div class="card-body"><h2 class="h6">Your spending by category (last 12 months)</h2><canvas id="chartCategories" height="240" role="img" aria-label="Spending by category"></canvas></div></div></div>
-  <div class="col-lg-6"><div class="card"><div class="card-body"><h2 class="h6">Monthly spending (your share)</h2><canvas id="chartMonthly" height="240" role="img" aria-label="Monthly spending"></canvas></div></div></div>
-  <div class="col-lg-6"><div class="card"><div class="card-body"><h2 class="h6">Group spending</h2><canvas id="chartGroups" height="240" role="img" aria-label="Group spending"></canvas></div></div></div>
-  <div class="col-lg-6"><div class="card"><div class="card-body"><h2 class="h6">Paid vs your share, per group</h2><canvas id="chartPaidOwed" height="240" role="img" aria-label="Paid versus owed"></canvas></div></div></div>
-  <div class="col-lg-6"><div class="card"><div class="card-body"><h2 class="h6">Settlements sent / received</h2><canvas id="chartSettlements" height="240" role="img" aria-label="Settlements"></canvas></div></div></div>
-  <div class="col-lg-6"><div class="card"><div class="card-body">
-    <h2 class="h6">Largest expenses you shared</h2>
-    <table class="table table-sm mb-0"><tbody>
-    <?php foreach ($top as $t): ?>
-      <tr><td><a href="<?= e(url('/expenses/' . (int) $t['expense_id'])) ?>"><?= e($t['description']) ?></a><div class="small text-muted"><?= e($t['group_name']) ?> · <?= e($t['expense_date']) ?></div></td>
-        <td class="text-end amount"><?= e(inr($t['total_amount'])) ?><div class="small text-muted">your share <?= e(inr($t['share_amount'])) ?></div></td></tr>
-    <?php endforeach; ?>
-    <?php if (!$top): ?><tr><td class="text-muted">No expenses yet.</td></tr><?php endif; ?>
-    </tbody></table>
-  </div></div></div>
+<div class="page-head"><h1 class="page-title">Analytics</h1></div>
+
+<dl class="stat-line mb-4">
+  <div><dt>Spent on your own</dt><dd><?= e(inr($totals['personal_spend'])) ?></dd></div>
+  <div><dt>Your share of group spending</dt><dd><?= e(inr($totals['group_share'])) ?></dd></div>
+</dl>
+
+<div class="grid-2 even" id="analytics" data-base="<?= e(url('/api/analytics')) ?>">
+  <?php foreach ([
+      ['chartCategories', 'Where your money went', 'Your share by category, last 12 months.'],
+      ['chartMonthly', 'Month by month', 'Your share of all expenses each month.'],
+      ['chartGroups', 'Spending per group', 'Everything each of your groups has spent.'],
+      ['chartPaidOwed', 'What you paid vs. your share', 'Paying more than your share means others owe you.'],
+      ['chartSettlements', 'Payments sent and received', 'Confirmed settlements per month.'],
+  ] as [$id, $title, $desc]): ?>
+    <section class="panel" aria-labelledby="<?= $id ?>-h">
+      <h2 id="<?= $id ?>-h"><?= e($title) ?></h2>
+      <p class="note"><?= e($desc) ?></p>
+      <div class="chart-box"><canvas id="<?= $id ?>" role="img" aria-label="<?= e($title) ?> chart; the same numbers are in the table below"></canvas></div>
+      <details class="mt-2"><summary class="small">Show as table</summary><div class="chart-table table-responsive" tabindex="0" data-table-for="<?= $id ?>"></div></details>
+    </section>
+  <?php endforeach; ?>
+
+  <section class="panel" aria-labelledby="top-h">
+    <h2 id="top-h">Biggest bills you shared</h2>
+    <?php if (!$top): ?><div class="empty"><p>No expenses yet.</p></div><?php else: ?>
+    <ul class="rows">
+      <?php foreach ($top as $t): [$day, $mon] = date_parts($t['expense_date']); ?>
+        <li><div class="row-item">
+          <div class="row-date" aria-hidden="true"><b><?= e($day) ?></b><span><?= e($mon) ?></span></div>
+          <div class="row-main"><a class="row-title" href="<?= e(url('/expenses/' . (int) $t['expense_id'])) ?>"><span><?= e($t['description']) ?></span></a>
+            <div class="row-sub"><?= e($t['group_name']) ?></div></div>
+          <div class="row-amounts"><span class="total"><?= e(inr($t['total_amount'])) ?></span><span class="share">your share <?= e(inr($t['share_amount'])) ?></span></div>
+        </div></li>
+      <?php endforeach; ?>
+    </ul>
+    <?php endif; ?>
+  </section>
 </div>

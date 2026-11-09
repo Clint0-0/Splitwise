@@ -1,25 +1,26 @@
-<div class="d-flex justify-content-between align-items-center mb-4">
-  <h1 class="h3 mb-0">Budgets</h1>
-  <a class="btn btn-primary" href="<?= e(url('/budgets/create')) ?>"><i class="bi bi-plus"></i> New budget</a>
+<div class="page-head">
+  <h1 class="page-title">Budgets</h1>
+  <div class="page-actions"><a class="btn btn-primary" href="<?= e(url('/budgets/create')) ?>"><i class="bi bi-plus-lg" aria-hidden="true"></i> New budget</a></div>
 </div>
 <?php if (!$budgets): ?>
-  <div class="text-center text-muted py-5"><i class="bi bi-piggy-bank display-4"></i><p class="mt-2">No budgets yet. Set a monthly limit to track your spending.</p></div>
+  <div class="empty panel"><i class="bi bi-piggy-bank" aria-hidden="true"></i><p>No budgets yet. Set a monthly limit and SplitWise+ warns you before you go over.</p>
+    <a class="btn btn-primary" href="<?= e(url('/budgets/create')) ?>">Create a budget</a></div>
 <?php endif; ?>
 <?php foreach (['Personal' => fn($b) => $b['user_id'] !== null, 'Group' => fn($b) => $b['group_id'] !== null] as $label => $filter):
   $list = array_filter($budgets, $filter); if (!$list) { continue; } ?>
-  <div class="card mb-4"><div class="card-body">
-    <h2 class="h6"><?= $label ?> budgets</h2>
+  <section class="panel mb-4">
+    <h2><?= $label === 'Personal' ? 'Your budgets' : 'Group budgets' ?></h2>
     <?php foreach ($list as $b): ?>
       <div class="d-flex gap-2 align-items-start">
         <div class="flex-grow-1">
           <?php require __DIR__ . '/_bar.php'; ?>
-          <?php if ($b['group_name']): ?><div class="small text-muted mt-n2 mb-2">Group: <?= e($b['group_name']) ?> (counts total group spending)</div><?php endif; ?>
+          <?php if ($b['group_name']): ?><div class="note mt-n2 mb-2"><?= e($b['group_name']) ?>, counts the whole group's spending</div><?php endif; ?>
         </div>
         <?php if ((int) ($b['user_id'] ?? 0) === $uid || $b['group_id'] !== null): ?>
-          <a class="btn btn-sm btn-light" href="<?= e(url('/budgets/' . (int) $b['budget_id'] . '/edit')) ?>" aria-label="Edit budget"><i class="bi bi-pencil"></i></a>
+          <a class="btn btn-sm btn-link mt-2" href="<?= e(url('/budgets/' . (int) $b['budget_id'] . '/edit')) ?>" aria-label="Edit <?= e($b['name']) ?>"><i class="bi bi-pencil" aria-hidden="true"></i></a>
         <?php endif; ?>
       </div>
     <?php endforeach; ?>
-  </div></div>
+  </section>
 <?php endforeach; ?>
-<p class="small text-muted">Personal budgets count <em>your share</em> of each expense (including sub-categories). Group budgets count the group's total spending.</p>
+<p class="note">Your budgets count your share of each expense, including sub-categories (a Food budget also counts Groceries). Group budgets count everything the group spends.</p>

@@ -155,7 +155,7 @@ check('H4', 'POST with a wrong CSRF token is rejected (419)', $guest->status ===
 $aarav = login($BASE, 'aarav');
 check('H5', 'Login works and redirects to dashboard', $aarav->status === 303 && str_ends_with($aarav->location, '/dashboard'));
 $aarav->get('/dashboard');
-check('H6', 'Dashboard shows Aarav\'s real overall balance (+₹10,091.67)', $aarav->has('gets back ₹10,091.67'));
+check('H6', 'Dashboard shows Aarav\'s real overall balance (+₹10,091.67)', $aarav->has('you get back') && $aarav->has('₹10,091.67'));
 
 $aarav->get('/profile');
 $aarav->post('/profile', ['full_name' => 'Aarav Sharma', 'email' => 'aarav@splitwiseplus.test', 'phone' => '9820011111']); // notify_email unticked
@@ -398,10 +398,10 @@ $aarav->post('/settlements', ['group_id' => $gid, 'payer_id' => 3, 'payee_id' =>
 check('S7', 'Cannot record a payment between two other people', $aarav->has('only record payments you made or received'));
 $aarav->get("/groups/$gid");
 check('S8', 'Group page shows simplified suggestions and pairwise debts',
-    $aarav->has('Suggested settlements') && $aarav->has('Who owes whom') && $aarav->has('→'));
+    $aarav->has('Suggested settlements') && $aarav->has('Who owes whom') && $aarav->has(' pays '));
 $aarav->get('/groups/1');
 check('S9', 'Goa group: 3 suggested transfers from the sample data', substr_count($aarav->body, '>Record</a>') >= 1
-    && preg_match_all('/<strong class="amount">₹/', $aarav->body) === 3);
+    && substr_count($aarav->body, 'data-suggestion') === 3);
 
 // ======================================================================= leave / remove rules
 $t->get("/groups/$gid");

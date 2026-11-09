@@ -1,6 +1,5 @@
-<div class="card shadow-sm">
-  <div class="card-body p-4">
-    <h2 class="h5 mb-3">Create account</h2>
+<div class="panel p-4">
+    <h1 class="h2 mb-3">Create your account</h1>
     <form method="post" action="<?= e(url('/register')) ?>" novalidate>
       <?= csrf_field() ?>
       <?php foreach ([
@@ -31,6 +30,5 @@
       </div>
       <button class="btn btn-primary w-100" type="submit">Create account</button>
     </form>
-    <p class="text-center mt-3 mb-0 small">Already registered? <a href="<?= e(url('/login')) ?>">Log in</a></p>
-  </div>
+    <p class="text-center mt-3 mb-0">Already have an account? <a href="<?= e(url('/login')) ?>">Log in</a></p>
 </div>

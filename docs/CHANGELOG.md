@@ -1,5 +1,16 @@
 # CHANGELOG — SplitWise+
 
+## [0.4.0] — Phase 4 frontend (2026-11-09)
+### Added
+- "Hisaab" design system (`docs/DESIGN_SYSTEM.md`): rupee-note palette (lavender ₹100, marigold ₹200), Baloo 2 + Mukta by Ek Type stored locally, CSS tokens and components.
+- App shell with left rail on desktop and drawer on mobile; skip link; favicon.
+- IOU slips for person-to-person debts; balances written as sentences; expense lists as rows that work on phones.
+- Charts rebuilt per the dataviz method, each with a "Show as table" view.
+- `tools/screenshots.py` and `docs/screenshots/` (18 screens × desktop/mobile).
+### Fixed
+- Navigation wrapped onto two lines on laptop widths; a missing icon in the nav.
+- Accessibility: scrollable tables reachable by keyboard; definition list markup (axe-core: 0 violations).
+
 ## [0.3.1] — Phase 3 bug fixes (2026-11-09)
 ### Fixed
 - Editing, deleting or restoring an old expense could change the balance of a member who had already left (settled) — such expenses are now locked; the edit form no longer silently drops former members.

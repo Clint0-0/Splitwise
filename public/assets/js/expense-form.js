@@ -60,10 +60,10 @@
       const on = r.querySelector('input[type=checkbox]').checked;
       inp.disabled = !on || m === 'equal';
       inp.placeholder = hints[m][1];
-      r.querySelector('.preview').textContent = '—';
+      r.querySelector('.preview').textContent = '–';
     });
     const t = hundredths(total.value, false);
-    if (!t || active.length === 0) { status.textContent = active.length ? 'Enter the amount.' : 'Select participants.'; return; }
+    if (!t || active.length === 0) { status.textContent = active.length ? 'Enter the amount to see each part.' : 'Tick at least one person.'; status.className = 'split-status text-muted'; return; }
 
     const payerId = payer ? parseInt(payer.value, 10) : 0;
     const vals = {};
@@ -73,7 +73,7 @@
       if (v === null) bad = true;
       vals[parseInt(r.dataset.user, 10)] = v || 0;
     });
-    if (bad) { status.textContent = 'Some values are not valid numbers (max 2 decimals).'; status.className = 'small text-danger'; return; }
+    if (bad) { status.textContent = 'Some values are not valid numbers (max 2 decimals).'; status.className = 'split-status text-owes'; return; }
 
     let shares = null, msg = '', ok = true;
     const sum = Object.values(vals).reduce((a, b) => a + b, 0);
@@ -99,7 +99,7 @@
     }
     if (shares) active.forEach((r) => { r.querySelector('.preview').textContent = rupees(shares[r.dataset.user] ?? 0); });
     status.textContent = ok ? 'Adds up to ' + rupees(t) + ' ✓' : msg;
-    status.className = 'small ' + (ok ? 'text-success' : 'text-danger');
+    status.className = 'split-status ' + (ok ? 'text-gets' : 'text-owes');
   }
 
   form.addEventListener('input', update);

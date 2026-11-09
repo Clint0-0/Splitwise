@@ -1,9 +1,9 @@
-<h1 class="h3 mb-4">Profile</h1>
-<div class="row g-4">
-  <div class="col-lg-6">
-    <div class="card"><div class="card-body">
-      <h2 class="h5">Details</h2>
-      <p class="text-muted small mb-3">Username: <strong><?= e($user['username']) ?></strong> · Member since <?= e(substr($user['created_at'], 0, 10)) ?></p>
+<div class="page-head"><div><h1 class="page-title">Profile</h1>
+  <p class="page-sub">@<?= e($user['username']) ?>, member since <?= e(nice_date(substr($user['created_at'], 0, 10))) ?></p></div></div>
+<div class="grid-2 even">
+  <div>
+    <section class="panel" aria-labelledby="det-h">
+      <h2 id="det-h">Your details</h2>
       <form method="post" action="<?= e(url('/profile')) ?>" novalidate>
         <?= csrf_field() ?>
         <div class="mb-3">
@@ -25,13 +25,13 @@
           <input class="form-check-input" type="checkbox" id="notify_email" name="notify_email" value="1" <?= (int) $user['notify_email'] === 1 ? 'checked' : '' ?>>
           <label class="form-check-label" for="notify_email">Email me a copy of my notifications <span class="text-muted">(mock: written to storage/logs/mail.log, not really sent)</span></label>
         </div>
-        <button class="btn btn-primary" type="submit">Save</button>
+        <button class="btn btn-primary" type="submit">Save details</button>
       </form>
-    </div></div>
+    </section>
   </div>
-  <div class="col-lg-6">
-    <div class="card"><div class="card-body">
-      <h2 class="h5">Change password</h2>
+  <div>
+    <section class="panel" aria-labelledby="pw-h">
+      <h2 id="pw-h">Change password</h2>
       <form method="post" action="<?= e(url('/profile/password')) ?>" novalidate>
         <?= csrf_field() ?>
         <?php foreach (['current_password' => 'Current password', 'password' => 'New password', 'password_confirm' => 'Confirm new password'] as $f => $label): ?>
@@ -42,8 +42,8 @@
             <?= field_error($errors, $f) ?>
           </div>
         <?php endforeach; ?>
-        <button class="btn btn-outline-primary" type="submit">Change password</button>
+        <button class="btn btn-quiet" type="submit">Change password</button>
       </form>
-    </div></div>
+    </section>
   </div>
 </div>

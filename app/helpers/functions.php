@@ -115,3 +115,32 @@ function same_origin_referer(): ?string
     $query = parse_url($ref, PHP_URL_QUERY);
     return $path . ($query ? '?' . $query : '');
 }
+
+/** "Priya Nair" -> "PN" (for avatars). */
+function initials(string $name): string
+{
+    $parts = preg_split('/\s+/', trim($name)) ?: [];
+    $first = mb_substr($parts[0] ?? '?', 0, 1);
+    $last  = count($parts) > 1 ? mb_substr((string) end($parts), 0, 1) : '';
+    return mb_strtoupper($first . $last);
+}
+
+/** '2026-10-05' -> ['05', 'Oct'] for the date column of lists. */
+function date_parts(string $ymd): array
+{
+    $t = strtotime($ymd);
+    return $t ? [date('j', $t), date('M', $t)] : ['', ''];
+}
+
+/** '2026-10-05' -> '5 Oct 2026'. */
+function nice_date(?string $ymd): string
+{
+    $t = $ymd ? strtotime($ymd) : false;
+    return $t ? date('j M Y', $t) : '';
+}
+
+/** Absolute value of a decimal string, without floats. */
+function abs_amount(string $v): string
+{
+    return ltrim($v, '-');
+}

@@ -1,11 +1,11 @@
 <?php $editing = $b !== null; ?>
-<h1 class="h3 mb-4"><?= $editing ? 'Edit budget' : 'New budget' ?></h1>
-<div class="card" style="max-width: 640px"><div class="card-body">
+<div class="page-head"><h1 class="page-title"><?= $editing ? 'Edit budget' : 'New budget' ?></h1></div>
+<div class="panel form-narrow">
   <form method="post" action="<?= e(url($editing ? '/budgets/' . (int) $b['budget_id'] : '/budgets')) ?>" novalidate>
     <?= csrf_field() ?>
     <?php if (!$editing): ?>
       <div class="mb-3">
-        <label class="form-label" for="scope">For</label>
+        <label class="form-label" for="scope">Whose spending?</label>
         <select class="form-select" id="scope" name="scope">
           <option value="personal">Me (personal)</option>
           <?php foreach ($adminGroups as $g): ?>
@@ -18,7 +18,7 @@
     <?php endif; ?>
     <div class="mb-3">
       <label class="form-label" for="name">Name</label>
-      <input class="form-control<?= is_invalid($errors, 'name') ?>" id="name" name="name" maxlength="80" value="<?= e(old($old, 'name', $b['name'] ?? '')) ?>" placeholder="e.g. Food – November">
+      <input class="form-control<?= is_invalid($errors, 'name') ?>" id="name" name="name" maxlength="80" value="<?= e(old($old, 'name', $b['name'] ?? '')) ?>" placeholder="Food in November">
       <?= field_error($errors, 'name') ?>
     </div>
     <div class="row g-3 mb-3">
@@ -51,13 +51,13 @@
         <?= field_error($errors, 'start_date') ?>
       </div>
       <div class="col-md-4">
-        <label class="form-label" for="end_date">End <span class="text-muted small">(custom only)</span></label>
+        <label class="form-label" for="end_date">End <span class="text-muted fw-normal">(custom only)</span></label>
         <input class="form-control<?= is_invalid($errors, 'end_date') ?>" type="date" id="end_date" name="end_date" value="<?= e(old($old, 'end_date', $b['end_date'] ?? '')) ?>">
         <?= field_error($errors, 'end_date') ?>
       </div>
     </div>
     <div class="mb-3">
-      <label class="form-label" for="alert_threshold">Warn me at (% used)</label>
+      <label class="form-label" for="alert_threshold">Warn me when this much is used (%)</label>
       <input class="form-control<?= is_invalid($errors, 'alert_threshold') ?>" id="alert_threshold" name="alert_threshold" inputmode="numeric" value="<?= e(old($old, 'alert_threshold', (string) ($b['alert_threshold'] ?? 80))) ?>">
       <?= field_error($errors, 'alert_threshold') ?>
     </div>
@@ -66,9 +66,9 @@
   </form>
   <?php if ($editing): ?>
     <form method="post" action="<?= e(url('/budgets/' . (int) $b['budget_id'] . '/delete')) ?>" class="mt-3"><?= csrf_field() ?>
-      <button class="btn btn-sm btn-outline-danger">Delete budget</button></form>
+      <button class="btn btn-sm btn-danger-quiet">Delete budget</button></form>
   <?php endif; ?>
-</div></div>
+</div>
 <script>
   // scope select -> hidden group_id
   (function () {

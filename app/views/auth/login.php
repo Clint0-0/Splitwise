@@ -1,6 +1,5 @@
-<div class="card shadow-sm">
-  <div class="card-body p-4">
-    <h2 class="h5 mb-3">Log in</h2>
+<div class="panel p-4">
+    <h1 class="h2 mb-3">Log in</h1>
     <?= field_error($errors, 'login') ?>
     <form method="post" action="<?= e(url('/login')) ?>" novalidate>
       <?= csrf_field() ?>
@@ -14,6 +13,5 @@
       </div>
       <button class="btn btn-primary w-100" type="submit">Log in</button>
     </form>
-    <p class="text-center mt-3 mb-0 small">New here? <a href="<?= e(url('/register')) ?>">Create an account</a></p>
-  </div>
+    <p class="text-center mt-3 mb-0">New here? <a href="<?= e(url('/register')) ?>">Create an account</a></p>
 </div>

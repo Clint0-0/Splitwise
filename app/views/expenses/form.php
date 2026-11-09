@@ -17,14 +17,15 @@ $inputFor = function (int $uid) use ($oldShare, $splits, $method): string {
 };
 $labels = ['equal' => 'Equally', 'percentage' => 'By percentage', 'exact' => 'Exact amounts', 'shares' => 'By shares', 'adjustment' => 'Equal + adjustments'];
 ?>
-<h1 class="h3 mb-4"><?= $editing ? 'Edit expense' : 'Add expense' ?></h1>
+<div class="page-head"><div><h1 class="page-title"><?= $editing ? 'Edit expense' : 'Add an expense' ?></h1>
+  <?php if ($editing): ?><p class="page-sub"><?= $group ? 'in ' . e($group['name']) : 'Personal expense' ?></p><?php endif; ?></div></div>
 
 <?php if (!$editing): ?>
-  <form method="get" action="<?= e(url('/expenses/create')) ?>" class="mb-3" style="max-width: 760px">
-    <label class="form-label" for="groupPick">Group</label>
+  <form method="get" action="<?= e(url('/expenses/create')) ?>" class="mb-3 form-narrow">
+    <label class="form-label" for="groupPick">Who is this expense with?</label>
     <div class="d-flex gap-2">
       <select class="form-select" id="groupPick" name="group" data-autosubmit>
-        <option value="">Personal expense (only me)</option>
+        <option value="">Only me (personal expense)</option>
         <?php foreach ($groups as $g): ?>
           <option value="<?= (int) $g['group_id'] ?>" <?= $gid === (int) $g['group_id'] ? 'selected' : '' ?>><?= e($g['name']) ?></option>
         <?php endforeach; ?>
@@ -34,20 +35,19 @@ $labels = ['equal' => 'Equally', 'percentage' => 'By percentage', 'exact' => 'Ex
   </form>
 <?php endif; ?>
 
-<div class="card" style="max-width: 760px"><div class="card-body">
+<div class="panel form-narrow">
 <form method="post" enctype="multipart/form-data" novalidate id="expenseForm"
       action="<?= e(url($editing ? '/expenses/' . (int) $e['expense_id'] : '/expenses')) ?>">
   <?= csrf_field() ?>
   <input type="hidden" name="group_id" value="<?= $gid ?? '' ?>">
   <?php if ($editing): ?><input type="hidden" name="version" value="<?= (int) $e['version'] ?>"><?php endif; ?>
   <?= field_error($errors, 'version') ?>
-  <?php if ($editing): ?><p class="text-muted small"><?= $group ? 'Group: ' . e($group['name']) : 'Personal expense' ?></p><?php endif; ?>
 
   <div class="row g-3">
     <div class="col-md-8">
       <label class="form-label" for="description">Description</label>
       <input class="form-control<?= is_invalid($errors, 'description') ?>" id="description" name="description" maxlength="120" required
-             value="<?= e(old($old, 'description', $e['description'] ?? '')) ?>" placeholder="e.g. Dinner at Baga">
+             value="<?= e(old($old, 'description', $e['description'] ?? '')) ?>" placeholder="Dinner at Baga">
       <?= field_error($errors, 'description') ?>
     </div>
     <div class="col-md-4">
@@ -76,7 +76,7 @@ $labels = ['equal' => 'Equally', 'percentage' => 'By percentage', 'exact' => 'Ex
   </div>
 
   <?php if ($group): ?>
-    <hr>
+    <div class="form-section">
     <div class="mb-3">
       <label class="form-label" for="paid_by">Paid by</label>
       <select class="form-select<?= is_invalid($errors, 'paid_by') ?>" id="paid_by" name="paid_by">
@@ -89,8 +89,8 @@ $labels = ['equal' => 'Equally', 'percentage' => 'By percentage', 'exact' => 'Ex
     </div>
 
     <fieldset class="mb-3">
-      <legend class="form-label fs-6">Split</legend>
-      <div class="btn-group flex-wrap" role="group" aria-label="Split method">
+      <legend class="form-label">How should it be split?</legend>
+      <div class="method-choice" role="group" aria-label="Split method">
         <?php foreach ($methods as $mth): ?>
           <input type="radio" class="btn-check" name="split_method" id="m_<?= $mth ?>" value="<?= $mth ?>" <?= $method === $mth ? 'checked' : '' ?>>
           <label class="btn btn-outline-primary btn-sm" for="m_<?= $mth ?>"><?= e($labels[$mth]) ?></label>
@@ -100,8 +100,8 @@ $labels = ['equal' => 'Equally', 'percentage' => 'By percentage', 'exact' => 'Ex
     </fieldset>
 
     <div class="mb-2"><?= field_error($errors, 'participants') ?></div>
-    <table class="table table-sm align-middle" id="participants">
-      <thead><tr><th>Participant</th><th style="width: 40%" class="share-head">Share</th><th class="text-end">Amount</th></tr></thead>
+    <div class="table-responsive" tabindex="0" role="region" aria-label="Scrollable table"><table class="table split-table" id="participants">
+      <thead><tr><th scope="col">Who is in it</th><th scope="col" style="width: 38%" class="share-head">Share</th><th scope="col" class="num">Their part</th></tr></thead>
       <tbody>
       <?php foreach ($members as $m): $u = (int) $m['user_id']; ?>
         <tr data-user="<?= $u ?>">
@@ -116,18 +116,18 @@ $labels = ['equal' => 'Equally', 'percentage' => 'By percentage', 'exact' => 'Ex
                    value="<?= e($inputFor($u)) ?>" inputmode="decimal" aria-label="Share for <?= e($m['full_name']) ?>">
             <?= field_error($errors, "share_$u") ?>
           </td>
-          <td class="text-end amount preview">—</td>
+          <td class="num preview">–</td>
         </tr>
       <?php endforeach; ?>
       </tbody>
-      <tfoot><tr><td colspan="3" class="small" id="splitStatus" aria-live="polite"></td></tr></tfoot>
-    </table>
+      <tfoot><tr><td colspan="3" class="split-status" id="splitStatus" aria-live="polite"></td></tr></tfoot>
+    </table></div>
+    </div>
   <?php endif; ?>
 
-  <hr>
-  <div class="row g-3">
+  <div class="form-section"><div class="row g-3">
     <div class="col-md-6">
-      <label class="form-label" for="tags">Tags (comma separated)</label>
+      <label class="form-label" for="tags">Tags <span class="text-muted fw-normal">(optional, comma separated)</span></label>
       <input class="form-control" id="tags" name="tags" value="<?= e(old($old, 'tags', $tags)) ?>" placeholder="goa-2026, weekend">
     </div>
     <div class="col-md-6">
@@ -136,15 +136,15 @@ $labels = ['equal' => 'Equally', 'percentage' => 'By percentage', 'exact' => 'Ex
       <?= field_error($errors, 'receipt') ?>
     </div>
     <div class="col-12">
-      <label class="form-label" for="notes">Notes</label>
+      <label class="form-label" for="notes">Notes <span class="text-muted fw-normal">(optional)</span></label>
       <textarea class="form-control<?= is_invalid($errors, 'notes') ?>" id="notes" name="notes" rows="2" maxlength="500"><?= e(old($old, 'notes', $e['notes'] ?? '')) ?></textarea>
       <?= field_error($errors, 'notes') ?>
     </div>
-  </div>
+  </div></div>
 
   <div class="mt-4">
     <button class="btn btn-primary" type="submit"><?= $editing ? 'Save changes' : 'Add expense' ?></button>
     <a class="btn btn-link" href="<?= e(url($editing ? '/expenses/' . (int) $e['expense_id'] : ($gid ? "/groups/$gid" : '/expenses'))) ?>">Cancel</a>
   </div>
 </form>
-</div></div>
+</div>

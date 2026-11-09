@@ -97,7 +97,7 @@ final class ExpenseModel extends Model
         return $this->all("SELECT e.expense_id, e.expense_date, e.description, e.total_amount, e.split_method,
                                   e.is_deleted, e.group_id, COALESCE(g.name, 'Personal') AS group_name,
                                   payer.full_name AS payer_name, c.name AS category_name, c.icon AS category_icon,
-                                  my.share_amount AS my_share
+                                  c.color AS category_color, my.share_amount AS my_share
                              FROM expenses e
                              JOIN users payer  ON payer.user_id = e.paid_by
                              JOIN categories c ON c.category_id = e.category_id

@@ -340,3 +340,18 @@ Found by a code review after the first Phase 3 run, fixed, and covered by new te
 | 13 | Archived groups blocked settling debts that were still owed | Settlements allowed in archived groups; everything else stays read-only | P5b |
 
 Expected log line during T7: PHP's own warning `POST Content-Length … exceeds the limit` (that is the oversized request being rejected).
+
+
+## Phase 4 — Frontend checks (2026-11-09)
+
+| Check | Tool | Result |
+|---|---|---|
+| Every screen renders, desktop 1366×900 and mobile 390×844 | `tools/screenshots.py` (Chrome via Playwright) | 36 screenshots in `docs/screenshots/`, no console errors |
+| Accessibility, WCAG 2.0/2.1 A + AA + best practice | axe-core 4 injected into each of the 36 page views | **0 violations** (2 issue types found on first run and fixed: definition-list markup, keyboard access to scrollable tables) |
+| Chart palette (two-series charts) | dataviz `validate_palette.js`, light surface | PASS lightness, chroma, CVD (ΔE 37.0), normal-vision (ΔE 40.3); contrast WARN for marigold → every chart has a "Show as table" view |
+| Text contrast of design tokens | WCAG ratio | ink 15.6:1, violet 8.9:1, gets 5.4:1, owes 6.3:1, muted 6.6:1, ink on marigold 10.2:1 |
+| Regression after the redesign | all suites | unit 41/41 · functional 103/103 · database 74/74 |
+
+Three functional assertions were updated because the page wording changed on purpose (e.g. "gets back ₹10,091.67" → hero sentence "you get back ₹10,091.67"; "Sneha → Aarav" → "Sneha pays Aarav"); they still check the same numbers.
+
+Visual issues found in screenshot review and fixed: navigation wrapping, rail colour ending mid-page, invisible avatar on the rail, member names wrapping, misaligned analytics columns, cramped expense form, truncated titles on phones, ₹0.00 shown in red.
