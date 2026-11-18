@@ -1,0 +1,5 @@
+# never commit Atlas credentials or connection strings
+.env
+*.env
+connection*.txt
+*credentials*
