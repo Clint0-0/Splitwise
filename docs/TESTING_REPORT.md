@@ -479,7 +479,7 @@ No file under `app/`, `config/`, `public/` or `database/` changed; `splitwise_pl
 ### New experiment tests
 | Suite | Result | Kind |
 |---|---|---|
-| `tests/experiments/test_exp10.php` — 9 expected errors in order, RESTRICT/CASCADE/SET NULL end states, ALTER/RENAME/DROP FK results, warehouse program, production untouched | **15/15** | Executed locally (MySQL 8.0.46) |
+| `tests/experiments/test_exp10.php` — expected errors in order, RESTRICT/CASCADE/SET NULL end states, ALTER/RENAME/DROP FK results, warehouse program, manual examples, production untouched | **17/17** (after manual reconciliation; 15/15 before) | Executed locally (MySQL 8.0.46) |
 | `tests/experiments/exp11_dry_run.js` — CRUD script run against an in-memory stand-in, JSON consistency, no credentials | **11/11** | Local dry run — **not** MongoDB; Atlas run **blocked** (needs account) |
 | `experiments/12_candidate_management/tests/run_tests.php` — DB privileges/constraints, HTTP CRUD, duplicates, missing/invalid input, CSRF, headers, DB-down page | **31/31** | Executed locally (PHP 8.3 built-in server, least-privilege login, throw-away test DB) |
 | axe-core on Exp 12 pages (1280 + 390 px, incl. error state) | **0 violations** | Executed locally |
@@ -505,3 +505,17 @@ Measured fact recorded in Exp 10: MySQL 8.0.46 **accepts** `ON DELETE SET DEFAUL
 | 52 | Exp 10 README: `MYSQL_ARGS="-uroot -p"` asks for the password 10 times without saying so | confusing | note + `mysql_config_editor --login-path` option | doc |
 
 Re-run after fixes: Exp 10 15/15 · Exp 11 dry run 11/11 · Exp 12 **31/31** · unit 53/53 · database 76/76 · functional 115/115 · scenarios 23/23 · deployment 29/29. Exp 12 evidence screenshots retaken after the time-zone fix.
+
+### Reconciliation with the lab manuals (2026-11-18)
+Manuals `Experiment_No_10/11/12_NEP.docx` compared line by line with the implementation.
+| Exp | Gap found | Change |
+|---|---|---|
+| 10 | manual's own theory examples (tasks/checklists, fkdemo categories/products incl. ON UPDATE SET NULL) were not run | new `09_manual_fkdemo_examples.sql` (sandbox `splitwise_lab_exp10_fkdemo`), statements as printed |
+| 10 | PROGRAM tables differed from the manual (column names, AUTO_INCREMENT, `employeeWarehouse(employeeID, employeeName, role…)`) | `08` now uses the manual's exact DDL and inserts (`allocationID, employeeNumber, warehouseID`; Margao/Mapusa) |
+| 10 | manual error: 4-value INSERT into `warehouse` after `DROP COLUMN capacity` → 1136 | shown as an expected error, then corrected insert |
+| 10 | manual error: SET NULL example drops `categories` before `products` → 3730 | shown as an expected error, then correct order |
+| 10 | 5 post-lab questions not answered | `POST_LAB_QUESTIONS.md` |
+| 10 | manual uses MySQL Workbench 8.0 CE | README: Workbench run steps + GUI evidence items |
+| 11 | none (steps, documents, filters, post-lab questions identical); manual inserts one document at a time | guide lists one-at-a-time first |
+| 12 | none (manual gives only the 6 section headings + conclusion; all present) | README notes the mapping |
+Exp 10 suite after the change: **17/17**, 13 expected errors in order `1451 1451 1451 1452 1830 1451 3819 1452 3730 1136 1452 1451 3730`.

@@ -36,14 +36,15 @@ Atlas menu names change from time to time; where the screen differs, use the nea
 
 ## 7. Database and collection
 1. Sidebar **+** next to the connection → *Create Database* → Database name **`CollegeDB`**, Collection name **`Students`** → *Create Database*.
-2. Open `CollegeDB.Students` → **ADD DATA → Insert Document**.
-   - Paste the JSON array from `sample_students.json` (Compass accepts an array = several documents at once, like `insertMany`), or paste one object at a time (like `insertOne`).
+2. Open `CollegeDB.Students` → **Documents** tab → **ADD DATA → Insert Document**.
+   - As in the manual: paste Rahul's document → *Insert*; repeat for Priya and Amit (one at a time, like `insertOne`).
+   - Shortcut: paste the whole JSON array from `sample_students.json` once (Compass inserts all three, like `insertMany`).
 3. The list shows 3 documents, each with an `_id: ObjectId('…')` Compass/the server generated.
 
 ## 8. CRUD in Compass
 | Step | Where | Value (from `compass_filters.json`) | Expected |
 |---|---|---|---|
-| Read all | Filter bar | `{}` | 3 documents |
+| Read all | Filter bar → **Find** | `{}` | 3 documents |
 | Find Rahul | Filter bar | `{ "name": "Rahul" }` | 1 document |
 | CGPA > 8 | Filter bar | `{ "cgpa": { "$gt": 8 } }` | Rahul, Priya |
 | Update Rahul | filter `{ "rollNo": 101 }` → pencil icon on the document → change `cgpa` to `9.0` → *Update*; or shell: `db.Students.updateOne({rollNo:101},{$set:{cgpa:9.0}})` | | cgpa 9 |

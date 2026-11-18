@@ -1,5 +1,10 @@
 # CHANGELOG — SplitWise+
 
+## [0.7.2] — Experiments reconciled with the lab manuals (2026-11-18)
+### Changed
+- Exp 10: PROGRAM (`08`) uses the manual's exact statements (incl. the manual's 4-value insert after dropping `capacity`, shown as error 1136, then corrected); new `09_manual_fkdemo_examples.sql` runs the manual's theory examples (tasks/checklists, fkdemo RESTRICT/CASCADE/SET NULL, DROP FOREIGN KEY); verification/cleanup renumbered to `10`/`11`; `POST_LAB_QUESTIONS.md`; Workbench instructions. Test 15 → 17 checks.
+- Exp 11 guide: one-document-at-a-time insert first (as in the manual). Exp 11/12 READMEs note the manual check.
+
 ## [0.7.1] — Experiments 10–12 bug fixes (2026-11-18)
 ### Fixed
 - Exp 12 tests no longer touch the lab database/login (throw-away `splitwise_candidate_lab_test` + `candidate_test`).

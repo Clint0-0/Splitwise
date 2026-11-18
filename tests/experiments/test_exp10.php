@@ -29,10 +29,11 @@ $after = $fingerprint();
 
 $check('E10-1', 'run.sh completed and wrote an output file', $rc === 0 && $out !== '');
 preg_match_all('/^ERROR (\d+)/m', $out, $m);
-$check('E10-2', 'Exactly the 9 expected errors, in order: 1451 1451 1451 1452 1830 1451 3819 1452 3730',
-    implode(' ', $m[1]) === '1451 1451 1451 1452 1830 1451 3819 1452 3730', implode(' ', $m[1]));
+$check('E10-2', 'Exactly the 13 expected errors, in order: 1451 1451 1451 1452 1830 1451 3819 1452 3730 1136 1452 1451 3730',
+    implode(' ', $m[1]) === '1451 1451 1451 1452 1830 1451 3819 1452 3730 1136 1452 1451 3730', implode(' ', $m[1]));
 $check('E10-3', 'CREATE/DROP DATABASE: sandbox exists, scratch database dropped',
     (int) $val("SELECT COUNT(*) FROM information_schema.SCHEMATA WHERE SCHEMA_NAME='splitwise_lab_exp10'") === 1
+    && (int) $val("SELECT COUNT(*) FROM information_schema.SCHEMATA WHERE SCHEMA_NAME='splitwise_lab_exp10_fkdemo'") === 1
     && (int) $val("SELECT COUNT(*) FROM information_schema.SCHEMATA WHERE SCHEMA_NAME='splitwise_lab_exp10_scratch'") === 0
     && $val("SELECT DEFAULT_COLLATION_NAME FROM information_schema.SCHEMATA WHERE SCHEMA_NAME='splitwise_lab_exp10'") === 'utf8mb4_0900_ai_ci');
 $check('E10-4', 'RESTRICT: users 1,2,3 and group 1 survived; no ghost expense',
@@ -61,25 +62,34 @@ $check('E10-9', 'DROP FOREIGN KEY shown then FK re-added; orphan cleaned; tags/e
     && $val("SELECT DELETE_RULE FROM information_schema.REFERENTIAL_CONSTRAINTS WHERE CONSTRAINT_SCHEMA='splitwise_lab_exp10' AND CONSTRAINT_NAME='fk_expenses_paid_by'") === 'RESTRICT'
     && (int) $val("SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA='splitwise_lab_exp10' AND TABLE_NAME IN ('tags','expense_tags')") === 0);
 $check('E10-10', 'SHOW CREATE TABLE output captured', substr_count($out, 'Create Table:') >= 5);
-$check('E10-11', 'Warehouse: warehouseProducts renamed to inventoryDetails with composite PK + 2 CASCADE FKs; capacity dropped; warehouseID after productLine',
+$check('E10-11', 'Warehouse (manual DDL as printed): warehouseProducts renamed to inventoryDetails with composite PK + 2 CASCADE FKs; capacity dropped; warehouseID after productLine; employeeWarehouse(allocationID, employeeNumber, warehouseID)',
     (int) $val("SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA='splitwise_lab_exp10' AND TABLE_NAME='warehouseProducts'") === 0
     && (int) $val("SELECT COUNT(*) FROM information_schema.KEY_COLUMN_USAGE WHERE TABLE_SCHEMA='splitwise_lab_exp10' AND TABLE_NAME='inventoryDetails' AND CONSTRAINT_NAME='PRIMARY'") === 2
     && (int) $val("SELECT COUNT(*) FROM information_schema.REFERENTIAL_CONSTRAINTS WHERE CONSTRAINT_SCHEMA='splitwise_lab_exp10' AND TABLE_NAME='inventoryDetails' AND DELETE_RULE='CASCADE'") === 2
     && (int) $val("SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA='splitwise_lab_exp10' AND TABLE_NAME='warehouse' AND COLUMN_NAME='capacity'") === 0
     && (int) $val("SELECT ORDINAL_POSITION FROM information_schema.COLUMNS WHERE TABLE_SCHEMA='splitwise_lab_exp10' AND TABLE_NAME='products' AND COLUMN_NAME='warehouseID'")
-      === (int) $val("SELECT ORDINAL_POSITION FROM information_schema.COLUMNS WHERE TABLE_SCHEMA='splitwise_lab_exp10' AND TABLE_NAME='products' AND COLUMN_NAME='productLine'") + 1);
-$check('E10-12', 'Warehouse delete: inventory CASCADE (3 left, none for 1), employees SET NULL (2), products.warehouseID dangling (2)',
-    (int) $val('SELECT COUNT(*) FROM splitwise_lab_exp10.inventoryDetails') === 3
+      === (int) $val("SELECT ORDINAL_POSITION FROM information_schema.COLUMNS WHERE TABLE_SCHEMA='splitwise_lab_exp10' AND TABLE_NAME='products' AND COLUMN_NAME='productLine'") + 1
+    && $val("SELECT GROUP_CONCAT(COLUMN_NAME ORDER BY ORDINAL_POSITION) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA='splitwise_lab_exp10' AND TABLE_NAME='employeeWarehouse'") === 'allocationID,employeeNumber,warehouseID');
+$check('E10-12', 'Warehouse delete: allocation 101 -> NULL, 102 keeps 2 (SET NULL); inventory CASCADE (2 left, none for 1); products.warehouseID dangling (2)',
+    $val('SELECT warehouseID FROM splitwise_lab_exp10.employeeWarehouse WHERE allocationID=101') === null
+    && (int) $val('SELECT warehouseID FROM splitwise_lab_exp10.employeeWarehouse WHERE allocationID=102') === 2
+    && (int) $val('SELECT COUNT(*) FROM splitwise_lab_exp10.inventoryDetails') === 2
     && (int) $val('SELECT COUNT(*) FROM splitwise_lab_exp10.inventoryDetails WHERE warehouseID=1') === 0
-    && (int) $val('SELECT COUNT(*) FROM splitwise_lab_exp10.employeeWarehouse WHERE warehouseID IS NULL') === 2
-    && $val("SELECT DELETE_RULE FROM information_schema.REFERENTIAL_CONSTRAINTS WHERE CONSTRAINT_SCHEMA='splitwise_lab_exp10' AND CONSTRAINT_NAME='fk_ew_warehouse'") === 'SET NULL'
-    && (int) $val('SELECT COUNT(*) FROM splitwise_lab_exp10.products WHERE warehouseID=1') === 2);
+    && (int) $val('SELECT COUNT(*) FROM splitwise_lab_exp10.products WHERE warehouseID=1') === 2
+    && $val("SELECT GROUP_CONCAT(warehouseName ORDER BY warehouseID) FROM splitwise_lab_exp10.warehouse") === 'North Warehouse');
+$check('E10-16', "Manual's fkdemo examples: checklist CASCADE (0 left); after SET NULL section all 4 products have NULL category; fk_category dropped; tasks renamed todo_tasks with columns back to 4",
+    (int) $val('SELECT COUNT(*) FROM splitwise_lab_exp10_fkdemo.checklists') === 0
+    && (int) $val('SELECT COUNT(*) FROM splitwise_lab_exp10_fkdemo.products WHERE categoryId IS NULL') === 4
+    && (int) $val("SELECT COUNT(*) FROM information_schema.REFERENTIAL_CONSTRAINTS WHERE CONSTRAINT_SCHEMA='splitwise_lab_exp10_fkdemo' AND CONSTRAINT_NAME='fk_category'") === 0
+    && $val("SELECT GROUP_CONCAT(COLUMN_NAME ORDER BY ORDINAL_POSITION) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA='splitwise_lab_exp10_fkdemo' AND TABLE_NAME='todo_tasks'") === 'id,title,start_date,due_date');
+$check('E10-17', "Manual's CASCADE section really cascaded (output shows iPhone/Galaxy Note with categoryId 100 and the watches deleted)",
+    (bool) preg_match('/\|\s+1 \| iPhone\s+\|\s+100 \|/', $out) && (bool) preg_match('/\|\s+2 \| Galaxy Note\s+\|\s+100 \|/', $out));
 $check('E10-13', 'splitwise_plus untouched (schema + FK rules + expense count identical before/after)', $before === $after);
 $tracked = (string) shell_exec('cd ' . escapeshellarg($ROOT) . ' && git status --porcelain database/ 2>/dev/null');
 $check('E10-14', 'Production build chain untouched (no changes under database/)', trim($tracked) === '', trim($tracked));
-$check('E10-15', 'No experiment script names splitwise_plus except the read-only count in 09',
-    count(array_filter(glob("$dir/0*.sql") ?: [], fn($f) => str_contains((string) file_get_contents($f), 'splitwise_plus')
-        && basename($f) !== '09_verification_queries.sql' && !preg_match('/Never touches splitwise_plus|splitwise_plus is not touched/', (string) file_get_contents($f)))) === 0);
+$check('E10-15', 'No experiment script names splitwise_plus except the read-only count in 10',
+    count(array_filter(glob("$dir/[01]*.sql") ?: [], fn($f) => str_contains((string) file_get_contents($f), 'splitwise_plus')
+        && basename($f) !== '10_verification_queries.sql' && !preg_match('/Never touches splitwise_plus|splitwise_plus is not touched/', (string) file_get_contents($f)))) === 0);
 
 echo "\n$pass / " . ($pass + $fail) . " passed\n";
 exit($fail ? 1 : 0);

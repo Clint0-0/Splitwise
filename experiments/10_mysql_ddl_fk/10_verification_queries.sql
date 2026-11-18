@@ -1,5 +1,5 @@
 -- =====================================================================
--- Experiment 10 · 09  Verification (read-only)
+-- Experiment 10 · 10  Verification (read-only)
 -- =====================================================================
 USE splitwise_lab_exp10;
 
@@ -31,6 +31,10 @@ SELECT 'expenses', COUNT(*) FROM expenses UNION ALL
 SELECT 'warehouse', COUNT(*) FROM warehouse UNION ALL
 SELECT 'inventoryDetails', COUNT(*) FROM inventoryDetails UNION ALL
 SELECT 'employeeWarehouse', COUNT(*) FROM employeeWarehouse;
+
+-- The manual's fkdemo examples (script 09)
+SELECT TABLE_NAME FROM information_schema.TABLES WHERE TABLE_SCHEMA = 'splitwise_lab_exp10_fkdemo' ORDER BY TABLE_NAME;
+SELECT productName, categoryId FROM splitwise_lab_exp10_fkdemo.products ORDER BY productId;
 
 -- Production database untouched: this sandbox shares no objects with splitwise_plus.
 SELECT COUNT(*) AS splitwise_plus_tables FROM information_schema.TABLES

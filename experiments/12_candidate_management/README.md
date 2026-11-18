@@ -2,6 +2,8 @@
 
 **Aim:** design and develop a Candidate Management System using SQL and a front-end interface, applying ER modelling, normalization up to 3NF and SQL operations to store, retrieve, update and delete candidate information.
 
+Checked against the lab manual (`Experiment_No_12_NEP.docx`): it lists the six sections below and a conclusion naming MySQL, PHP, HTML and CSS with register / view / update / delete — all covered. The manual gives no attribute list, so the data model and its assumptions are in `docs/REQUIREMENTS.md`.
+
 An **independent** PHP/MySQL mini-application. It has its own database `splitwise_candidate_lab`, its own least-privilege login `candidate_app`, and shares no code, tables or navigation with SplitWise+.
 
 | Manual section | Where |

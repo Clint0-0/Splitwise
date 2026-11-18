@@ -86,10 +86,10 @@ Phase 2 acceptance criteria: tables create ✓ · FKs work ✓ · constraints re
 | Exp | Deliverable | Status |
 |---|---|---|
 | 1–9 | existing query/trigger/view scripts, unchanged; mapping moved to `docs/DBMS_EXPERIMENT_MAPPING.md` | ✓ executed locally (SQL scripts + DB suites) |
-| 10 | `experiments/10_mysql_ddl_fk/` — DDL + RESTRICT/CASCADE/SET NULL + warehouse practical in sandbox `splitwise_lab_exp10` | ✓ executed locally, 15/15 |
+| 10 | `experiments/10_mysql_ddl_fk/` — DDL + RESTRICT/CASCADE/SET NULL, manual's examples and PROGRAM as printed, post-lab answers; sandboxes `splitwise_lab_exp10`, `_fkdemo` | ✓ executed locally, 17/17 |
 | 11 | `experiments/11_mongodb_atlas_compass/` — setup guide, sample docs, CRUD script, filters, post-lab answers | ✓ files + local dry run 11/11 · ☐ **Atlas/Compass run blocked — needs team's Atlas account** · ☐ screenshots |
 | 12 | `experiments/12_candidate_management/` — requirements, ER, 3NF, schema, PHP/PDO CRUD app | ✓ executed locally, 31/31, axe 0, real screenshots |
-| — | Lab manuals for Exp 10–12 were **not** in the upload (only the brief); built from the brief — reconcile if the manuals add steps | ☐ open |
+| — | Lab manuals (`Experiment_No_10/11/12_NEP.docx`) received 2026-11-18 and reconciled: Exp 10 gained the manual's own examples, exact PROGRAM statements and post-lab answers; Exp 11 and 12 already matched | ✓ |
 
 ## Notes for Phase 5 (testing) — kept for reference
 - Phase 3/4 suites are automated; Phase 5 adds the financial scenario walk-throughs, manual cross-browser check on a team laptop (Windows + XAMPP + MySQL 8.0), and the final regression run.
@@ -125,7 +125,7 @@ Phase 2 acceptance criteria: tables create ✓ · FKs work ✓ · constraints re
 | **M3 — Backend & integration** | core, middleware, controllers, services (SplitCalculator, BalanceService, DebtSimplifier, SettlementService…), uploads, PDO transactions | docs coordination, README, setup guide |
 
 ## Next tasks
-1. Exp 11: run `ATLAS_SETUP.md` in your Atlas account and add screenshots; take Exp 10 screenshots from `./run.sh`; upload the three lab manuals if exact wording must be checked.
+1. Exp 11: run `ATLAS_SETUP.md` in your Atlas account and add screenshots; take Exp 10 screenshots in MySQL Workbench (README checklist).
 2. Review Phase 5.5; on a machine with Docker Hub access run `docker build -t splitwise-plus .` and the container checks in `docs/DEPLOYMENT.md` §2.
 3. Create the managed MySQL 8.0 server and Vercel project (owner enters credentials in the consoles only), follow `docs/DEPLOYMENT.md` §4 + §9, verify the 20 workflows on the preview URL.
 4. **Every member:** re-import (`database/splitwise_plus.sql` now has 16 tables) and run `docs/TEAM_TEST_CHECKLIST.md`.

@@ -2,6 +2,8 @@
 
 **Aim:** create a MongoDB database and collection on MongoDB Atlas, connect with MongoDB Compass, and perform CRUD operations on student records.
 
+Checked against the lab manual (`Experiment_No_11_NEP.docx`): same steps 1–7 (Atlas account → Compass → `CollegeDB.Students` → insert 3 documents → `{}`, `{name: Rahul}`, `{cgpa: {$gt: 8}}` → Rahul 8.5 → 9.0 → delete Amit), same 7 post-lab questions. The manual does CRUD through the Compass GUI; the mongosh script is the command-line equivalent for the same steps.
+
 Independent NoSQL lab: SplitWise+ stays on MySQL 8.0; the app has no MongoDB code or connection.
 
 | File | Purpose |

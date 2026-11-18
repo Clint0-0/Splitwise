@@ -16,7 +16,7 @@ Renamed from `SQL_EXPERIMENT_MAPPING.md` (its Experiments 1–9 content is kept 
 | 7 | Subqueries | `queries/05_subqueries.sql` (Q35–Q43) | same | correct sub-results | Implemented · Executed locally |
 | 8 | Triggers | `database/triggers/` | DB tests T1–T17 | each trigger fires / rejects | Implemented · Executed locally |
 | 9 | Views | `database/views/` | DB tests + `demo_views.sql` | views return data; updatability as documented | Implemented · Executed locally |
-| 10 | MySQL DDL + foreign keys | `experiments/10_mysql_ddl_fk/` (sandbox `splitwise_lab_exp10`) | `php tests/experiments/test_exp10.php` (15 checks) | 9 expected errors in order; RESTRICT/CASCADE/SET NULL end states; warehouse program result; `splitwise_plus` unchanged | Implemented · **Executed locally** (15/15) |
+| 10 | MySQL DDL + foreign keys | `experiments/10_mysql_ddl_fk/` (sandboxes `splitwise_lab_exp10`, `splitwise_lab_exp10_fkdemo`) | `php tests/experiments/test_exp10.php` (17 checks) | 13 expected errors in order; RESTRICT/CASCADE/SET NULL end states; manual's examples + PROGRAM as printed; `splitwise_plus` unchanged | Implemented · **Executed locally** (17/17) |
 | 11 | MongoDB Atlas + Compass | `experiments/11_mongodb_atlas_compass/` | `node tests/experiments/exp11_dry_run.js` (11 checks, in-memory stand-in); cloud steps in `ATLAS_SETUP.md` | 3 docs with `_id`; `$gt` → 2; Rahul cgpa 9; Amit deleted, 2 left | Implemented · Executed locally (dry run only) · **Executed on cloud: Blocked — needs your Atlas account** |
 | 12 | Candidate Management System | `experiments/12_candidate_management/` (DB `splitwise_candidate_lab`) | `bash experiments/12_candidate_management/tests/run.sh` (31 checks, throw-away test DB) | full CRUD through the web UI; constraints enforced | Implemented · **Executed locally** (31/31) |
 
@@ -179,7 +179,7 @@ Plus: `CREATE VIEW`, `CREATE OR REPLACE VIEW`, `SHOW TABLES`, `SHOW FULL TABLES 
 
 ## Experiment 10 — MySQL DDL commands and foreign key constraints
 **Aim:** study and implement DDL (`CREATE/DROP DATABASE`, `CREATE/ALTER/RENAME/DROP TABLE`, `ADD/DROP COLUMN`, `DROP FOREIGN KEY`, `SHOW CREATE TABLE`) and referential actions RESTRICT, CASCADE, SET NULL.
-**Files:** `experiments/10_mysql_ddl_fk/` — `01`…`09` + optional `10_cleanup_drop_database.sql`, `run.sh`, `README.md`. **Sandbox:** `splitwise_lab_exp10` (outside `database/build.sh`).
+**Files:** `experiments/10_mysql_ddl_fk/` — `01`…`10` + optional `11_cleanup_drop_database.sql`, `run.sh`, `README.md`, `POST_LAB_QUESTIONS.md`. **Sandboxes:** `splitwise_lab_exp10`, `splitwise_lab_exp10_fkdemo` (outside `database/build.sh`). Checked against the lab manual `Experiment_No_10_NEP.docx`.
 
 | Concept | Script | SplitWise+ link |
 |---|---|---|
@@ -190,10 +190,12 @@ Plus: `CREATE VIEW`, `CREATE OR REPLACE VIEW`, `SHOW TABLES`, `SHOW FULL TABLES 
 | ON DELETE SET NULL; NOT NULL + SET NULL → 1830; SET DEFAULT accepted but not performed → 1451 | 05 | `expenses.deleted_by` (production: SET NULL) |
 | ADD COLUMN … AFTER / DEFAULT, MODIFY, RENAME COLUMN, ADD CONSTRAINT CHECK (→ 3819), ADD INDEX, DROP CHECK, DROP COLUMN, RENAME TABLE, ALTER … RENAME TO, SHOW CREATE TABLE | 06 | |
 | DROP FOREIGN KEY, orphan accepted, re-add fails (1452) until cleaned, DROP TABLE order (3730) | 07 | |
-| Warehouse/inventory practical (warehouse, products, warehouseProducts → inventoryDetails, employeeWarehouse) | 08 | independent `products` table created in the sandbox |
-| information_schema verification | 09 | read-only count proving `splitwise_plus` untouched |
+| Manual PROGRAM, statements as printed (warehouse, products.warehouseID, warehouseProducts → inventoryDetails, drop capacity, employeeWarehouse SET NULL, delete warehouse 1) | 08 | independent `products` table created in the sandbox; the manual's 4-value insert after `DROP COLUMN capacity` shown as error 1136, then corrected |
+| Manual theory examples as printed (tasks/checklists; fkdemo categories/products: RESTRICT 1452/1451, ON UPDATE/DELETE CASCADE, ON UPDATE/DELETE SET NULL, DROP FOREIGN KEY fk_category, ADD COLUMN FIRST/AFTER, multi DROP COLUMN) | 09 | manual's drop order categories-before-products shown as error 3730, then corrected |
+| information_schema verification | 10 | read-only count proving `splitwise_plus` untouched |
+| Post-lab questions (5) | `POST_LAB_QUESTIONS.md` | |
 
-**Test procedure:** `php tests/experiments/test_exp10.php` (runs `run.sh --yes`, then 15 checks). **Expected:** errors exactly `1451 1451 1451 1452 1830 1451 3819 1452 3730`; group 2 members 3 → 0; created_by 4 → 40; deleted_by 5 → NULL; inventoryDetails 5 → 3 rows; 2 employees → NULL warehouse; 2 products keep a dangling warehouseID (no FK, as in the manual); `splitwise_plus` fingerprint identical. **Actual:** 15/15 passed (2026-11-18). **Evidence:** checklist in the experiment README.
+**Test procedure:** `php tests/experiments/test_exp10.php` (runs `run.sh --yes`, then 17 checks). **Expected:** errors exactly `1451 1451 1451 1452 1830 1451 3819 1452 3730 1136 1452 1451 3730`; group 2 members 3 → 0; created_by 4 → 40; deleted_by 5 → NULL; warehouse 1 deleted → allocation 101 NULL, inventoryDetails 4 → 2, 2 products keep a dangling warehouseID (no FK, as in the manual); fkdemo: CASCADE 1 → 100 and watches deleted, SET NULL leaves all 4 products NULL; `splitwise_plus` fingerprint identical. **Actual:** 17/17 passed (2026-11-18). **Evidence:** checklist in the experiment README.
 
 ## Experiment 11 — Cloud database with MongoDB Atlas and MongoDB Compass
 **Aim:** create a MongoDB database and collection on Atlas, connect with Compass, perform CRUD on student records.
