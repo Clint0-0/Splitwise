@@ -5,7 +5,7 @@
 USE splitwise_lab_exp10;
 
 -- [1] SHOW CREATE TABLE before: constraint fk_expenses_paid_by is present.
-SHOW CREATE TABLE expenses\G
+SHOW CREATE TABLE expenses;
 
 -- [2] DROP FOREIGN KEY by its constraint name. The supporting index stays.
 ALTER TABLE expenses DROP FOREIGN KEY fk_expenses_paid_by;
@@ -28,7 +28,7 @@ ALTER TABLE expenses ADD CONSTRAINT fk_expenses_paid_by
 DELETE FROM expenses WHERE paid_by = 999;
 ALTER TABLE expenses ADD CONSTRAINT fk_expenses_paid_by
   FOREIGN KEY (paid_by) REFERENCES users (user_id) ON DELETE RESTRICT;
-SHOW CREATE TABLE expenses\G                                        -- Expected: fk_expenses_paid_by back
+SHOW CREATE TABLE expenses;                                        -- Expected: fk_expenses_paid_by back
 
 -- [5] DROP TABLE order: a parent referenced by a child cannot be dropped first.
 CREATE TABLE tags (tag_id INT UNSIGNED PRIMARY KEY, tag_name VARCHAR(30) NOT NULL);

@@ -54,7 +54,7 @@ CREATE TABLE warehouseProducts (
     REFERENCES products(productCode)
     ON DELETE CASCADE
 ) ENGINE = InnoDB;
-SHOW CREATE TABLE warehouseProducts\G      -- constraint names generated: warehouseproducts_ibfk_1 / _2
+SHOW CREATE TABLE warehouseProducts;      -- constraint names generated: warehouseproducts_ibfk_1 / _2
 
 -- [4] Manual: rename warehouseProducts -> inventoryDetails; drop capacity
 RENAME TABLE warehouseProducts
@@ -72,7 +72,7 @@ CREATE TABLE employeeWarehouse (
     REFERENCES warehouse(warehouseID)
     ON DELETE SET NULL
 ) ENGINE = InnoDB;
-SHOW CREATE TABLE employeeWarehouse\G
+SHOW CREATE TABLE employeeWarehouse;
 
 -- [6] Manual's INSERT, as printed. It still lists 4 values (… 500), but capacity was
 --     dropped in step [4], so the table now has 3 columns.

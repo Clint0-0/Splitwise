@@ -45,4 +45,4 @@ ALTER TABLE expense_categories RENAME TO categories;
 SHOW TABLES;                                           -- Expected: categories, expense_groups, expenses, group_members, users
 
 -- [8] SHOW CREATE TABLE: the full definition after all changes.
-SHOW CREATE TABLE expenses\G
+SHOW CREATE TABLE expenses;

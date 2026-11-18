@@ -525,3 +525,4 @@ Exp 10 suite after the change: **17/17**, 13 expected errors in order `1451 1451
 |---|---|---|---|---|
 | 53 | Exp 10 `01` dropped only `splitwise_lab_exp10`; the new `splitwise_lab_exp10_fkdemo` from an earlier run survived until script `09` | on every re-run the `01` outputs ("Expected: 2 rows / 1 row") were wrong — a student's screenshot would not match the comments | `01` drops both sandboxes first; comments updated | new check E10-18 (fails on the old script, passes now) |
 Exp 10 suite: **18/18**.
+| 54 | Exp 10 scripts used the mysql-CLI-only `\G` terminator in `SHOW CREATE TABLE … \G` | the manual's tool, MySQL Workbench, cannot run `\G` → syntax errors | replaced by `;` (CLI shows a wide table instead) | E10-10 checks no `\G` remains; scripts also re-run with `--safe-updates` (Workbench's default safe mode): same 13 expected errors, no 1175 |

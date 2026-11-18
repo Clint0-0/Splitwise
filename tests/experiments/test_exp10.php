@@ -61,7 +61,8 @@ $check('E10-9', 'DROP FOREIGN KEY shown then FK re-added; orphan cleaned; tags/e
     str_contains($out, 'DROP FOREIGN KEY fk_expenses_paid_by')
     && $val("SELECT DELETE_RULE FROM information_schema.REFERENTIAL_CONSTRAINTS WHERE CONSTRAINT_SCHEMA='splitwise_lab_exp10' AND CONSTRAINT_NAME='fk_expenses_paid_by'") === 'RESTRICT'
     && (int) $val("SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA='splitwise_lab_exp10' AND TABLE_NAME IN ('tags','expense_tags')") === 0);
-$check('E10-10', 'SHOW CREATE TABLE output captured', substr_count($out, 'Create Table:') >= 5);
+$check('E10-10', 'SHOW CREATE TABLE output captured (no \\G, so the scripts also run in MySQL Workbench)', preg_match_all('/\|\s*Create Table\s*\|/', $out) >= 5
+    && count(array_filter(glob("$dir/*.sql") ?: [], fn($f) => str_contains((string) file_get_contents($f), '\\G'))) === 0);
 $check('E10-11', 'Warehouse (manual DDL as printed): warehouseProducts renamed to inventoryDetails with composite PK + 2 CASCADE FKs; capacity dropped; warehouseID after productLine; employeeWarehouse(allocationID, employeeNumber, warehouseID)',
     (int) $val("SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA='splitwise_lab_exp10' AND TABLE_NAME='warehouseProducts'") === 0
     && (int) $val("SELECT COUNT(*) FROM information_schema.KEY_COLUMN_USAGE WHERE TABLE_SCHEMA='splitwise_lab_exp10' AND TABLE_NAME='inventoryDetails' AND CONSTRAINT_NAME='PRIMARY'") === 2

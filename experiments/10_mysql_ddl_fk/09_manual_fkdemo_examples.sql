@@ -134,10 +134,10 @@ WHERE categoryId = 2;                                             -- ON DELETE S
 SELECT * FROM products;                                           -- Expected: all four categoryId NULL
 
 -- ---------------------------------------------------------------- Drop a foreign key
-SHOW CREATE TABLE products\G                                      -- shows CONSTRAINT `fk_category`
+SHOW CREATE TABLE products;                                      -- shows CONSTRAINT `fk_category`
 ALTER TABLE products
 DROP FOREIGN KEY fk_category;
-SHOW CREATE TABLE products\G                                      -- constraint gone (its index KEY `fk_category` stays)
+SHOW CREATE TABLE products;                                      -- constraint gone (its index KEY `fk_category` stays)
 
 -- ---------------------------------------------------------------- RENAME / ADD / DROP COLUMN syntax
 RENAME TABLE tasks
