@@ -14,7 +14,7 @@ Thumbs.db
 *.swp
 
 # Dependencies (if ever added)
-vendor/
+/vendor/          # Composer only (root). public/assets/vendor/ must be committed
 node_modules/
 
 # Python cache
