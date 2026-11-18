@@ -1,0 +1,10 @@
+{
+  "_comment": "Paste the value of each 'filter' into the Compass Filter bar (Documents tab of CollegeDB.Students). 'update' goes into the Update dialog / mongosh.",
+  "read_all":        { "filter": {} },
+  "read_rahul":      { "filter": { "name": "Rahul" } },
+  "read_cgpa_gt_8":  { "filter": { "cgpa": { "$gt": 8 } } },
+  "update_rahul":    { "filter": { "rollNo": 101 }, "update": { "$set": { "cgpa": 9.0 } } },
+  "verify_rahul":    { "filter": { "rollNo": 101 } },
+  "delete_amit":     { "filter": { "rollNo": 103 } },
+  "verify_amit_gone":{ "filter": { "rollNo": 103 } }
+}

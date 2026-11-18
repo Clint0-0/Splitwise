@@ -462,3 +462,67 @@ Re-run after the fixes (password admin over TCP, as on Windows): **unit 41/41, S
 | 45 | Deployment test only worked with passwordless socket root and a fixed CA path | not portable | `DB_ROOT_USER/PASS/TCP`, CA from `@@ssl_ca` or `MYSQL_CA` | run |
 
 Re-run after the fixes: **unit 53/53, SQL scripts 11/11, database 76/76, functional 115/115, scenarios 23/23 (run_all over TCP + Linux runners), deployment 29/29, axe 0 violations, browser console 0 errors/warnings on all 18 screens (CSP blocks nothing the app needs; budget form script works).**
+
+## DBMS Experiments 10–12 (2026-11-18, branch `feature/dbms-experiments-10-12`)
+
+### Regression — SplitWise+ (before and after the experiment work)
+| Suite | Before (main @ 0341915) | After |
+|---|---|---|
+| Unit | 53/53 | 53/53 |
+| SQL scripts — Exp 1–9 queries, trigger/view demos, install check (`run_all.php`) | — | 11/11 |
+| Database (schema, triggers, procedures, privileges) | 76/76 | 76/76 |
+| Functional (auth, groups, expenses with all 5 split types, balances, settlements, budgets, analytics) | 115/115 | 115/115 |
+| Money scenarios | 23/23 | 23/23 |
+| Deployment readiness | 29/29 | 29/29 |
+No file under `app/`, `config/`, `public/` or `database/` changed; `splitwise_plus` schema fingerprint identical before/after the Exp 10 run (E10-13).
+
+### New experiment tests
+| Suite | Result | Kind |
+|---|---|---|
+| `tests/experiments/test_exp10.php` — expected errors in order, RESTRICT/CASCADE/SET NULL end states, ALTER/RENAME/DROP FK results, warehouse program, manual examples, production untouched | **17/17** (after manual reconciliation; 15/15 before) | Executed locally (MySQL 8.0.46) |
+| `tests/experiments/exp11_dry_run.js` — CRUD script run against an in-memory stand-in, JSON consistency, no credentials | **11/11** | Local dry run — **not** MongoDB; Atlas run **blocked** (needs account) |
+| `experiments/12_candidate_management/tests/run_tests.php` — DB privileges/constraints, HTTP CRUD, duplicates, missing/invalid input, CSRF, headers, DB-down page | **31/31** | Executed locally (PHP 8.3 built-in server, least-privilege login, throw-away test DB) |
+| axe-core on Exp 12 pages (1280 + 390 px, incl. error state) | **0 violations** | Executed locally |
+
+Measured fact recorded in Exp 10: MySQL 8.0.46 **accepts** `ON DELETE SET DEFAULT` in `CREATE TABLE` but InnoDB rejects the parent delete with 1451 (it never sets the default).
+
+### Not tested / blocked
+| Item | Status |
+|---|---|
+| Exp 11 on MongoDB Atlas / Compass | **Blocked** — needs the team's Atlas account (guide in `ATLAS_SETUP.md`) |
+| Exp 12 under XAMPP/Apache (`.htaccess` rule for `experiments/*/public/`) | **Not tested** — no Apache here; built-in server only |
+| Experiment tests on Windows | **Not tested** — runners are bash; Windows steps documented in each README |
+
+### Experiments 10–12 — bug-fix round (2026-11-18)
+| # | Bug | Impact | Fix | Verified by |
+|---|---|---|---|---|
+| 46 | Exp 12 test runner dropped/recreated the **lab** database `splitwise_candidate_lab` and reset `candidate_app`'s password to the default | running the tests wiped a student's lab data and broke their configured login | tests use a throw-away DB `splitwise_candidate_lab_test` + user `candidate_test`, both dropped afterwards | lab DB and users unchanged after `tests/run.sh` |
+| 47 | Exp 12 stored `created_at`/`updated_at` in the MySQL server zone (UTC here) but displayed them as local time | "Registered 13:15" for an 18:45 IST registration | session `time_zone` set to PHP's offset on connect | H19 |
+| 48 | Exp 12 fields posted as arrays (`full_name[]=x`) became the string "Array" (PHP warning) and passed validation | junk candidate named "Array" | `str_param()` — non-string input treated as missing | H18 |
+| 49 | Exp 12 phone input `maxlength="14"` was shorter than the documented `+91 99887-76655` (15) | the hinted format could not be typed | `maxlength="16"` | H20 |
+| 50 | Exp 12 invalid UTF-8 made `preg_replace` return null → deprecation warnings | noisy logs | cast to string → "required" error | code path |
+| 51 | Exp 11 script used `use("CollegeDB")` (playground helper, not guaranteed in every mongosh/Compass shell) and `const` (pasting it twice in one Compass shell fails with "already declared") | script could fail in Compass | `db = db.getSiblingDB("CollegeDB")`, `var` | dry run M1 now executes the script twice in one context |
+| 52 | Exp 10 README: `MYSQL_ARGS="-uroot -p"` asks for the password 10 times without saying so | confusing | note + `mysql_config_editor --login-path` option | doc |
+
+Re-run after fixes: Exp 10 15/15 · Exp 11 dry run 11/11 · Exp 12 **31/31** · unit 53/53 · database 76/76 · functional 115/115 · scenarios 23/23 · deployment 29/29. Exp 12 evidence screenshots retaken after the time-zone fix.
+
+### Reconciliation with the lab manuals (2026-11-18)
+Manuals `Experiment_No_10/11/12_NEP.docx` compared line by line with the implementation.
+| Exp | Gap found | Change |
+|---|---|---|
+| 10 | manual's own theory examples (tasks/checklists, fkdemo categories/products incl. ON UPDATE SET NULL) were not run | new `09_manual_fkdemo_examples.sql` (sandbox `splitwise_lab_exp10_fkdemo`), statements as printed |
+| 10 | PROGRAM tables differed from the manual (column names, AUTO_INCREMENT, `employeeWarehouse(employeeID, employeeName, role…)`) | `08` now uses the manual's exact DDL and inserts (`allocationID, employeeNumber, warehouseID`; Margao/Mapusa) |
+| 10 | manual error: 4-value INSERT into `warehouse` after `DROP COLUMN capacity` → 1136 | shown as an expected error, then corrected insert |
+| 10 | manual error: SET NULL example drops `categories` before `products` → 3730 | shown as an expected error, then correct order |
+| 10 | 5 post-lab questions not answered | `POST_LAB_QUESTIONS.md` |
+| 10 | manual uses MySQL Workbench 8.0 CE | README: Workbench run steps + GUI evidence items |
+| 11 | none (steps, documents, filters, post-lab questions identical); manual inserts one document at a time | guide lists one-at-a-time first |
+| 12 | none (manual gives only the 6 section headings + conclusion; all present) | README notes the mapping |
+Exp 10 suite after the change: **17/17**, 13 expected errors in order `1451 1451 1451 1452 1830 1451 3819 1452 3730 1136 1452 1451 3730`.
+
+### Bug-fix round after the manual reconciliation (2026-11-18)
+| # | Bug | Impact | Fix | Verified by |
+|---|---|---|---|---|
+| 53 | Exp 10 `01` dropped only `splitwise_lab_exp10`; the new `splitwise_lab_exp10_fkdemo` from an earlier run survived until script `09` | on every re-run the `01` outputs ("Expected: 2 rows / 1 row") were wrong — a student's screenshot would not match the comments | `01` drops both sandboxes first; comments updated | new check E10-18 (fails on the old script, passes now) |
+Exp 10 suite: **18/18**.
+| 54 | Exp 10 scripts used the mysql-CLI-only `\G` terminator in `SHOW CREATE TABLE … \G` | the manual's tool, MySQL Workbench, cannot run `\G` → syntax errors | replaced by `;` (CLI shows a wide table instead) | E10-10 checks no `\G` remains; scripts also re-run with `--safe-updates` (Workbench's default safe mode): same 13 expected errors, no 1175 |

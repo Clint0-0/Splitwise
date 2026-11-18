@@ -1,0 +1,44 @@
+*************************** 1. row ***************************
+       Table: positions
+Create Table: CREATE TABLE `positions` (
+  `position_id` smallint unsigned NOT NULL AUTO_INCREMENT,
+  `title` varchar(80) NOT NULL,
+  `department` varchar(60) NOT NULL,
+  `is_open` tinyint(1) NOT NULL DEFAULT '1',
+  PRIMARY KEY (`position_id`),
+  UNIQUE KEY `uq_positions_title` (`title`)
+) ENGINE=InnoDB AUTO_INCREMENT=6 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+*************************** 1. row ***************************
+       Table: candidates
+Create Table: CREATE TABLE `candidates` (
+  `candidate_id` int unsigned NOT NULL AUTO_INCREMENT,
+  `full_name` varchar(100) NOT NULL,
+  `email` varchar(150) NOT NULL,
+  `phone` char(10) NOT NULL,
+  `date_of_birth` date DEFAULT NULL,
+  `highest_qualification` varchar(100) NOT NULL,
+  `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` datetime DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`candidate_id`),
+  UNIQUE KEY `uq_candidates_email` (`email`),
+  UNIQUE KEY `uq_candidates_phone` (`phone`),
+  KEY `idx_candidates_name` (`full_name`),
+  CONSTRAINT `chk_candidates_email` CHECK ((`email` like _utf8mb4'%_@_%._%')),
+  CONSTRAINT `chk_candidates_name` CHECK ((char_length(trim(`full_name`)) >= 2)),
+  CONSTRAINT `chk_candidates_phone` CHECK (regexp_like(`phone`,_utf8mb4'^[6-9][0-9]{9}$'))
+) ENGINE=InnoDB AUTO_INCREMENT=6 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+*************************** 1. row ***************************
+       Table: applications
+Create Table: CREATE TABLE `applications` (
+  `application_id` int unsigned NOT NULL AUTO_INCREMENT,
+  `candidate_id` int unsigned NOT NULL,
+  `position_id` smallint unsigned NOT NULL,
+  `applied_on` date NOT NULL,
+  `status` enum('Applied','Shortlisted','Interviewed','Selected','Rejected') NOT NULL DEFAULT 'Applied',
+  PRIMARY KEY (`application_id`),
+  UNIQUE KEY `uq_applications_candidate_position` (`candidate_id`,`position_id`),
+  KEY `fk_applications_position` (`position_id`),
+  KEY `idx_applications_status` (`status`),
+  CONSTRAINT `fk_applications_candidate` FOREIGN KEY (`candidate_id`) REFERENCES `candidates` (`candidate_id`) ON DELETE CASCADE,
+  CONSTRAINT `fk_applications_position` FOREIGN KEY (`position_id`) REFERENCES `positions` (`position_id`) ON DELETE RESTRICT
+) ENGINE=InnoDB AUTO_INCREMENT=7 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci

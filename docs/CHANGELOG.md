@@ -1,5 +1,35 @@
 # CHANGELOG — SplitWise+
 
+## [0.7.3] — Exp 10 re-run fix (2026-11-18)
+### Fixed
+- `01_create_database.sql` also drops the fkdemo sandbox, so re-runs show the documented output; test E10-18 (17 → 18 checks).
+
+## [0.7.2] — Experiments reconciled with the lab manuals (2026-11-18)
+### Changed
+- Exp 10: PROGRAM (`08`) uses the manual's exact statements (incl. the manual's 4-value insert after dropping `capacity`, shown as error 1136, then corrected); new `09_manual_fkdemo_examples.sql` runs the manual's theory examples (tasks/checklists, fkdemo RESTRICT/CASCADE/SET NULL, DROP FOREIGN KEY); verification/cleanup renumbered to `10`/`11`; `POST_LAB_QUESTIONS.md`; Workbench instructions. Test 15 → 17 checks.
+- Exp 11 guide: one-document-at-a-time insert first (as in the manual). Exp 11/12 READMEs note the manual check.
+
+## [0.7.1] — Experiments 10–12 bug fixes (2026-11-18)
+### Fixed
+- Exp 12 tests no longer touch the lab database/login (throw-away `splitwise_candidate_lab_test` + `candidate_test`).
+- Exp 12 timestamps stored in Asia/Kolkata; array-valued form fields rejected; phone field fits `+91 …`; null-safe input cleaning.
+- Exp 11 CRUD script uses `db.getSiblingDB()` and `var`, so it runs in any mongosh/Compass shell and can be pasted twice.
+- Exp 10 README explains password prompts / `--login-path`.
+### Added
+- Exp 12 tests H18–H20 (28 → 31); Exp 11 dry run executes the script twice.
+
+## [0.7.0] — DBMS Experiments 10–12 (2026-11-18)
+### Added
+- `experiments/10_mysql_ddl_fk/`: DDL and foreign-key sandbox (`splitwise_lab_exp10`), RESTRICT/NO ACTION/CASCADE/SET NULL/SET DEFAULT demos on cut-down SplitWise+ tables, warehouse/inventory practical, `run.sh` with confirmation.
+- `experiments/11_mongodb_atlas_compass/`: Atlas + Compass guide, `CollegeDB.Students` sample documents, mongosh CRUD script, Compass filters, post-lab answers.
+- `experiments/12_candidate_management/`: standalone Candidate Management System (own DB `splitwise_candidate_lab`, 3NF schema, ER diagram generated from the schema, PHP/PDO CRUD front end, real screenshots).
+- Tests: `tests/experiments/test_exp10.php` (15), `tests/experiments/exp11_dry_run.js` (11, local dry run), `experiments/12_candidate_management/tests/run_tests.php` (28), runner `tests/experiments/run.sh`.
+### Changed
+- `docs/SQL_EXPERIMENT_MAPPING.md` renamed to `docs/DBMS_EXPERIMENT_MAPPING.md` and extended to all 12 experiments (Exp 1–9 content kept).
+- Root `.htaccess`: under `experiments/` only a `public/` folder is served.
+### Not changed
+- SplitWise+ application code, production schema and `database/splitwise_plus.sql`.
+
 ## [0.6.1] — Phase 5.5 bug fixes (2026-11-09)
 ### Fixed
 - `.env` reader strips trailing ` # comments`; `.env.example` comments on their own lines (a copied template had silently switched to file sessions).

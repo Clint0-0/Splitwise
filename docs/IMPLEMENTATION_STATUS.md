@@ -1,7 +1,7 @@
 # IMPLEMENTATION_STATUS.md — SplitWise+
 
-**Current phase:** 5.5 — UI refinement + deployment preparation · **State:** code and local validation done on branch `feature/ui-refinement-vercel-deployment`; **real deployment blocked** (needs Vercel + MySQL provider accounts) — Phase 5.5 is **not fully complete**. Phase 6 not started.
-**Last updated:** 2026-11-09
+**Current phase:** DBMS Experiments 10–12 (after Phase 5.5) · **State:** implemented and tested locally on branch `feature/dbms-experiments-10-12`; Experiment 11 cloud run pending the team's Atlas account. Phase 5.5 real deployment still blocked (needs Vercel + MySQL provider accounts). Phase 6 not started.
+**Last updated:** 2026-11-18
 
 ## Repository
 `https://github.com/Clint0-0/Splitwise` was empty on 2026-11-08. Phase 1 + 2 work is committed locally on branch `develop` (see CHANGELOG). Pushing needs write access (see the Phase 2 review message).
@@ -82,6 +82,15 @@ Phase 2 acceptance criteria: tables create ✓ · FKs work ✓ · constraints re
 | Managed MySQL created + data migrated | — | ☐ **blocked — needs provider account** |
 | Vercel preview + production, 20 workflows on deployed URL | — | ☐ **blocked / not tested** |
 
+## DBMS Experiments 10–12 (branch `feature/dbms-experiments-10-12`, base `main` @ 0341915)
+| Exp | Deliverable | Status |
+|---|---|---|
+| 1–9 | existing query/trigger/view scripts, unchanged; mapping moved to `docs/DBMS_EXPERIMENT_MAPPING.md` | ✓ executed locally (SQL scripts + DB suites) |
+| 10 | `experiments/10_mysql_ddl_fk/` — DDL + RESTRICT/CASCADE/SET NULL, manual's examples and PROGRAM as printed, post-lab answers; sandboxes `splitwise_lab_exp10`, `_fkdemo` | ✓ executed locally, 18/18 |
+| 11 | `experiments/11_mongodb_atlas_compass/` — setup guide, sample docs, CRUD script, filters, post-lab answers | ✓ files + local dry run 11/11 · ☐ **Atlas/Compass run blocked — needs team's Atlas account** · ☐ screenshots |
+| 12 | `experiments/12_candidate_management/` — requirements, ER, 3NF, schema, PHP/PDO CRUD app | ✓ executed locally, 31/31, axe 0, real screenshots |
+| — | Lab manuals (`Experiment_No_10/11/12_NEP.docx`) received 2026-11-18 and reconciled: Exp 10 gained the manual's own examples, exact PROGRAM statements and post-lab answers; Exp 11 and 12 already matched | ✓ |
+
 ## Notes for Phase 5 (testing) — kept for reference
 - Phase 3/4 suites are automated; Phase 5 adds the financial scenario walk-throughs, manual cross-browser check on a team laptop (Windows + XAMPP + MySQL 8.0), and the final regression run.
 
@@ -111,12 +120,13 @@ Phase 2 acceptance criteria: tables create ✓ · FKs work ✓ · constraints re
 ## Team allocation
 | Member | Owns | Also |
 |---|---|---|
-| **M1 — Database & SQL** | everything under `database/`, `docs/DATABASE_SCHEMA.md`, `SQL_EXPERIMENT_MAPPING.md`, DB tests | reviews every SQL statement in models |
+| **M1 — Database & SQL** | everything under `database/`, `docs/DATABASE_SCHEMA.md`, `DBMS_EXPERIMENT_MAPPING.md`, DB tests, `experiments/10`, `experiments/12` (schema) | reviews every SQL statement in models |
 | **M2 — Frontend** | layout, design system, all screens, split configurator JS, charts, responsiveness | client-side validation; screenshots |
 | **M3 — Backend & integration** | core, middleware, controllers, services (SplitCalculator, BalanceService, DebtSimplifier, SettlementService…), uploads, PDO transactions | docs coordination, README, setup guide |
 
 ## Next tasks
-1. Review Phase 5.5; on a machine with Docker Hub access run `docker build -t splitwise-plus .` and the container checks in `docs/DEPLOYMENT.md` §2.
-2. Create the managed MySQL 8.0 server and Vercel project (owner enters credentials in the consoles only), follow `docs/DEPLOYMENT.md` §4 + §9, verify the 20 workflows on the preview URL.
-3. **Every member:** re-import (`database/splitwise_plus.sql` now has 16 tables) and run `docs/TEAM_TEST_CHECKLIST.md`.
-4. Phase 6 only after approval.
+1. Exp 11: run `ATLAS_SETUP.md` in your Atlas account and add screenshots; take Exp 10 screenshots in MySQL Workbench (README checklist).
+2. Review Phase 5.5; on a machine with Docker Hub access run `docker build -t splitwise-plus .` and the container checks in `docs/DEPLOYMENT.md` §2.
+3. Create the managed MySQL 8.0 server and Vercel project (owner enters credentials in the consoles only), follow `docs/DEPLOYMENT.md` §4 + §9, verify the 20 workflows on the preview URL.
+4. **Every member:** re-import (`database/splitwise_plus.sql` now has 16 tables) and run `docs/TEAM_TEST_CHECKLIST.md`.
+5. Phase 6 only after approval.

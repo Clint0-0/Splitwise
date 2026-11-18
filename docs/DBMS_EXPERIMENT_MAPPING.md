@@ -1,6 +1,31 @@
-# SQL_EXPERIMENT_MAPPING.md — SplitWise+
+# DBMS_EXPERIMENT_MAPPING.md — SplitWise+ (Experiments 1–12)
 
-Status: **Implemented and executed (Phase 2)** on MySQL 8.0.46 — every script runs without error (`tests/database/run.sh`). Every example uses real SplitWise+ tables. No demo-only tables.
+Renamed from `SQL_EXPERIMENT_MAPPING.md` (its Experiments 1–9 content is kept below) and extended with Experiments 10–12.
+
+**Status legend:** **Implemented** = files exist · **Executed locally** = run on MySQL 8.0.46 / PHP 8.3 in the build environment with the result checked by a test · **Executed on cloud** = run on a hosted service · **Manually verified** = a person checked it on their own machine · **Not tested** · **Blocked** = needs something not available here (account, credentials).
+
+## All experiments at a glance
+| Exp | Title | Implementation | Test procedure | Expected outcome | Actual status |
+|---|---|---|---|---|---|
+| 1 | SELECT … FROM | `database/queries/01_basic_select.sql` (Q1–Q6) | `tests/database/run.sh` / *SQL scripts* suite of `php tests/run_all.php` | every query runs, returns rows | Implemented · Executed locally |
+| 2 | ORDER BY | `queries/02_filtering_and_sorting.sql` (Q7–Q10) | same | sorted results | Implemented · Executed locally |
+| 3 | WHERE | `queries/02_…` (Q11–Q14) | same | filtered results | Implemented · Executed locally |
+| 4 | DISTINCT, LIMIT, aliases | `queries/02_…` (Q15–Q16) | same | distinct / paged results | Implemented · Executed locally |
+| 5 | Joins | `queries/03_joins.sql` (Q17–Q26) | same | joined results | Implemented · Executed locally |
+| 6 | Aggregates, GROUP BY, HAVING | `queries/04_aggregates.sql` (Q27–Q34) | same | grouped totals | Implemented · Executed locally |
+| 7 | Subqueries | `queries/05_subqueries.sql` (Q35–Q43) | same | correct sub-results | Implemented · Executed locally |
+| 8 | Triggers | `database/triggers/` | DB tests T1–T17 | each trigger fires / rejects | Implemented · Executed locally |
+| 9 | Views | `database/views/` | DB tests + `demo_views.sql` | views return data; updatability as documented | Implemented · Executed locally |
+| 10 | MySQL DDL + foreign keys | `experiments/10_mysql_ddl_fk/` (sandboxes `splitwise_lab_exp10`, `splitwise_lab_exp10_fkdemo`) | `php tests/experiments/test_exp10.php` (18 checks) | 13 expected errors in order; RESTRICT/CASCADE/SET NULL end states; manual's examples + PROGRAM as printed; `splitwise_plus` unchanged | Implemented · **Executed locally** (18/18) |
+| 11 | MongoDB Atlas + Compass | `experiments/11_mongodb_atlas_compass/` | `node tests/experiments/exp11_dry_run.js` (11 checks, in-memory stand-in); cloud steps in `ATLAS_SETUP.md` | 3 docs with `_id`; `$gt` → 2; Rahul cgpa 9; Amit deleted, 2 left | Implemented · Executed locally (dry run only) · **Executed on cloud: Blocked — needs your Atlas account** |
+| 12 | Candidate Management System | `experiments/12_candidate_management/` (DB `splitwise_candidate_lab`) | `bash experiments/12_candidate_management/tests/run.sh` (31 checks, throw-away test DB) | full CRUD through the web UI; constraints enforced | Implemented · **Executed locally** (31/31) |
+
+Experiments 1–9 use only real SplitWise+ tables (no demo-only tables). Experiments 10 and 12 run in their **own** databases and Experiment 11 on MongoDB, so nothing in them changes the production schema or `database/splitwise_plus.sql`.
+
+### Evidence checklist, Experiments 1–9 (screenshots from your own machine)
+- [ ] each query file run in MySQL Workbench / CLI with its result grid (Exp 1–7: `queries/01`–`05`)
+- [ ] `SHOW TRIGGERS LIKE 'settlements'` + one rejected and one firing trigger (Exp 8)
+- [ ] `SHOW FULL TABLES WHERE Table_type='VIEW'` + one view result + the 1288 error on an aggregate view (Exp 9)
 
 ## Implemented query numbers (Q1–Q50)
 
@@ -150,6 +175,55 @@ Also demonstrated: `FOR EACH ROW` (MySQL has row-level triggers only), `SHOW TRI
 Plus: `CREATE VIEW`, `CREATE OR REPLACE VIEW`, `SHOW TABLES`, `SHOW FULL TABLES WHERE Table_type = 'VIEW'`, `DROP VIEW IF EXISTS`, and an UPDATE attempt on an aggregate view → error 1288 ("target table is not updatable") with explanation (views with GROUP BY, DISTINCT, aggregates, UNION, or non-MERGE algorithm are not updatable).
 
 **Measured updatability** (`information_schema.VIEWS.IS_UPDATABLE`): YES for `v_active_expenses`, `v_active_group_members`, `v_settlement_details` (inner join — an UPDATE may touch one base table only) and `v_budget_utilization` (derived table merged — only pass-through columns; computed columns raise "not updatable"). All others NO.
+
+
+## Experiment 10 — MySQL DDL commands and foreign key constraints
+**Aim:** study and implement DDL (`CREATE/DROP DATABASE`, `CREATE/ALTER/RENAME/DROP TABLE`, `ADD/DROP COLUMN`, `DROP FOREIGN KEY`, `SHOW CREATE TABLE`) and referential actions RESTRICT, CASCADE, SET NULL.
+**Files:** `experiments/10_mysql_ddl_fk/` — `01`…`10` + optional `11_cleanup_drop_database.sql`, `run.sh`, `README.md`, `POST_LAB_QUESTIONS.md`. **Sandboxes:** `splitwise_lab_exp10`, `splitwise_lab_exp10_fkdemo` (outside `database/build.sh`). Checked against the lab manual `Experiment_No_10_NEP.docx`.
+
+| Concept | Script | SplitWise+ link |
+|---|---|---|
+| CREATE DATABASE (charset/collation), DROP DATABASE (scratch DB), USE | 01 | same utf8mb4 setup as `splitwise_plus` |
+| CREATE TABLE, PK, composite PK, UNIQUE, CHECK, named FKs | 02 | cut-down `users`, `expense_groups`, `group_members`, `categories`, `expenses` |
+| RESTRICT / NO ACTION / default → errors 1451, 1452 | 03 | `expenses.paid_by → users` (production: RESTRICT) |
+| ON DELETE CASCADE, ON UPDATE CASCADE | 04 | `group_members.group_id` (production: CASCADE); `expense_groups.created_by` ON UPDATE CASCADE (production) |
+| ON DELETE SET NULL; NOT NULL + SET NULL → 1830; SET DEFAULT accepted but not performed → 1451 | 05 | `expenses.deleted_by` (production: SET NULL) |
+| ADD COLUMN … AFTER / DEFAULT, MODIFY, RENAME COLUMN, ADD CONSTRAINT CHECK (→ 3819), ADD INDEX, DROP CHECK, DROP COLUMN, RENAME TABLE, ALTER … RENAME TO, SHOW CREATE TABLE | 06 | |
+| DROP FOREIGN KEY, orphan accepted, re-add fails (1452) until cleaned, DROP TABLE order (3730) | 07 | |
+| Manual PROGRAM, statements as printed (warehouse, products.warehouseID, warehouseProducts → inventoryDetails, drop capacity, employeeWarehouse SET NULL, delete warehouse 1) | 08 | independent `products` table created in the sandbox; the manual's 4-value insert after `DROP COLUMN capacity` shown as error 1136, then corrected |
+| Manual theory examples as printed (tasks/checklists; fkdemo categories/products: RESTRICT 1452/1451, ON UPDATE/DELETE CASCADE, ON UPDATE/DELETE SET NULL, DROP FOREIGN KEY fk_category, ADD COLUMN FIRST/AFTER, multi DROP COLUMN) | 09 | manual's drop order categories-before-products shown as error 3730, then corrected |
+| information_schema verification | 10 | read-only count proving `splitwise_plus` untouched |
+| Post-lab questions (5) | `POST_LAB_QUESTIONS.md` | |
+
+**Test procedure:** `php tests/experiments/test_exp10.php` (runs `run.sh --yes`, then 18 checks). **Expected:** errors exactly `1451 1451 1451 1452 1830 1451 3819 1452 3730 1136 1452 1451 3730`; group 2 members 3 → 0; created_by 4 → 40; deleted_by 5 → NULL; warehouse 1 deleted → allocation 101 NULL, inventoryDetails 4 → 2, 2 products keep a dangling warehouseID (no FK, as in the manual); fkdemo: CASCADE 1 → 100 and watches deleted, SET NULL leaves all 4 products NULL; `splitwise_plus` fingerprint identical. **Actual:** 18/18 passed (2026-11-18). **Evidence:** checklist in the experiment README.
+
+## Experiment 11 — Cloud database with MongoDB Atlas and MongoDB Compass
+**Aim:** create a MongoDB database and collection on Atlas, connect with Compass, perform CRUD on student records.
+**Files:** `experiments/11_mongodb_atlas_compass/` — `ATLAS_SETUP.md`, `sample_students.json`, `mongodb_crud_commands.js`, `compass_filters.json`, `POST_LAB_QUESTIONS.md`, `screenshots/`.
+
+| Operation | Command / filter | Expected |
+|---|---|---|
+| Create | `insertOne(Rahul)`, `insertMany([Priya, Amit])` (or Compass *Insert Document* with the JSON array) | 3 documents, generated `_id` |
+| Read | `{}` · `{ "name": "Rahul" }` · `{ "cgpa": { "$gt": 8 } }` | 3 · 1 · Rahul + Priya |
+| Update | `updateOne({ rollNo: 101 }, { $set: { cgpa: 9.0 } })` | matched 1, modified 1 |
+| Delete | `deleteOne({ rollNo: 103 })` | deleted 1; 2 left |
+
+**Test procedure:** local — `node tests/experiments/exp11_dry_run.js` runs the unchanged CRUD script against an in-memory stand-in (sequence and counts, JSON consistency, no credentials in the folder); cloud — follow `ATLAS_SETUP.md`. **Actual:** dry run 11/11 passed. **Atlas project, cluster, user, network access, `CollegeDB.Students`, Compass CRUD: Not executed — blocked on your Atlas account.** No MongoDB code or connection was added to SplitWise+.
+
+## Experiment 12 — Candidate Management System (SQL + front end)
+**Aim:** design and develop a Candidate Management System with ER modelling, normalization to 3NF and SQL CRUD through a front end (MySQL, PHP, HTML, CSS).
+**Files:** `experiments/12_candidate_management/` — `docs/REQUIREMENTS.md`, `docs/ER_DIAGRAM.md` (+ `er_diagram.png/svg/dot` generated from `information_schema`), `docs/NORMALIZATION.md`, `database/candidate_management.sql`, `sample_data.sql`, `app_user.sql`, `crud_queries.sql`, `public/*.php`, `src/`, `config/database.php`, `tests/`.
+
+| Concept | Where |
+|---|---|
+| ER model: Candidate 1:N Application N:1 Position (resolves M:N), cardinality, participation | `docs/ER_DIAGRAM.md` |
+| UNF → 1NF → 2NF (partial dependencies removed) → 3NF (transitive removed), FDs listed | `docs/NORMALIZATION.md` |
+| INSERT (transaction), SELECT with JOIN/subquery/EXISTS/LIKE search, UPDATE, DELETE + CASCADE | `database/crud_queries.sql`, `src/CandidateRepository.php` |
+| UNIQUE, CHECK (phone regexp, email shape), ENUM, NOT NULL, FK CASCADE/RESTRICT | `database/candidate_management.sql` |
+| PDO prepared statements, server-side validation, CSRF, escaping, confirmation before delete, empty states | `public/`, `src/` |
+
+**Test procedure:** `bash experiments/12_candidate_management/tests/run.sh`. **Actual:** 31/31 passed (2026-11-18), axe 0 violations; results in `tests/CRUD_TESTS.md`; real screenshots of the local run in `docs/screenshots/`.
+
 
 ---
 
