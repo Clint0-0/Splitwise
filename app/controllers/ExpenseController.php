@@ -23,18 +23,18 @@ final class ExpenseController extends Controller
     {
         $uid = Auth::requireId();
         $f = [
-            'q'        => mb_substr(trim((string) $this->request->query('q', '')), 0, 100),
-            'group'    => (string) $this->request->query('group', ''),
-            'category' => (string) $this->request->query('category', ''),
+            'q'        => mb_substr(trim($this->request->queryStr('q')), 0, 100),
+            'group'    => $this->request->queryStr('group'),
+            'category' => $this->request->queryStr('category'),
             'from'     => $this->dateOrEmpty($this->request->query('from')),
             'to'       => $this->dateOrEmpty($this->request->query('to')),
-            'tag'      => mb_substr(trim((string) $this->request->query('tag', '')), 0, 30),
+            'tag'      => mb_substr(trim($this->request->queryStr('tag')), 0, 30),
             'deleted'  => $this->request->query('deleted') === '1' ? '1' : '',
         ];
         if ($f['group'] !== '' && $f['group'] !== 'personal' && !ctype_digit($f['group'])) {
             $f['group'] = '';
         }
-        $page  = max(1, (int) $this->request->query('page', 1));
+        $page  = $this->request->page();
         $model = new ExpenseModel();
         $total = $model->countSearch($uid, $f);
         $this->view('expenses/index', [
@@ -52,7 +52,7 @@ final class ExpenseController extends Controller
     public function create(): void
     {
         $uid = Auth::requireId();
-        $groupId = (int) $this->request->query('group', 0);
+        $groupId = $this->request->queryInt('group', 0);
         $group = $groupId > 0 ? (new GroupService())->requireMember($groupId, $uid) : null;
         $this->form('Add expense', null, $group, $uid);
     }
@@ -177,6 +177,7 @@ final class ExpenseController extends Controller
 
     private function dateOrEmpty(mixed $v): string
     {
-        return is_string($v) && preg_match('/^\d{4}-\d{2}-\d{2}$/', $v) ? $v : '';
+        // real calendar date only (2026-13-45 is ignored, not sent to MySQL)
+        return is_string($v) && preg_match('/^(\d{4})-(\d{2})-(\d{2})$/', $v, $m) && checkdate((int) $m[2], (int) $m[3], (int) $m[1]) ? $v : '';
     }
 }

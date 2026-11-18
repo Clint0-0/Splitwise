@@ -180,8 +180,8 @@ Both send `Cache-Control: no-store`, accept only GET/HEAD and reveal no versions
 |---|---|---|
 | Secrets | none in image/Git; `.env`, `.env.*`, `build/` git-ignored; `.dockerignore` excludes `.env` | C1, C4, C5, C7 |
 | Transport | HSTS in production; Secure cookie behind proxy; MySQL TLS, app user `REQUIRE SSL` | E3, E4, H3, H4 |
-| Headers | CSP `default-src 'self'; script-src 'self'; object-src 'none'; frame-ancestors 'none'…`, nosniff, X-Frame-Options DENY, Referrer-Policy, Permissions-Policy; no `X-Powered-By` | P4, P5, E5 |
-| Sessions | DB-backed, strict ids, server-side expiry, deleted on logout | P6–P9, E8 |
+| Headers | CSP `default-src 'self'; script-src 'self'; object-src 'none'; frame-ancestors 'none'…`, nosniff, X-Frame-Options DENY, Referrer-Policy, Permissions-Policy; no `X-Powered-By` | X4, X5, E5 |
+| Sessions | DB-backed, strict ids, server-side expiry, deleted on logout | X6–X9, E8 |
 | Brute force | per account+IP and per IP, shared across instances; forged `X-Forwarded-For` entries ignored (right-most only) | T1–T3, E10, E10b |
 | Errors | production ignores `APP_DEBUG`; DB outage → generic page; health bodies fixed | F1–F4 |
 | Least privilege | app user unchanged except INSERT/UPDATE/DELETE on `app_sessions`, `app_kv` | DB A1–A9 |
@@ -212,7 +212,7 @@ debts · 16 budgets + alerts · 17 analytics charts + tables · 18 notifications
 
 | Item | Status |
 |---|---|
-| App runs with DB sessions, DB throttle, DB receipts locally (unit 53, DB 76, functional 115, scenarios 23) | **Passed** |
+| App runs with DB sessions, DB throttle, DB receipts locally (unit 53, DB 76, functional 120, scenarios 23) | **Passed** |
 | Deployment suite `tests/deployment/run.sh` — config checks, hosted-style import, production mode behind simulated proxy, 2 instances sharing sessions, TLS-only DB user, DB-down behaviour (29 checks) | **Passed** (local, PHP built-in server, not FrankenPHP) |
 | `docker build` / container run | **Blocked** — Docker Hub pulls refused in the build sandbox |
 | Running FrankenPHP binary locally | **Blocked** — downloaded binary execution not permitted in the build sandbox |

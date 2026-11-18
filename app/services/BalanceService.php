@@ -39,9 +39,29 @@ final class BalanceService
         return $out;
     }
 
+    /**
+     * Totals for the summary bands. "Owed to you" / "You owe" are summed from the SAME
+     * person-to-person debts the "Who owes whom" list shows, so the band and the list always
+     * agree. (v_user_overall_balance.receivable/payable add up per-GROUP nets instead: a user who
+     * is net positive in a group but still owes one member there showed "You owe ₹0.00" next to
+     * a list saying "You owe Aarav ₹3,516.67".) The net balance is identical either way.
+     */
     public function overall(int $userId): array
     {
-        return $this->balances->overall($userId);
+        $row = $this->balances->overall($userId);
+        $in = 0;
+        $out = 0;
+        foreach ($this->balances->pairwise(null, $userId) as $p) {
+            $amt = Money::toPaise((string) $p['remaining']);
+            if ((int) $p['creditor_id'] === $userId) {
+                $in += $amt;
+            } elseif ((int) $p['debtor_id'] === $userId) {
+                $out += $amt;
+            }
+        }
+        $row['receivable'] = Money::fromPaise($in);
+        $row['payable'] = Money::fromPaise($out);
+        return $row;
     }
 
     public function pairwise(?int $groupId, ?int $userId): array

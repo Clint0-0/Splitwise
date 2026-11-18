@@ -630,16 +630,16 @@ check('T8', '5.5 MB receipt rejected with the real limit (5 MB) and no expense s
 // ======================================================================= deployment readiness (Phase 5.5)
 $p = new Browser($BASE);
 $p->get('/healthz');
-check('P1', '/healthz -> 200 {"status":"ok"}, no session cookie, no-store',
+check('X1', '/healthz -> 200 {"status":"ok"}, no session cookie, no-store',
     $p->status === 200 && trim($p->body) === '{"status":"ok"}' && $p->cookie('splitwise_sess') === '' && $p->header('Cache-Control') === 'no-store');
 $p->get('/readyz');
-check('P2', '/readyz -> 200 {"status":"ready"} (DB reachable), body leaks nothing else',
+check('X2', '/readyz -> 200 {"status":"ready"} (DB reachable), body leaks nothing else',
     $p->status === 200 && trim($p->body) === '{"status":"ready"}');
 $p->post('/readyz', [], false);
-check('P3', 'Health endpoints accept only GET/HEAD (405)', $p->status === 405);
+check('X3', 'Health endpoints accept only GET/HEAD (405)', $p->status === 405);
 $p->get('/login');
 $csp = $p->header('Content-Security-Policy');
-check('P4', 'CSP header: scripts only from self, no framing, no plugins',
+check('X4', 'CSP header: scripts only from self, no framing, no plugins',
     str_contains($csp, "script-src 'self'") && str_contains($csp, "frame-ancestors 'none'") && str_contains($csp, "object-src 'none'")
     && !str_contains($csp, "script-src 'self' 'unsafe-inline'"));
 $inline = 0;
@@ -648,34 +648,94 @@ foreach (['/dashboard', '/groups', '/expenses', '/expenses/create', '/settlement
     $pv->get($pg);
     $inline += preg_match_all('/<script(?![^>]*\bsrc=)[^>]*>|\son[a-z]+\s*=\s*"/i', $pv->body);
 }
-check('P5', 'No inline <script> or on*= handlers on 11 main pages (CSP-safe)', $inline === 0, "found $inline");
+check('X5', 'No inline <script> or on*= handlers on 11 main pages (CSP-safe)', $inline === 0, "found $inline");
 $sid = $pv->cookie('splitwise_sess');
-check('P6', 'Session stored in MySQL app_sessions (shared by all instances)',
+check('X6', 'Session stored in MySQL app_sessions (shared by all instances)',
     $sid !== '' && (int) $val('SELECT COUNT(*) FROM app_sessions WHERE session_id=?', [$sid]) === 1
     && str_contains((string) $val('SELECT payload FROM app_sessions WHERE session_id=?', [$sid]), 'user_id'));
 $pv->post('/logout');
-check('P7', 'Logout deletes the session row', (int) $val('SELECT COUNT(*) FROM app_sessions WHERE session_id=?', [$sid]) === 0);
+check('X7', 'Logout deletes the session row', (int) $val('SELECT COUNT(*) FROM app_sessions WHERE session_id=?', [$sid]) === 0);
 $fx = new Browser($BASE);
 $fx->setCookie('splitwise_sess', 'attackerchosenid1234567890abcdef');
 $fx->get('/login');
-check('P8', 'Unknown session id from the client is replaced (strict mode, no fixation)',
+check('X8', 'Unknown session id from the client is replaced (strict mode, no fixation)',
     $fx->cookie('splitwise_sess') !== 'attackerchosenid1234567890abcdef' && $fx->cookie('splitwise_sess') !== ''
     && (int) $val("SELECT COUNT(*) FROM app_sessions WHERE session_id='attackerchosenid1234567890abcdef'") === 0);
 $old = login($BASE, 'kabir');
 $oldSid = $old->cookie('splitwise_sess');
 $db->prepare('UPDATE app_sessions SET last_activity = UNIX_TIMESTAMP() - 8000 WHERE session_id=?')->execute([$oldSid]);
 $old->get('/dashboard');
-check('P9', 'Session idle longer than SESSION_LIFETIME (2 h) is expired server-side', $old->status === 303 && str_ends_with($old->location, '/login'));
-check('P10', 'Login-throttle counters kept in MySQL (app_kv), hashed keys (no e-mail/IP in clear)',
+check('X9', 'Session idle longer than SESSION_LIFETIME (2 h) is expired server-side', $old->status === 303 && str_ends_with($old->location, '/login'));
+check('X10', 'Login-throttle counters kept in MySQL (app_kv), hashed keys (no e-mail/IP in clear)',
     (int) $val("SELECT COUNT(*) FROM app_kv WHERE kv_key LIKE 'thr:a:%'") >= 1
     && (int) $val("SELECT COUNT(*) FROM app_kv WHERE kv_key LIKE '%meera%' OR kv_key LIKE '%127.0.0.1%'") === 0);
-check('P11', 'Mock-mail cursor kept in MySQL (app_kv), equals newest notification',
+check('X11', 'Mock-mail cursor kept in MySQL (app_kv), equals newest notification',
     (int) $val("SELECT kv_value FROM app_kv WHERE kv_key='mail:cursor'") === (int) $val('SELECT MAX(notification_id) FROM notifications'));
 $x = new Browser($BASE);
 $x->get('/login');
-check('P12', 'Local http: session cookie not forced Secure; HttpOnly + SameSite=Lax set',
+check('X12', 'Local http: session cookie not forced Secure; HttpOnly + SameSite=Lax set',
     (bool) preg_match('/^Set-Cookie: splitwise_sess=[^\r\n]*HttpOnly[^\r\n]*SameSite=Lax/mi', $x->headers)
     && !preg_match('/^Set-Cookie: splitwise_sess=[^\r\n]*;\s*secure/mi', $x->headers));
+
+// ======================================================================= input robustness (full audit, Nov 2026)
+$logFile = __DIR__ . '/../../storage/logs/php-error.log';
+$logBefore = is_file($logFile) ? filesize($logFile) : 0;
+$ad = login($BASE, 'admin');
+$codes = [];
+foreach (['/expenses?page=999999999999999999999', '/notifications?page=999999999999999999999', '/settlements?page=999999999999999999999',
+          '/admin/users?page=999999999999999999999', '/admin/groups?page=9223372036854775807', '/admin/activity?page=999999999999999999999'] as $u) {
+    $codes[] = ($u[1] === 'a' ? $ad : $aarav)->get($u)->status;
+}
+check('X13', 'Huge ?page= values are clamped (no LIMIT/OFFSET overflow 500)', $codes === [200, 200, 200, 200, 200, 200], implode(',', $codes));
+$aarav->get('/expenses?q[]=x&group[]=1&category[]=1&from[]=1&tag[]=x&page[]=2');
+$okArr = $aarav->status === 200;
+$aarav->get('/expenses?from=2026-13-45&to=2026-02-30');
+$okDate = $aarav->status === 200;
+$aarav->get('/expenses/create');
+$aarav->post('/expenses', ['description' => ['x'], 'total_amount' => ['5'], 'group_id' => ['1'], 'split_method' => ['equal'], 'participants' => [['nested']]]);
+$okPostArr = $aarav->status === 303 && (int) $val("SELECT COUNT(*) FROM expenses WHERE description = 'Array'") === 0;
+$logNew = is_file($logFile) ? (string) substr((string) file_get_contents($logFile), $logBefore) : '';
+check('X14', 'Array-valued query/POST fields and impossible dates handled quietly (200/303, no "Array" rows, no PHP warnings)',
+    $okArr && $okDate && $okPostArr && !str_contains($logNew, 'Array to string conversion'), trim(substr($logNew, 0, 200)));
+$raw = new Browser($BASE);
+$raw->get('/login');
+$raw->post('/login', ['_csrf' => ['x'], 'login' => 'aarav', 'password' => 'Password@123'], false);
+check('X15', 'CSRF token sent as an array -> 419, not a 500 TypeError', $raw->status === 419);
+$sid = (int) $val("SELECT settlement_id FROM settlements WHERE created_by = (SELECT user_id FROM users WHERE username='aarav') AND status <> 'pending' LIMIT 1");
+$aarav->get('/settlements');
+$aarav->post("/settlements/$sid/cancel", ['back' => '//evilhost']);
+$l1 = $aarav->location;
+$aarav->get('/settlements');
+$aarav->post("/settlements/$sid/cancel", ['back' => '/groups/1']);
+check('X16', 'Settlement "back" redirect: //host refused (no open redirect), local path kept',
+    $sid > 0 && str_ends_with($l1, '/settlements') && !str_contains($l1, 'evil') && str_ends_with($aarav->location, '/groups/1'), "$l1 | {$aarav->location}");
+
+/** Page text with tags removed and whitespace collapsed. */
+function text(string $html): string
+{
+    return trim((string) preg_replace('/\s+/u', ' ', html_entity_decode(strip_tags($html), ENT_QUOTES | ENT_HTML5, 'UTF-8')));
+}
+/** "33342.33" -> "₹33,342.33" (Indian digit grouping, like the app's inr()). */
+function inr_t(string $v): string
+{
+    [$i, $d] = array_pad(explode('.', number_format((float) $v, 2, '.', '')), 2, '00');
+    $last3 = substr($i, -3); $rest = substr($i, 0, -3);
+    $rest = $rest === '' ? '' : (string) preg_replace('/\B(?=(\d{2})+(?!\d))/', ',', $rest) . ',';
+    return '₹' . $rest . $last3 . '.' . $d;
+}
+$bandOk = true; $bandInfo = '';
+foreach (['priya', 'aarav', 'kabir', 'sneha', 'rohan'] as $un) {
+    $uidX = (int) $val('SELECT user_id FROM users WHERE username = ?', [$un]);
+    $in  = (string) $val('SELECT COALESCE(SUM(ABS(outstanding)),0) FROM v_pairwise_debts WHERE (user_b = ? AND outstanding > 0) OR (user_a = ? AND outstanding < 0)', [$uidX, $uidX]);
+    $out = (string) $val('SELECT COALESCE(SUM(ABS(outstanding)),0) FROM v_pairwise_debts WHERE (user_a = ? AND outstanding > 0) OR (user_b = ? AND outstanding < 0)', [$uidX, $uidX]);
+    $net = (string) $val('SELECT COALESCE(net_balance,0) FROM v_user_overall_balance WHERE user_id = ?', [$uidX]);
+    $bx = login($BASE, $un);
+    $bx->get('/dashboard');
+    $page = text($bx->body);
+    $ok = str_contains($page, 'Owed to you ' . inr_t($in)) && str_contains($page, 'You owe ' . inr_t($out)) && (int) round(((float) $in - (float) $out) * 100) === (int) round((float) $net * 100);
+    if (!$ok) { $bandOk = false; $bandInfo .= "$un in=$in out=$out net=$net; "; }
+}
+check('X17', 'Dashboard "Owed to you" / "You owe" = sum of the "Who owes whom" debts, and their difference = net balance (5 users)', $bandOk, $bandInfo);
 
 // ======================================================================= misc
 $aarav->get('/does-not-exist');

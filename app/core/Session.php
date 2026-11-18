@@ -98,7 +98,7 @@ final class Session
         return $_SESSION['_csrf'];
     }
 
-    public static function verifyCsrf(?string $token): bool
+    public static function verifyCsrf(mixed $token): bool   // mixed: _csrf[]=x must give 419, not a TypeError
     {
         return is_string($token) && !empty($_SESSION['_csrf']) && hash_equals($_SESSION['_csrf'], $token);
     }

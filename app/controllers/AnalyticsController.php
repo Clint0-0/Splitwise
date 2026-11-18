@@ -61,6 +61,6 @@ final class AnalyticsController extends Controller
     private function date(string $key, string $default): string
     {
         $v = $this->request->query($key);
-        return is_string($v) && preg_match('/^\d{4}-\d{2}-\d{2}$/', $v) ? $v : $default;
+        return is_string($v) && preg_match('/^(\d{4})-(\d{2})-(\d{2})$/', $v, $m) && checkdate((int) $m[2], (int) $m[3], (int) $m[1]) ? $v : $default;
     }
 }

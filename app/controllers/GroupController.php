@@ -104,7 +104,7 @@ final class GroupController extends Controller
 
     public function setRole(int $id, int $userId): void
     {
-        $role = (string) $this->request->post('role');
+        $role = $this->request->str('role');
         $this->memberAction($id, fn(GroupService $s, int $me) => $s->setRole($me, $id, $userId, $role), 'Role updated.');
     }
 

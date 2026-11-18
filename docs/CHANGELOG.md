@@ -1,5 +1,15 @@
 # CHANGELOG — SplitWise+
 
+## [0.7.4] — Full-project audit fixes (2026-11-19)
+### Fixed
+- Front-end libraries (Bootstrap, icons, Chart.js, fonts) are now in the repo — fresh clones were unstyled.
+- "Owed to you" / "You owe" on Dashboard and Balances now match the "Who owes whom" list.
+- Huge `?page=` values, `_csrf[]`, array-valued query/form fields and impossible dates no longer cause 500s or warnings.
+- Settlement "back" redirect can't be pointed at another site (`//host`).
+- Group members table readable on phones (balance + admin menu visible, no page overflow).
+### Changed
+- Functional platform checks renamed X1–X12 (were duplicate P-IDs); new X13–X17 (115 → 120).
+
 ## [0.7.3] — Exp 10 re-run fix (2026-11-18)
 ### Fixed
 - `01_create_database.sql` also drops the fkdemo sandbox, so re-runs show the documented output; test E10-18 (17 → 18 checks).
@@ -49,7 +59,7 @@
 ### Added
 - `Dockerfile` (FrankenPHP, PHP 8.3), `Caddyfile`, `deploy/php.ini`, `.dockerignore`; `database/build_hosted.php`.
 - `/healthz`, `/readyz`; Content-Security-Policy, HSTS (production), Permissions-Policy; TLS options and connect timeout for MySQL; `APP_TRUST_PROXY` (right-most X-Forwarded-For).
-- Tests: functional P1–P12, DB A8–A9, `tests/deployment/` (28 checks).
+- Tests: functional P1–P12 (renamed X1–X12 in 0.7.4), DB A8–A9, `tests/deployment/` (28 checks).
 - `docs/DEPLOYMENT.md`, `docs/PHASE_5_5_AUDIT.md`.
 ### Removed
 - `storage/receipts/` and `storage/throttle/` (no runtime data on local disk except the local mock-mail log).

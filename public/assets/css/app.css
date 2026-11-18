@@ -389,3 +389,16 @@ legend.form-label { font-size: 1rem; font-family: var(--font-body); }
 
 /* dates never break across lines in wide tables */
 @media (min-width: 768px) { .data-table td[data-label="Date"] { white-space: nowrap; } }
+
+/* Audit fixes (Nov 2026) */
+/* visually-hidden (position:absolute) text inside scrollable tables was positioned
+   against the page and widened it on phones; keep it inside the scroll box */
+.table-responsive { position: relative; }
+/* group members on phones: let "gets back ₹9,991.67" wrap instead of hiding off-screen */
+@media (min-width: 576px) { .members-table td.num { white-space: nowrap; } }
+@media (max-width: 575.98px) {
+  .members-table td.num { min-width: 5.5rem; }
+  .members-table td, .members-table th { padding-left: .35rem; padding-right: .35rem; }
+  .members-table td.who { white-space: normal; }
+  .members-table td.num .amount { white-space: normal; }   /* "gets back" wraps, the ₹ figure has no spaces so it stays whole */
+}
