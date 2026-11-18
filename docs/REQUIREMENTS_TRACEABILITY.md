@@ -24,4 +24,7 @@ Status legend: D = designed · **DB** = database part implemented and tested (Ph
 | FR-11 | Admin area | AdminController, Admin mw | users, expense_groups, audit_logs | — | non-admin gets 403 | T |
 | NFR-1 | Security | middleware, helpers | — | — | SQLi, XSS, CSRF, IDOR tests | T |
 | NFR-2/3 | Correctness & integrity | all | all | CHECK/FK/triggers | constraint test script | T |
-| EXP 1–9 | Lab experiments | — | see `SQL_EXPERIMENT_MAPPING.md` | queries, triggers, views | each script runs clean | T |
+| EXP 1–9 | Lab experiments | — | see `DBMS_EXPERIMENT_MAPPING.md` | queries, triggers, views | each script runs clean | T |
+| EXP 10 | DDL + foreign keys | — | `experiments/10_mysql_ddl_fk/` | sandbox DB `splitwise_lab_exp10` | `tests/experiments/test_exp10.php` | T |
+| EXP 11 | MongoDB Atlas + Compass | — | `experiments/11_mongodb_atlas_compass/` | Atlas (manual) | dry run `exp11_dry_run.js`; cloud pending | T (local) / pending |
+| EXP 12 | Candidate Management System | — | `experiments/12_candidate_management/` | DB `splitwise_candidate_lab` | `experiments/12_candidate_management/tests/run.sh` | T |

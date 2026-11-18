@@ -51,6 +51,24 @@ Without XAMPP: `php -d upload_max_filesize=6M -d post_max_size=8M -S 127.0.0.1:8
 ## Deployment (Vercel + managed MySQL)
 Prepared, **not deployed yet**: `Dockerfile` + `Caddyfile` (FrankenPHP), health checks `/healthz` and `/readyz`, hosted-DB builder `database/build_hosted.php`. Full guide, provider comparison, env variables and current status: [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md).
 
+## DBMS lab experiments (1–12)
+This repository holds the SplitWise+ application **and** the DBMS laboratory experiments. Full mapping, tests and status: [`docs/DBMS_EXPERIMENT_MAPPING.md`](docs/DBMS_EXPERIMENT_MAPPING.md).
+
+| Exp | What | Where | Database |
+|---|---|---|---|
+| 1–9 | SELECT, ORDER BY, WHERE, DISTINCT/LIMIT, joins, aggregates, subqueries, triggers, views | `database/queries/`, `database/triggers/`, `database/views/` | `splitwise_plus` (real app tables) |
+| 10 | DDL + foreign keys (RESTRICT, CASCADE, SET NULL), warehouse practical | [`experiments/10_mysql_ddl_fk/`](experiments/10_mysql_ddl_fk/) | sandbox `splitwise_lab_exp10` |
+| 11 | MongoDB Atlas + Compass CRUD on `CollegeDB.Students` | [`experiments/11_mongodb_atlas_compass/`](experiments/11_mongodb_atlas_compass/) | MongoDB Atlas (your account) |
+| 12 | Candidate Management System — PHP/MySQL CRUD app | [`experiments/12_candidate_management/`](experiments/12_candidate_management/) | `splitwise_candidate_lab` |
+
+Experiments 10–12 are separate from the app: their own databases (or MongoDB), not in `database/build.sh`, not in the app's navigation. Quick start:
+```bash
+cd experiments/10_mysql_ddl_fk && MYSQL_ARGS="-uroot -p" ./run.sh        # Exp 10 (asks before recreating the sandbox)
+# Exp 11: follow experiments/11_mongodb_atlas_compass/ATLAS_SETUP.md in Atlas + Compass
+# Exp 12: see experiments/12_candidate_management/README.md (import 3 SQL files, then php -S … -t public)
+bash tests/experiments/run.sh                                           # tests for 10, 11 (local dry run), 12 — Linux
+```
+
 ## Running the tests
 One command, Windows or Linux (resets the database to the sample data at the end):
 ```bash
@@ -87,7 +105,8 @@ docs/diagrams/   ER diagrams (PNG/SVG)
 tools/           generate_er.py (physical ER from live schema), screenshots.py (all screens)
 docs/            specification, schema, architecture decisions, experiment mapping,
                  traceability, implementation status, testing report, changelog
-tests/            run_all.php (everything), unit/, functional/ (incl. scenarios), database/, deployment/
+tests/            run_all.php (everything), unit/, functional/ (incl. scenarios), database/, deployment/, experiments/ (Exp 10–12)
+experiments/      10_mysql_ddl_fk/, 11_mongodb_atlas_compass/, 12_candidate_management/ (DBMS labs, isolated from the app)
 Dockerfile, Caddyfile, deploy/php.ini, .dockerignore   FrankenPHP container
 ```
 
@@ -96,7 +115,7 @@ Dockerfile, Caddyfile, deploy/php.ini, .dockerignore   FrankenPHP container
 |---|---|
 | `docs/PROJECT_SPECIFICATION.md` | scope, requirements, roles, decisions, risks, edge cases |
 | `docs/DATABASE_SCHEMA.md` | ER diagrams, tables, normalization, financial model, DB objects |
-| `docs/SQL_EXPERIMENT_MAPPING.md` | Experiments 1–9 → real queries/objects |
+| `docs/DBMS_EXPERIMENT_MAPPING.md` | DBMS Experiments 1–12 → files, tests, status |
 | `docs/ARCHITECTURE_DECISIONS.md` | application architecture, ADRs, directory plan |
 | `docs/TESTING_REPORT.md` | actual test results |
 | `docs/UI_DESIGN_SYSTEM.md` | colours, type, components, breakpoints |

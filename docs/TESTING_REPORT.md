@@ -462,3 +462,33 @@ Re-run after the fixes (password admin over TCP, as on Windows): **unit 41/41, S
 | 45 | Deployment test only worked with passwordless socket root and a fixed CA path | not portable | `DB_ROOT_USER/PASS/TCP`, CA from `@@ssl_ca` or `MYSQL_CA` | run |
 
 Re-run after the fixes: **unit 53/53, SQL scripts 11/11, database 76/76, functional 115/115, scenarios 23/23 (run_all over TCP + Linux runners), deployment 29/29, axe 0 violations, browser console 0 errors/warnings on all 18 screens (CSP blocks nothing the app needs; budget form script works).**
+
+## DBMS Experiments 10–12 (2026-11-18, branch `feature/dbms-experiments-10-12`)
+
+### Regression — SplitWise+ (before and after the experiment work)
+| Suite | Before (main @ 0341915) | After |
+|---|---|---|
+| Unit | 53/53 | 53/53 |
+| SQL scripts — Exp 1–9 queries, trigger/view demos, install check (`run_all.php`) | — | 11/11 |
+| Database (schema, triggers, procedures, privileges) | 76/76 | 76/76 |
+| Functional (auth, groups, expenses with all 5 split types, balances, settlements, budgets, analytics) | 115/115 | 115/115 |
+| Money scenarios | 23/23 | 23/23 |
+| Deployment readiness | 29/29 | 29/29 |
+No file under `app/`, `config/`, `public/` or `database/` changed; `splitwise_plus` schema fingerprint identical before/after the Exp 10 run (E10-13).
+
+### New experiment tests
+| Suite | Result | Kind |
+|---|---|---|
+| `tests/experiments/test_exp10.php` — 9 expected errors in order, RESTRICT/CASCADE/SET NULL end states, ALTER/RENAME/DROP FK results, warehouse program, production untouched | **15/15** | Executed locally (MySQL 8.0.46) |
+| `tests/experiments/exp11_dry_run.js` — CRUD script run against an in-memory stand-in, JSON consistency, no credentials | **11/11** | Local dry run — **not** MongoDB; Atlas run **blocked** (needs account) |
+| `experiments/12_candidate_management/tests/run_tests.php` — DB privileges/constraints, HTTP CRUD, duplicates, missing/invalid input, CSRF, headers, DB-down page | **28/28** | Executed locally (PHP 8.3 built-in server, `candidate_app` login) |
+| axe-core on Exp 12 pages (1280 + 390 px, incl. error state) | **0 violations** | Executed locally |
+
+Measured fact recorded in Exp 10: MySQL 8.0.46 **accepts** `ON DELETE SET DEFAULT` in `CREATE TABLE` but InnoDB rejects the parent delete with 1451 (it never sets the default).
+
+### Not tested / blocked
+| Item | Status |
+|---|---|
+| Exp 11 on MongoDB Atlas / Compass | **Blocked** — needs the team's Atlas account (guide in `ATLAS_SETUP.md`) |
+| Exp 12 under XAMPP/Apache (`.htaccess` rule for `experiments/*/public/`) | **Not tested** — no Apache here; built-in server only |
+| Experiment tests on Windows | **Not tested** — runners are bash; Windows steps documented in each README |

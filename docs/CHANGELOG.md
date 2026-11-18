@@ -1,5 +1,17 @@
 # CHANGELOG — SplitWise+
 
+## [0.7.0] — DBMS Experiments 10–12 (2026-11-18)
+### Added
+- `experiments/10_mysql_ddl_fk/`: DDL and foreign-key sandbox (`splitwise_lab_exp10`), RESTRICT/NO ACTION/CASCADE/SET NULL/SET DEFAULT demos on cut-down SplitWise+ tables, warehouse/inventory practical, `run.sh` with confirmation.
+- `experiments/11_mongodb_atlas_compass/`: Atlas + Compass guide, `CollegeDB.Students` sample documents, mongosh CRUD script, Compass filters, post-lab answers.
+- `experiments/12_candidate_management/`: standalone Candidate Management System (own DB `splitwise_candidate_lab`, 3NF schema, ER diagram generated from the schema, PHP/PDO CRUD front end, real screenshots).
+- Tests: `tests/experiments/test_exp10.php` (15), `tests/experiments/exp11_dry_run.js` (11, local dry run), `experiments/12_candidate_management/tests/run_tests.php` (28), runner `tests/experiments/run.sh`.
+### Changed
+- `docs/SQL_EXPERIMENT_MAPPING.md` renamed to `docs/DBMS_EXPERIMENT_MAPPING.md` and extended to all 12 experiments (Exp 1–9 content kept).
+- Root `.htaccess`: under `experiments/` only a `public/` folder is served.
+### Not changed
+- SplitWise+ application code, production schema and `database/splitwise_plus.sql`.
+
 ## [0.6.1] — Phase 5.5 bug fixes (2026-11-09)
 ### Fixed
 - `.env` reader strips trailing ` # comments`; `.env.example` comments on their own lines (a copied template had silently switched to file sessions).
