@@ -18,7 +18,7 @@ Renamed from `SQL_EXPERIMENT_MAPPING.md` (its Experiments 1–9 content is kept 
 | 9 | Views | `database/views/` | DB tests + `demo_views.sql` | views return data; updatability as documented | Implemented · Executed locally |
 | 10 | MySQL DDL + foreign keys | `experiments/10_mysql_ddl_fk/` (sandbox `splitwise_lab_exp10`) | `php tests/experiments/test_exp10.php` (15 checks) | 9 expected errors in order; RESTRICT/CASCADE/SET NULL end states; warehouse program result; `splitwise_plus` unchanged | Implemented · **Executed locally** (15/15) |
 | 11 | MongoDB Atlas + Compass | `experiments/11_mongodb_atlas_compass/` | `node tests/experiments/exp11_dry_run.js` (11 checks, in-memory stand-in); cloud steps in `ATLAS_SETUP.md` | 3 docs with `_id`; `$gt` → 2; Rahul cgpa 9; Amit deleted, 2 left | Implemented · Executed locally (dry run only) · **Executed on cloud: Blocked — needs your Atlas account** |
-| 12 | Candidate Management System | `experiments/12_candidate_management/` (DB `splitwise_candidate_lab`) | `bash experiments/12_candidate_management/tests/run.sh` (28 checks) | full CRUD through the web UI; constraints enforced | Implemented · **Executed locally** (28/28) |
+| 12 | Candidate Management System | `experiments/12_candidate_management/` (DB `splitwise_candidate_lab`) | `bash experiments/12_candidate_management/tests/run.sh` (31 checks, throw-away test DB) | full CRUD through the web UI; constraints enforced | Implemented · **Executed locally** (31/31) |
 
 Experiments 1–9 use only real SplitWise+ tables (no demo-only tables). Experiments 10 and 12 run in their **own** databases and Experiment 11 on MongoDB, so nothing in them changes the production schema or `database/splitwise_plus.sql`.
 
@@ -220,7 +220,7 @@ Plus: `CREATE VIEW`, `CREATE OR REPLACE VIEW`, `SHOW TABLES`, `SHOW FULL TABLES 
 | UNIQUE, CHECK (phone regexp, email shape), ENUM, NOT NULL, FK CASCADE/RESTRICT | `database/candidate_management.sql` |
 | PDO prepared statements, server-side validation, CSRF, escaping, confirmation before delete, empty states | `public/`, `src/` |
 
-**Test procedure:** `bash experiments/12_candidate_management/tests/run.sh`. **Actual:** 28/28 passed (2026-11-18), axe 0 violations; results in `tests/CRUD_TESTS.md`; real screenshots of the local run in `docs/screenshots/`.
+**Test procedure:** `bash experiments/12_candidate_management/tests/run.sh`. **Actual:** 31/31 passed (2026-11-18), axe 0 violations; results in `tests/CRUD_TESTS.md`; real screenshots of the local run in `docs/screenshots/`.
 
 
 ---

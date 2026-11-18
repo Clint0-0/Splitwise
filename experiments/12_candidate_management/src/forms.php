@@ -8,7 +8,7 @@ function candidate_fields(array $d, array $errors): void
         // name, label, type, required, extra attributes, hint
         ['full_name', 'Full name', 'text', true, 'maxlength="100" autocomplete="name"', ''],
         ['email', 'Email', 'email', true, 'maxlength="150" autocomplete="email"', ''],
-        ['phone', 'Mobile number', 'tel', true, 'maxlength="14" inputmode="tel" autocomplete="tel" placeholder="98765 43210"', '10 digits, starting with 6–9. +91 is optional.'],
+        ['phone', 'Mobile number', 'tel', true, 'maxlength="16" inputmode="tel" autocomplete="tel" placeholder="98765 43210"', '10 digits, starting with 6–9. +91 is optional.'],
         ['date_of_birth', 'Date of birth', 'date', false, 'max="' . date('Y-m-d') . '"', ''],
         ['highest_qualification', 'Highest qualification', 'text', true, 'maxlength="100" placeholder="e.g. B.E. Computer Engineering"', ''],
     ];

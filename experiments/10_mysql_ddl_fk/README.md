@@ -42,6 +42,7 @@ Safety first:
 cd experiments/10_mysql_ddl_fk
 MYSQL_ARGS="-uroot -p" ./run.sh          # asks YES, writes output/run_<time>.txt
 ```
+With `-p`, mysql asks for the password once per script (10 times). To type it once, store it with `mysql_config_editor set --login-path=lab --user=root --password` and use `MYSQL_ARGS="--login-path=lab"`.
 Windows / XAMPP (no bash): in a command prompt, run each file in order with `--force` so the expected errors don't stop the script:
 ```bat
 for %f in (0*.sql) do C:\xampp\mysql\bin\mysql -u root -p --force -v -v -v --table < %f

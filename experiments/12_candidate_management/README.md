@@ -12,7 +12,7 @@ An **independent** PHP/MySQL mini-application. It has its own database `splitwis
 | 4. Normalization up to 3NF | `docs/NORMALIZATION.md` |
 | 5. SQL implementation | `database/crud_queries.sql` (INSERT/SELECT/UPDATE/DELETE/search) and `src/CandidateRepository.php` (same SQL with PDO prepared statements) |
 | 6. Front-end implementation | `public/` — PHP + HTML + CSS |
-| Tests | `tests/run_tests.php` (28 checks), results in `tests/CRUD_TESTS.md` |
+| Tests | `tests/run_tests.php` (31 checks), results in `tests/CRUD_TESTS.md` |
 
 ## Schema (3NF)
 ```
@@ -56,7 +56,7 @@ Other settings (env): `CANDIDATE_DB_HOST` (127.0.0.1), `CANDIDATE_DB_PORT` (3306
 
 ## Tests
 ```bash
-bash experiments/12_candidate_management/tests/run.sh     # recreates the lab DB, runs 28 checks, restores sample data
+bash experiments/12_candidate_management/tests/run.sh     # 31 checks in a throw-away DB splitwise_candidate_lab_test + user candidate_test (both dropped after); your lab DB is not touched
 ```
 
 ## Evidence checklist

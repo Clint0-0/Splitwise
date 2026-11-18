@@ -1,5 +1,14 @@
 # CHANGELOG — SplitWise+
 
+## [0.7.1] — Experiments 10–12 bug fixes (2026-11-18)
+### Fixed
+- Exp 12 tests no longer touch the lab database/login (throw-away `splitwise_candidate_lab_test` + `candidate_test`).
+- Exp 12 timestamps stored in Asia/Kolkata; array-valued form fields rejected; phone field fits `+91 …`; null-safe input cleaning.
+- Exp 11 CRUD script uses `db.getSiblingDB()` and `var`, so it runs in any mongosh/Compass shell and can be pasted twice.
+- Exp 10 README explains password prompts / `--login-path`.
+### Added
+- Exp 12 tests H18–H20 (28 → 31); Exp 11 dry run executes the script twice.
+
 ## [0.7.0] — DBMS Experiments 10–12 (2026-11-18)
 ### Added
 - `experiments/10_mysql_ddl_fk/`: DDL and foreign-key sandbox (`splitwise_lab_exp10`), RESTRICT/NO ACTION/CASCADE/SET NULL/SET DEFAULT demos on cut-down SplitWise+ tables, warehouse/inventory practical, `run.sh` with confirmation.

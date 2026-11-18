@@ -7,6 +7,8 @@
 declare(strict_types=1);
 
 $BASE = 'http://127.0.0.1:8091';
+$DB = getenv('CMS_DB') ?: 'splitwise_candidate_lab_test';          // throw-away test database
+$APPUSER = getenv('CMS_APP_USER') ?: 'candidate_test';
 $pass = 0; $fail = 0;
 function check(string $id, string $label, bool $ok, string $info = ''): void
 {
@@ -14,7 +16,7 @@ function check(string $id, string $label, bool $ok, string $info = ''): void
     echo ($ok ? 'PASS' : 'FAIL') . "  $id  $label" . ($ok || $info === '' ? '' : "  [$info]") . "\n";
     $ok ? $pass++ : $fail++;
 }
-$root = new PDO(getenv('CMS_ROOT_DSN') ?: 'mysql:unix_socket=/var/run/mysqld/mysqld.sock;dbname=splitwise_candidate_lab;charset=utf8mb4',
+$root = new PDO(getenv('CMS_ROOT_DSN') ?: "mysql:unix_socket=/var/run/mysqld/mysqld.sock;dbname=$DB;charset=utf8mb4",
     getenv('CMS_ROOT_USER') ?: 'root', getenv('CMS_ROOT_PASS') ?: '', [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
 $val = function (string $sql, array $p = []) use ($root) { $s = $root->prepare($sql); $s->execute($p); return $s->fetchColumn(); };
 $sqlErr = function (string $sql) use ($root): int {
@@ -56,8 +58,8 @@ final class Web
 
 // ------------------------------------------------------------------ database
 $app = null;
-try { $app = new PDO('mysql:host=127.0.0.1;dbname=splitwise_candidate_lab;charset=utf8mb4', 'candidate_app', (string) getenv('CANDIDATE_DB_PASSWORD'), [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]); } catch (PDOException $e) {}
-check('D1', 'App user candidate_app connects to splitwise_candidate_lab', $app !== null);
+try { $app = new PDO("mysql:host=127.0.0.1;dbname=$DB;charset=utf8mb4", $APPUSER, (string) getenv('CANDIDATE_DB_PASSWORD'), [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]); } catch (PDOException $e) {}
+check('D1', "App user $APPUSER connects to $DB", $app !== null);
 $denied = false;
 try { $app?->query('SELECT 1 FROM splitwise_plus.users LIMIT 1'); } catch (PDOException $e) { $denied = in_array((int) $e->errorInfo[1], [1044, 1142], true); }
 check('D2', 'App user has no access to the SplitWise+ database', $denied);
@@ -65,9 +67,9 @@ $ddl = false;
 try { $app?->exec('DROP TABLE positions'); } catch (PDOException $e) { $ddl = (int) $e->errorInfo[1] === 1142; }
 check('D3', 'App user cannot run DDL (DROP TABLE refused)', $ddl);
 check('D4', '3 tables; FKs: applications→candidates CASCADE, applications→positions RESTRICT',
-    (int) $val("SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA='splitwise_candidate_lab'") === 3
-    && $val("SELECT DELETE_RULE FROM information_schema.REFERENTIAL_CONSTRAINTS WHERE CONSTRAINT_SCHEMA='splitwise_candidate_lab' AND CONSTRAINT_NAME='fk_applications_candidate'") === 'CASCADE'
-    && $val("SELECT DELETE_RULE FROM information_schema.REFERENTIAL_CONSTRAINTS WHERE CONSTRAINT_SCHEMA='splitwise_candidate_lab' AND CONSTRAINT_NAME='fk_applications_position'") === 'RESTRICT');
+    (int) $val("SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE()") === 3
+    && $val("SELECT DELETE_RULE FROM information_schema.REFERENTIAL_CONSTRAINTS WHERE CONSTRAINT_SCHEMA=DATABASE() AND CONSTRAINT_NAME='fk_applications_candidate'") === 'CASCADE'
+    && $val("SELECT DELETE_RULE FROM information_schema.REFERENTIAL_CONSTRAINTS WHERE CONSTRAINT_SCHEMA=DATABASE() AND CONSTRAINT_NAME='fk_applications_position'") === 'RESTRICT');
 check('D5', 'Duplicate email rejected by UNIQUE (1062)',
     $sqlErr("INSERT INTO candidates (full_name,email,phone,highest_qualification) VALUES ('Dup','neha.k@example.test','9000000001','X')") === 1062);
 check('D6', 'Duplicate phone rejected by UNIQUE (1062)',
@@ -175,10 +177,24 @@ check('H16', 'Security headers: CSP, nosniff, frame DENY; session cookie HttpOnl
     stripos($h, "Content-Security-Policy: default-src 'self'") !== false && stripos($h, 'X-Content-Type-Options: nosniff') !== false
     && stripos($h, 'X-Frame-Options: DENY') !== false && preg_match('/Set-Cookie: cms_lab_sess=[^\r\n]*HttpOnly/i', $h) === 1);
 
+$w->get('/create.php');
+$w->post('/create.php', ['full_name' => ['x'], 'email' => ['a@b.co'], 'phone' => ['9000000009'], 'highest_qualification' => ['BA'],
+    'position_id' => ['1'], 'applied_on' => ['2026-11-01'], 'status' => ['Applied']]);
+check('H18', 'Fields sent as arrays (name[]=…) are rejected as missing, never stored as "Array"',
+    $w->status === 200 && $w->has('Full name is required.') && (int) $val("SELECT COUNT(*) FROM candidates WHERE full_name='Array'") === 0);
+$w->post('/create.php', ['full_name' => 'Time Check', 'email' => 'time.check@example.test', 'phone' => '9000000010', 'highest_qualification' => 'BA',
+    'position_id' => '1', 'applied_on' => date('Y-m-d'), 'status' => 'Applied']);
+$created = (string) $val("SELECT created_at FROM candidates WHERE email='time.check@example.test'");
+date_default_timezone_set('Asia/Kolkata');
+check('H19', 'created_at stored in the app time zone (Asia/Kolkata), not server UTC', $created !== '' && abs(strtotime($created) - time()) < 300, $created);
+$w->get('/create.php');
+check('H20', 'Phone input accepts the documented "+91 99887-76655" format (maxlength 16)',
+    preg_match('/id="phone"[^>]*maxlength="(\d+)"/', $w->body, $mm) === 1 && (int) $mm[1] >= strlen('+91 99887-76655'));
+
 $bad = new Web('http://127.0.0.1:8092');
 $bad->get('/');
 check('H17', 'Wrong DB password: friendly 500 page, no credentials or SQLSTATE shown',
-    $bad->status === 500 && $bad->has('Cannot connect to the database') && !$bad->has('SQLSTATE') && !$bad->has('candidate_app'));
+    $bad->status === 500 && $bad->has('Cannot connect to the database') && !$bad->has('SQLSTATE') && !$bad->has($APPUSER));
 
 echo "\n$pass / " . ($pass + $fail) . " passed\n";
 exit($fail ? 1 : 0);

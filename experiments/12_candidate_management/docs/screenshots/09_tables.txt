@@ -23,9 +23,9 @@ Create Table: CREATE TABLE `candidates` (
   UNIQUE KEY `uq_candidates_email` (`email`),
   UNIQUE KEY `uq_candidates_phone` (`phone`),
   KEY `idx_candidates_name` (`full_name`),
-  CONSTRAINT `chk_candidates_email` CHECK ((`email` like _latin1'%_@_%._%')),
+  CONSTRAINT `chk_candidates_email` CHECK ((`email` like _utf8mb4'%_@_%._%')),
   CONSTRAINT `chk_candidates_name` CHECK ((char_length(trim(`full_name`)) >= 2)),
-  CONSTRAINT `chk_candidates_phone` CHECK (regexp_like(`phone`,_latin1'^[6-9][0-9]{9}$'))
+  CONSTRAINT `chk_candidates_phone` CHECK (regexp_like(`phone`,_utf8mb4'^[6-9][0-9]{9}$'))
 ) ENGINE=InnoDB AUTO_INCREMENT=6 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
 *************************** 1. row ***************************
        Table: applications

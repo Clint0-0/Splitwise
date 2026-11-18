@@ -5,7 +5,7 @@ require __DIR__ . '/../src/bootstrap.php';
 
 $isPost = $_SERVER['REQUEST_METHOD'] === 'POST';
 $src = $isPost ? $_POST : $_GET;
-$action = (string) ($src['action'] ?? '');
+$action = str_param('action', $src);
 $cid = int_param('candidate_id', $src);
 $c = $cid ? repo()->find($cid) : null;
 if (!$c) {
@@ -52,7 +52,7 @@ switch ($action) {
         flash('error', 'The application was not added — see the form below.');
         redirect($back . '#apps');
     case 'status':
-        $status = (string) ($_POST['status'] ?? '');
+        $status = str_param('status', $_POST);
         if (!in_array($status, STATUSES, true)) {
             flash('error', 'Choose a valid status.');
         } elseif (repo()->setStatus(int_param('application_id', $_POST), $cid, $status)) {

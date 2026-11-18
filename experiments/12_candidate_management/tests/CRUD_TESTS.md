@@ -1,10 +1,10 @@
 # Experiment 12 — CRUD test results
 
 Run: `bash experiments/12_candidate_management/tests/run.sh` · 2026-11-18 · MySQL 8.0.46, PHP 8.3.6 built-in server · app connected as least-privilege `candidate_app`.
-The script recreates `splitwise_candidate_lab` with sample data, runs the checks below, then restores the sample data. Output copied verbatim:
+The script builds a throw-away copy `splitwise_candidate_lab_test` (schema + sample data) with its own login `candidate_test`, runs the checks below, then drops both — the lab database `splitwise_candidate_lab` is not touched. Output copied verbatim:
 
 ```
-PASS  D1  App user candidate_app connects to splitwise_candidate_lab
+PASS  D1  App user candidate_test connects to splitwise_candidate_lab_test
 PASS  D2  App user has no access to the SplitWise+ database
 PASS  D3  App user cannot run DDL (DROP TABLE refused)
 PASS  D4  3 tables; FKs: applications→candidates CASCADE, applications→positions RESTRICT
@@ -31,9 +31,12 @@ PASS  H13  Delete: GET = confirmation page (nothing deleted); POST with a wrong 
 PASS  H14  Delete: POST removes candidate and (CASCADE) their applications; listing shows message and 4 candidates
 PASS  H15  Unknown or malformed id: 404 page, no SQL error text
 PASS  H16  Security headers: CSP, nosniff, frame DENY; session cookie HttpOnly
+PASS  H18  Fields sent as arrays (name[]=…) are rejected as missing, never stored as "Array"
+PASS  H19  created_at stored in the app time zone (Asia/Kolkata), not server UTC
+PASS  H20  Phone input accepts the documented "+91 99887-76655" format (maxlength 16)
 PASS  H17  Wrong DB password: friendly 500 page, no credentials or SQLSTATE shown
 
-28 / 28 passed
+31 / 31 passed
 ```
 
 | Area required by the brief | Checks |
@@ -47,7 +50,8 @@ PASS  H17  Wrong DB password: friendly 500 page, no credentials or SQLSTATE show
 | Candidate deletion | H12, H13, H14 |
 | Duplicate unique values | D5, D6, D9, H7, H10 |
 | Missing required fields | D11, H3 |
-| Invalid input | D7, D8, H4, H8 (injection text), H6 (HTML escaped) |
+| Invalid input | D7, D8, H4, H8 (injection text), H6 (HTML escaped), H18 (array fields), H20 (phone format fits the form) |
+| Time zone | H19 (created_at in Asia/Kolkata) |
 | Security | H13 (CSRF), H16 (headers), H11 (cross-candidate change ignored) |
 
 Also checked: axe-core accessibility scan of list, register (normal + errors), detail, edit, delete-confirm and empty-search pages at 1280 px and 390 px → **0 violations**; browser console → 0 errors.

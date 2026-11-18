@@ -35,17 +35,21 @@ function collection() {
 }
 
 const dbs = {}; let current = null; const out = [];
-const db = new Proxy({}, { get: (_, name) => (dbs[current] ??= {})[name] ??= collection() });
-const ctx = { use: n => { current = n; }, db, print: (...a) => out.push(a.join(' ')), printjson: o => out.push(JSON.stringify(o)), JSON };
+const dbProxy = name => new Proxy({}, { get: (_, k) => k === 'getSiblingDB' ? (n => { current = n; return dbProxy(n); }) : ((dbs[name] ??= {})[k] ??= collection()) });
+current = 'test';
+const ctx = { db: dbProxy('test'), print: (...a) => out.push(a.join(' ')), printjson: o => out.push(JSON.stringify(o)), JSON };
 let ran = true;
-try { vm.runInNewContext(fs.readFileSync(path.join(dir, 'mongodb_crud_commands.js'), 'utf8'), ctx); }
+const script = fs.readFileSync(path.join(dir, 'mongodb_crud_commands.js'), 'utf8');
+try { vm.createContext(ctx); vm.runInContext(script, ctx); vm.runInContext(script, ctx); }   // twice = pasted again in the same shell
 catch (e) { ran = false; console.log(e.message); }
 const S = dbs.CollegeDB?.Students;
 
-check('M1', 'mongodb_crud_commands.js runs start to finish', ran);
+check('M1', 'mongodb_crud_commands.js runs start to finish, and again in the same session (re-runnable)', ran);
 check('M2', 'uses database CollegeDB, collection Students', current === 'CollegeDB' && !!S);
 check('M3', 'insertOne + insertMany report acknowledged inserts with generated _id',
   /insertOne -> .*"insertedId"/.test(out.join('\n')) && /insertMany -> .*"insertedIds"/.test(out.join('\n')));
+const second = out.slice(out.lastIndexOf('All students:') - 2);   // check the 2nd run's output
+out.splice(0, out.length, ...second);
 const allLine = out[out.indexOf('All students:') + 1] || '[]';
 const all = JSON.parse(allLine);
 check('M4', 'find({}) returned 3 documents, every one with an _id', all.length === 3 && all.every(d => typeof d._id === 'string'));

@@ -8,11 +8,12 @@ final class Validator
     public static function candidate(array $in): array
     {
         $d = [
-            'full_name'             => preg_replace('/\s+/u', ' ', trim((string) ($in['full_name'] ?? ''))),
-            'email'                 => mb_strtolower(trim((string) ($in['email'] ?? ''))),
-            'phone'                 => preg_replace('/[\s-]/', '', trim((string) ($in['phone'] ?? ''))),
-            'date_of_birth'         => trim((string) ($in['date_of_birth'] ?? '')),
-            'highest_qualification' => preg_replace('/\s+/u', ' ', trim((string) ($in['highest_qualification'] ?? ''))),
+            // (string) preg_replace(...): invalid UTF-8 makes it return null -> '' -> "required" error
+            'full_name'             => (string) preg_replace('/\s+/u', ' ', trim(str_param('full_name', $in))),
+            'email'                 => mb_strtolower(trim(str_param('email', $in))),
+            'phone'                 => (string) preg_replace('/[\s-]/', '', trim(str_param('phone', $in))),
+            'date_of_birth'         => trim(str_param('date_of_birth', $in)),
+            'highest_qualification' => (string) preg_replace('/\s+/u', ' ', trim(str_param('highest_qualification', $in))),
         ];
         $e = [];
         if ($d['full_name'] === '') {
@@ -54,9 +55,9 @@ final class Validator
     public static function application(array $in, array $openPositionIds): array
     {
         $d = [
-            'position_id' => (string) ($in['position_id'] ?? ''),
-            'applied_on'  => trim((string) ($in['applied_on'] ?? '')),
-            'status'      => (string) ($in['status'] ?? 'Applied'),
+            'position_id' => str_param('position_id', $in),
+            'applied_on'  => trim(str_param('applied_on', $in)),
+            'status'      => str_param('status', $in),
         ];
         $e = [];
         if (!ctype_digit($d['position_id']) || !in_array((int) $d['position_id'], $openPositionIds, true)) {

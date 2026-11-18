@@ -3,10 +3,10 @@
 declare(strict_types=1);
 require __DIR__ . '/../src/bootstrap.php';
 
-$q = trim((string) ($_GET['q'] ?? ''));
+$q = trim(str_param('q', $_GET));
 $q = mb_substr($q, 0, 100);
 $positionId = int_param('position', $_GET);
-$status = in_array($_GET['status'] ?? '', STATUSES, true) ? $_GET['status'] : '';
+$status = in_array(str_param('status', $_GET), STATUSES, true) ? str_param('status', $_GET) : '';
 $rows = repo()->search($q, $positionId, $status);
 $positions = repo()->positions();
 $filtered = $q !== '' || $positionId || $status !== '';
