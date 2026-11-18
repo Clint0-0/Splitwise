@@ -72,6 +72,12 @@ $tracked = shell_exec('cd ' . escapeshellarg($ROOT) . ' && git ls-files 2>/dev/n
 check('C7', 'No .env / key / generated hosted script tracked by git',
     preg_match('/^(\.env|.*\.pem|.*\.key|build\/.*)$/m', $tracked) === 0);
 
+$need = ['public/assets/vendor/bootstrap/bootstrap.min.css', 'public/assets/vendor/bootstrap/bootstrap.bundle.min.js',
+         'public/assets/vendor/bootstrap-icons/bootstrap-icons.min.css', 'public/assets/vendor/bootstrap-icons/fonts/bootstrap-icons.woff2',
+         'public/assets/vendor/chartjs/chart.umd.min.js', 'public/assets/vendor/fonts/fonts.css'];
+check('C8', 'Front-end libraries are committed (a fresh clone renders Bootstrap, icons, charts, fonts)',
+    array_diff($need, array_map('trim', explode("\n", $tracked))) === []);
+
 // ---------------------------------------------------------------- hosted-style database
 check('H1', 'Hosted import: 16 tables, triggers, procedures in a database with a different name',
     (int) $val("SELECT COUNT(*) FROM information_schema.tables WHERE table_schema=DATABASE() AND table_type='BASE TABLE'") === 16
