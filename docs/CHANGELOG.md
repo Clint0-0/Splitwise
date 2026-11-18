@@ -1,5 +1,9 @@
 # CHANGELOG — SplitWise+
 
+## [0.7.3] — Exp 10 re-run fix (2026-11-18)
+### Fixed
+- `01_create_database.sql` also drops the fkdemo sandbox, so re-runs show the documented output; test E10-18 (17 → 18 checks).
+
 ## [0.7.2] — Experiments reconciled with the lab manuals (2026-11-18)
 ### Changed
 - Exp 10: PROGRAM (`08`) uses the manual's exact statements (incl. the manual's 4-value insert after dropping `capacity`, shown as error 1136, then corrected); new `09_manual_fkdemo_examples.sql` runs the manual's theory examples (tasks/checklists, fkdemo RESTRICT/CASCADE/SET NULL, DROP FOREIGN KEY); verification/cleanup renumbered to `10`/`11`; `POST_LAB_QUESTIONS.md`; Workbench instructions. Test 15 → 17 checks.

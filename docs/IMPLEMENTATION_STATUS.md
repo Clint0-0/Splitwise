@@ -86,7 +86,7 @@ Phase 2 acceptance criteria: tables create ✓ · FKs work ✓ · constraints re
 | Exp | Deliverable | Status |
 |---|---|---|
 | 1–9 | existing query/trigger/view scripts, unchanged; mapping moved to `docs/DBMS_EXPERIMENT_MAPPING.md` | ✓ executed locally (SQL scripts + DB suites) |
-| 10 | `experiments/10_mysql_ddl_fk/` — DDL + RESTRICT/CASCADE/SET NULL, manual's examples and PROGRAM as printed, post-lab answers; sandboxes `splitwise_lab_exp10`, `_fkdemo` | ✓ executed locally, 17/17 |
+| 10 | `experiments/10_mysql_ddl_fk/` — DDL + RESTRICT/CASCADE/SET NULL, manual's examples and PROGRAM as printed, post-lab answers; sandboxes `splitwise_lab_exp10`, `_fkdemo` | ✓ executed locally, 18/18 |
 | 11 | `experiments/11_mongodb_atlas_compass/` — setup guide, sample docs, CRUD script, filters, post-lab answers | ✓ files + local dry run 11/11 · ☐ **Atlas/Compass run blocked — needs team's Atlas account** · ☐ screenshots |
 | 12 | `experiments/12_candidate_management/` — requirements, ER, 3NF, schema, PHP/PDO CRUD app | ✓ executed locally, 31/31, axe 0, real screenshots |
 | — | Lab manuals (`Experiment_No_10/11/12_NEP.docx`) received 2026-11-18 and reconciled: Exp 10 gained the manual's own examples, exact PROGRAM statements and post-lab answers; Exp 11 and 12 already matched | ✓ |

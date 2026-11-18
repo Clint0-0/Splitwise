@@ -1,18 +1,21 @@
 -- =====================================================================
 -- Experiment 10 · 01  CREATE DATABASE / DROP DATABASE
--- !! DESTRUCTIVE FOR THE SANDBOX ONLY: drops and recreates splitwise_lab_exp10.
+-- !! DESTRUCTIVE FOR THE SANDBOX ONLY: drops splitwise_lab_exp10 and splitwise_lab_exp10_fkdemo,
+--    recreates splitwise_lab_exp10 (script 09 recreates the fkdemo one).
 -- Never touches splitwise_plus. Inspect before running:
 --     SHOW DATABASES LIKE 'splitwise_lab_exp10%';
 -- =====================================================================
 
 -- [1] Look before changing anything (manual inspection step).
--- Expected: 0 or 1 row (splitwise_lab_exp10 if a previous run exists). splitwise_plus is not touched.
+-- Expected: 0 rows on the first run, 2 (splitwise_lab_exp10, splitwise_lab_exp10_fkdemo) after an earlier run.
+-- splitwise_plus is not touched.
 SHOW DATABASES LIKE 'splitwise_lab_exp10%';
 
--- [2] DROP DATABASE IF EXISTS — removes the sandbox from an earlier run.
+-- [2] DROP DATABASE IF EXISTS — removes both sandboxes from an earlier run.
 -- Why: makes the experiment repeatable. IF EXISTS avoids error 1008 on the first run.
 -- Expected: "Query OK" (or a warning 1008 note on the first run).
 DROP DATABASE IF EXISTS splitwise_lab_exp10;
+DROP DATABASE IF EXISTS splitwise_lab_exp10_fkdemo;
 
 -- [3] CREATE DATABASE with an explicit character set and collation.
 -- Why: utf8mb4 stores ₹ and every Indian script, same as the real SplitWise+ database.

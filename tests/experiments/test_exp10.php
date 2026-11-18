@@ -84,6 +84,10 @@ $check('E10-16', "Manual's fkdemo examples: checklist CASCADE (0 left); after SE
     && $val("SELECT GROUP_CONCAT(COLUMN_NAME ORDER BY ORDINAL_POSITION) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA='splitwise_lab_exp10_fkdemo' AND TABLE_NAME='todo_tasks'") === 'id,title,start_date,due_date');
 $check('E10-17', "Manual's CASCADE section really cascaded (output shows iPhone/Galaxy Note with categoryId 100 and the watches deleted)",
     (bool) preg_match('/\|\s+1 \| iPhone\s+\|\s+100 \|/', $out) && (bool) preg_match('/\|\s+2 \| Galaxy Note\s+\|\s+100 \|/', $out));
+$sec01 = (string) preg_replace('/################ 02_.*/s', '', $out);
+preg_match_all('/^\|\s*(splitwise_lab_exp10\S*)\s*\|\r?$/m', substr($sec01, (int) strpos($sec01, 'CREATE DATABASE splitwise_lab_exp10_scratch')), $mm);
+$check('E10-18', 'Re-run safe: in 01 the scratch DB comes and goes and only splitwise_lab_exp10 remains (no leftover fkdemo from an earlier run)',
+    implode(',', $mm[1]) === 'splitwise_lab_exp10,splitwise_lab_exp10_scratch,splitwise_lab_exp10,splitwise_lab_exp10', implode(',', $mm[1]));
 $check('E10-13', 'splitwise_plus untouched (schema + FK rules + expense count identical before/after)', $before === $after);
 $tracked = (string) shell_exec('cd ' . escapeshellarg($ROOT) . ' && git status --porcelain database/ 2>/dev/null');
 $check('E10-14', 'Production build chain untouched (no changes under database/)', trim($tracked) === '', trim($tracked));

@@ -16,7 +16,7 @@ Renamed from `SQL_EXPERIMENT_MAPPING.md` (its Experiments 1–9 content is kept 
 | 7 | Subqueries | `queries/05_subqueries.sql` (Q35–Q43) | same | correct sub-results | Implemented · Executed locally |
 | 8 | Triggers | `database/triggers/` | DB tests T1–T17 | each trigger fires / rejects | Implemented · Executed locally |
 | 9 | Views | `database/views/` | DB tests + `demo_views.sql` | views return data; updatability as documented | Implemented · Executed locally |
-| 10 | MySQL DDL + foreign keys | `experiments/10_mysql_ddl_fk/` (sandboxes `splitwise_lab_exp10`, `splitwise_lab_exp10_fkdemo`) | `php tests/experiments/test_exp10.php` (17 checks) | 13 expected errors in order; RESTRICT/CASCADE/SET NULL end states; manual's examples + PROGRAM as printed; `splitwise_plus` unchanged | Implemented · **Executed locally** (17/17) |
+| 10 | MySQL DDL + foreign keys | `experiments/10_mysql_ddl_fk/` (sandboxes `splitwise_lab_exp10`, `splitwise_lab_exp10_fkdemo`) | `php tests/experiments/test_exp10.php` (18 checks) | 13 expected errors in order; RESTRICT/CASCADE/SET NULL end states; manual's examples + PROGRAM as printed; `splitwise_plus` unchanged | Implemented · **Executed locally** (18/18) |
 | 11 | MongoDB Atlas + Compass | `experiments/11_mongodb_atlas_compass/` | `node tests/experiments/exp11_dry_run.js` (11 checks, in-memory stand-in); cloud steps in `ATLAS_SETUP.md` | 3 docs with `_id`; `$gt` → 2; Rahul cgpa 9; Amit deleted, 2 left | Implemented · Executed locally (dry run only) · **Executed on cloud: Blocked — needs your Atlas account** |
 | 12 | Candidate Management System | `experiments/12_candidate_management/` (DB `splitwise_candidate_lab`) | `bash experiments/12_candidate_management/tests/run.sh` (31 checks, throw-away test DB) | full CRUD through the web UI; constraints enforced | Implemented · **Executed locally** (31/31) |
 
@@ -195,7 +195,7 @@ Plus: `CREATE VIEW`, `CREATE OR REPLACE VIEW`, `SHOW TABLES`, `SHOW FULL TABLES 
 | information_schema verification | 10 | read-only count proving `splitwise_plus` untouched |
 | Post-lab questions (5) | `POST_LAB_QUESTIONS.md` | |
 
-**Test procedure:** `php tests/experiments/test_exp10.php` (runs `run.sh --yes`, then 17 checks). **Expected:** errors exactly `1451 1451 1451 1452 1830 1451 3819 1452 3730 1136 1452 1451 3730`; group 2 members 3 → 0; created_by 4 → 40; deleted_by 5 → NULL; warehouse 1 deleted → allocation 101 NULL, inventoryDetails 4 → 2, 2 products keep a dangling warehouseID (no FK, as in the manual); fkdemo: CASCADE 1 → 100 and watches deleted, SET NULL leaves all 4 products NULL; `splitwise_plus` fingerprint identical. **Actual:** 17/17 passed (2026-11-18). **Evidence:** checklist in the experiment README.
+**Test procedure:** `php tests/experiments/test_exp10.php` (runs `run.sh --yes`, then 18 checks). **Expected:** errors exactly `1451 1451 1451 1452 1830 1451 3819 1452 3730 1136 1452 1451 3730`; group 2 members 3 → 0; created_by 4 → 40; deleted_by 5 → NULL; warehouse 1 deleted → allocation 101 NULL, inventoryDetails 4 → 2, 2 products keep a dangling warehouseID (no FK, as in the manual); fkdemo: CASCADE 1 → 100 and watches deleted, SET NULL leaves all 4 products NULL; `splitwise_plus` fingerprint identical. **Actual:** 18/18 passed (2026-11-18). **Evidence:** checklist in the experiment README.
 
 ## Experiment 11 — Cloud database with MongoDB Atlas and MongoDB Compass
 **Aim:** create a MongoDB database and collection on Atlas, connect with Compass, perform CRUD on student records.

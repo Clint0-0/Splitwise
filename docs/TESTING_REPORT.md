@@ -519,3 +519,9 @@ Manuals `Experiment_No_10/11/12_NEP.docx` compared line by line with the impleme
 | 11 | none (steps, documents, filters, post-lab questions identical); manual inserts one document at a time | guide lists one-at-a-time first |
 | 12 | none (manual gives only the 6 section headings + conclusion; all present) | README notes the mapping |
 Exp 10 suite after the change: **17/17**, 13 expected errors in order `1451 1451 1451 1452 1830 1451 3819 1452 3730 1136 1452 1451 3730`.
+
+### Bug-fix round after the manual reconciliation (2026-11-18)
+| # | Bug | Impact | Fix | Verified by |
+|---|---|---|---|---|
+| 53 | Exp 10 `01` dropped only `splitwise_lab_exp10`; the new `splitwise_lab_exp10_fkdemo` from an earlier run survived until script `09` | on every re-run the `01` outputs ("Expected: 2 rows / 1 row") were wrong — a student's screenshot would not match the comments | `01` drops both sandboxes first; comments updated | new check E10-18 (fails on the old script, passes now) |
+Exp 10 suite: **18/18**.
