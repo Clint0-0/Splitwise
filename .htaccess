@@ -7,6 +7,9 @@ RewriteEngine On
 # Never serve secrets, source code, data or tooling
 RewriteRule ^\.  - [F,L]
 RewriteRule ^(app|config|database|storage|tests|tools|docs|vendor)(/|$) - [F,L]
+# Lab experiments: only a public/ folder may be served (Experiment 12 front end)
+RewriteRule ^experiments/[^/]+/(?!public/) - [F,L]
+RewriteRule ^experiments/?$ - [F,L]
 RewriteRule \.(sql|md|sh|py|dot|log|lock|json)$ - [F,L]
 
 # Everything else: send the browser to the public/ front controller
