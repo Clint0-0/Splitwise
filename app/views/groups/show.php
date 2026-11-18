@@ -78,7 +78,7 @@ $kinds = ['trip' => 'Trip', 'home' => 'Home', 'family' => 'Family', 'friends' =>
     <section class="panel" aria-labelledby="mem-h">
       <h2 id="mem-h">Members</h2>
       <div class="table-responsive" tabindex="0" role="region" aria-label="Scrollable table">
-      <table class="table">
+      <table class="table members-table">
         <thead><tr><th scope="col">Member</th><th scope="col" class="num">Balance</th><?php if ($isAdmin && !$archived): ?><th scope="col"><span class="visually-hidden">Actions</span></th><?php endif; ?></tr></thead>
         <tbody>
         <?php foreach ($active as $m): ?>
@@ -86,7 +86,7 @@ $kinds = ['trip' => 'Trip', 'home' => 'Home', 'family' => 'Family', 'friends' =>
             <td class="who"><span class="fw-semibold"><?= e($m['full_name']) ?></span><?= (int) $m['user_id'] === $uid ? ' (you)' : '' ?>
               <?= $m['role'] === 'admin' ? ' <span class="pill pill-admin">admin</span>' : '' ?>
               <div class="small text-muted">paid <?= e(inr($m['total_paid'])) ?> · share <?= e(inr($m['total_owed'])) ?></div></td>
-            <td class="num small text-nowrap"><?php $net = $m['net_balance']; require __DIR__ . '/../partials/balance.php'; ?></td>
+            <td class="num small"><?php $net = $m['net_balance']; require __DIR__ . '/../partials/balance.php'; ?></td>
             <?php if ($isAdmin && !$archived): ?>
             <td class="text-end">
               <?php if ((int) $m['user_id'] !== $uid): ?>

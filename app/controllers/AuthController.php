@@ -23,7 +23,7 @@ final class AuthController extends Controller
     public function login(): void
     {
         try {
-            (new AuthService())->login($this->request->str('login'), (string) $this->request->post('password', ''),
+            (new AuthService())->login($this->request->str('login'), (is_string($p = $this->request->post('password', '')) ? $p : ''),
                 client_ip());
         } catch (ValidationException $e) {
             $this->back('/login', $e);

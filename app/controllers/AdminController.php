@@ -27,8 +27,8 @@ final class AdminController extends Controller
 
     public function users(): void
     {
-        $q = mb_substr(trim((string) $this->request->query('q', '')), 0, 100);
-        $page = max(1, (int) $this->request->query('page', 1));
+        $q = mb_substr(trim($this->request->queryStr('q')), 0, 100);
+        $page = $this->request->page();
         $m = new UserModel();
         $this->view('admin/users', [
             'title' => 'Users',
@@ -54,7 +54,7 @@ final class AdminController extends Controller
 
     public function groups(): void
     {
-        $page = max(1, (int) $this->request->query('page', 1));
+        $page = $this->request->page();
         $m = new GroupModel();
         $this->view('admin/groups', [
             'title'  => 'All groups',
@@ -68,7 +68,7 @@ final class AdminController extends Controller
     {
         $table = $this->request->query('table');
         $table = in_array($table, self::AUDIT_TABLES, true) ? $table : null;
-        $page = max(1, (int) $this->request->query('page', 1));
+        $page = $this->request->page();
         $m = new AnalyticsModel();
         $this->view('admin/activity', [
             'title' => 'Activity log',

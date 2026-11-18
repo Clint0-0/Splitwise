@@ -22,7 +22,7 @@ final class SettlementController extends Controller
         $uid = Auth::requireId();
         $status = $this->request->query('status');
         $status = in_array($status, ['pending', 'confirmed', 'rejected', 'cancelled'], true) ? $status : null;
-        $page = max(1, (int) $this->request->query('page', 1));
+        $page = $this->request->page();
         $model = new SettlementModel();
         $total = $model->countForUser($uid, $status);
         $this->view('settlements/index', [
@@ -47,10 +47,10 @@ final class SettlementController extends Controller
             'members'     => (new GroupModel())->members($id),
             'suggestions' => (new BalanceService())->suggestions($id),
             'prefill'     => [
-                'payer_id' => (int) $this->request->query('payer', $uid),
-                'payee_id' => (int) $this->request->query('payee', 0),
-                'amount'   => preg_match('/^\d+(\.\d{1,2})?$/', (string) $this->request->query('amount', ''))
-                                ? (string) $this->request->query('amount') : '',
+                'payer_id' => $this->request->queryInt('payer', $uid),
+                'payee_id' => $this->request->queryInt('payee', 0),
+                'amount'   => preg_match('/^\d+(\.\d{1,2})?$/', $this->request->queryStr('amount'))
+                                ? $this->request->queryStr('amount') : '',
             ],
             'token'       => uuid4(),   // idempotency key: a double-submit cannot record twice
         ]);
@@ -59,13 +59,13 @@ final class SettlementController extends Controller
     public function store(): void
     {
         $uid = Auth::requireId();
-        $groupId = (int) $this->request->post('group_id');
+        $groupId = ctype_digit($g = (string) $this->request->str('group_id')) ? (int) $g : 0;
         try {
             (new SettlementService())->record($uid, $this->request->allPost());
         } catch (ValidationException $e) {
             $this->back("/groups/$groupId/settle", $e);
         }
-        $payee = (int) $this->request->post('payee_id');
+        $payee = ctype_digit($p = (string) $this->request->str('payee_id')) ? (int) $p : 0;
         $this->success($payee === $uid
             ? 'Payment recorded and confirmed.'
             : 'Payment recorded. It counts once the receiver confirms it.');
@@ -95,7 +95,8 @@ final class SettlementController extends Controller
         } catch (ValidationException $e) {
             Session::flash('warning', implode(' ', $e->errors));
         }
-        $back = (string) $this->request->post('back', '/settlements');
-        $this->redirect(preg_match('#^/[a-z0-9/]*$#', $back) ? $back : '/settlements');
+        // local paths only; "//host" would be a protocol-relative redirect to another site
+        $back = $this->request->str('back');
+        $this->redirect(preg_match('#^/(?!/)[a-z0-9/]*$#', $back) ? $back : '/settlements');
     }
 }

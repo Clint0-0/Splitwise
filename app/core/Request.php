@@ -30,6 +30,33 @@ final class Request
         return $_GET[$key] ?? $default;
     }
 
+    /** Query-string value as a string; $default when missing or sent as an array (?q[]=x). */
+    public function queryStr(string $key, string $default = ''): string
+    {
+        $v = $_GET[$key] ?? $default;
+        return is_string($v) ? $v : $default;
+    }
+
+    /** Query-string value as a positive int (digits only, ≤ 9 digits); $default otherwise. */
+    public function queryInt(string $key, int $default = 0): int
+    {
+        $v = $_GET[$key] ?? null;
+        return is_string($v) && ctype_digit($v) && strlen($v) <= 9 ? (int) $v : $default;
+    }
+
+    /**
+     * ?page=N as a safe page number: 1 … 100000. Anything else (missing, array,
+     * negative, "abc", 99999999999999999999 which would overflow LIMIT/OFFSET) -> clamped.
+     */
+    public function page(): int
+    {
+        $v = $_GET['page'] ?? '1';
+        if (!is_string($v) || !ctype_digit($v) || $v === '' || strlen($v) > 6) {
+            return is_string($v) && ctype_digit($v) && $v !== '' ? 100000 : 1;
+        }
+        return max(1, min(100000, (int) $v));
+    }
+
     /** Trimmed string from POST ('' if missing or not a string). */
     public function str(string $key): string
     {
@@ -37,9 +64,25 @@ final class Request
         return is_string($v) ? trim($v) : '';
     }
 
+    /** POST fields that are real lists in the forms (participants[], share[id]). */
+    private const ARRAY_FIELDS = ['participants', 'share'];
+
+    /**
+     * All POST data for the services. A field sent as an array that the forms never send
+     * as one (e.g. description[]=x) becomes '' -> normal "required"/"invalid" message,
+     * instead of PHP's "Array" string + warning. List fields must contain only strings.
+     */
     public function allPost(): array
     {
-        return $_POST;
+        $out = [];
+        foreach ($_POST as $k => $v) {
+            if (is_array($v)) {
+                $out[$k] = in_array($k, self::ARRAY_FIELDS, true) ? array_filter($v, 'is_string') : '';
+            } else {
+                $out[$k] = $v;
+            }
+        }
+        return $out;
     }
 
     public function file(string $key): ?array

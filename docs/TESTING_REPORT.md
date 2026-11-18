@@ -418,7 +418,7 @@ Re-run after the fixes (password admin over TCP, as on Windows): **unit 41/41, S
 | Screenshots 1440 / 1366 / 1024 / 768 / 390 px, 18 screens | reviewed; fixes below |
 
 ### New tests
-- Functional **P1–P12**: `/healthz`, `/readyz`, 405 on POST, CSP header, no inline scripts on 11 pages, session row in `app_sessions`, row deleted on logout, attacker-chosen session id replaced, idle session expired server-side, throttle counters in `app_kv` with hashed keys, mail cursor in `app_kv`, cookie flags on local HTTP. **R1** now checks receipt bytes in MySQL.
+- Functional **X1–X12** (first named P1–P12, renamed because P1–P6 were already the profile tests): `/healthz`, `/readyz`, 405 on POST, CSP header, no inline scripts on 11 pages, session row in `app_sessions`, row deleted on logout, attacker-chosen session id replaced, idle session expired server-side, throttle counters in `app_kv` with hashed keys, mail cursor in `app_kv`, cookie flags on local HTTP. **R1** now checks receipt bytes in MySQL.
 - Database **A8–A9**: app user can write `app_sessions`/`app_kv` and store receipt bytes.
 - Deployment **C1–C7** (Dockerfile/Caddyfile/.dockerignore/.gitignore/.env.example/git-tracked secrets), **H1–H4** (hosted-style import into a separate DB, demo passwords replaced, TLS-only user refused without TLS), **E1–E12** (production mode behind a simulated HTTPS proxy: HSTS, Secure cookie, login with hosted demo password, session shared by two instances, throttle by real IP and not dodgeable with forged X-Forwarded-For, no secrets in logs), **F1–F4** (DB unreachable: `/readyz` 503 generic, `/healthz` 200, generic 500 page even with `APP_DEBUG=true`, failure logged without password).
 
@@ -526,3 +526,21 @@ Exp 10 suite after the change: **17/17**, 13 expected errors in order `1451 1451
 | 53 | Exp 10 `01` dropped only `splitwise_lab_exp10`; the new `splitwise_lab_exp10_fkdemo` from an earlier run survived until script `09` | on every re-run the `01` outputs ("Expected: 2 rows / 1 row") were wrong — a student's screenshot would not match the comments | `01` drops both sandboxes first; comments updated | new check E10-18 (fails on the old script, passes now) |
 Exp 10 suite: **18/18**.
 | 54 | Exp 10 scripts used the mysql-CLI-only `\G` terminator in `SHOW CREATE TABLE … \G` | the manual's tool, MySQL Workbench, cannot run `\G` → syntax errors | replaced by `;` (CLI shows a wide table instead) | E10-10 checks no `\G` remains; scripts also re-run with `--safe-updates` (Workbench's default safe mode): same 13 expected errors, no 1175 |
+
+## Full-project audit (2026-11-19)
+Method: fresh clone from GitHub (all suites), every page at 1366 / 1024 / 768 / 390 / 360 px for console errors, failed requests, horizontal overflow and broken images; interactive flows (mobile drawer, dropdowns, analytics charts painted, expense split preview, budget form); 3,000 random split cases comparing the browser preview (`expense-form.js`) with the server (`SplitCalculator`) → **0 mismatches**; malformed query/POST input on every list and form.
+
+| # | Bug | Impact | Fix | Verified by |
+|---|---|---|---|---|
+| 55 | Front-end libraries never committed (`.gitignore` `vendor/` matched `public/assets/vendor/`) | fresh clones rendered unstyled: both menus at once, no icons, no charts | rule narrowed to `/vendor/`; files + `LICENSES.md` committed (fixed and merged earlier the same night) | deployment C8 |
+| 56 | Dashboard / Balances "Owed to you" and "You owe" summed per-**group** nets | Priya saw "You owe ₹0.00" right above "You owe Aarav Sharma ₹3,516.67"; Owed to you ₹29,825.66 instead of ₹33,342.33 | totals now summed from the same person-to-person debts the list shows (net unchanged) | X17 (fails on old code: all 5 users) |
+| 57 | `?page=99999999999999999999` on expenses, notifications, settlements, admin lists → 500 (OFFSET overflow → TypeError) | crash page | `Request::page()` clamps to 1–100000 | X13 (fails on old code) |
+| 58 | `_csrf[]=x` → 500 TypeError instead of 419 | crash page | `verifyCsrf(mixed)` | X15 (fails on old code) |
+| 59 | Settlement action `back=//host` accepted → protocol-relative open redirect | redirect to another site | only `/` + non-`/` local paths | X16 (fails on old code) |
+| 60 | Array-valued fields (`q[]=`, `description[]=`, `group_id[]=` …) → PHP "Array to string" warnings, `(int)` of an array = 1 | log noise; group/payee id silently became 1 | `Request::queryStr/queryInt`, `allPost()` blanks unexpected arrays (only `participants`, `share` stay lists) | X14 |
+| 61 | Impossible dates (`2026-13-45`, `2026-02-30`) passed to SQL as filters | odd/empty results, MySQL warnings | `checkdate()` before use (expenses filter, analytics) | X14 |
+| 62 | Group page members table on phones: balance column cut off behind a horizontal scroll, admin ⋯ menu hidden, page 11 px wider than the screen | could not see balances / manage members on a phone | balance words wrap, tighter cells, scroll box contains its hidden labels | browser sweep: 0 overflow; screenshot |
+| 63 | Functional test IDs P1–P6 (profile) duplicated by P1–P12 (Phase 5.5 platform) | confusing report | platform checks renamed X1–X12 | unique IDs |
+
+Re-run after fixes: unit 53/53 · database 76/76 · functional **120/120** · scenarios 23/23 · deployment 30/30 · Exp 10 18/18 · Exp 11 dry run 11/11 · Exp 12 31/31 · axe 0 violations · browser sweep 0 issues (only the intended 404 pages).
+Known, not changed: admin tables (users/groups/activity) need sideways scrolling on phones — inside a labelled scroll region, admin work is desktop-first.

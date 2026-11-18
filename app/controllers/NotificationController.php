@@ -16,7 +16,7 @@ final class NotificationController extends Controller
     {
         $uid = Auth::requireId();
         $m = new NotificationModel();
-        $page = max(1, (int) $this->request->query('page', 1));
+        $page = $this->request->page();
         $this->view('notifications/index', [
             'title'         => 'Notifications',
             'notifications' => $m->forUser($uid, self::PER_PAGE, ($page - 1) * self::PER_PAGE),
