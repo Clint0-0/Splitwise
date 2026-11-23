@@ -55,6 +55,20 @@ final class SettlementModel extends Model
                             ORDER BY settlement_date", [$userId]);
     }
 
+    /**
+     * Largest amount $payer may pay $payee in this group right now, by the SAME rule
+     * sp_record_settlement enforces: what the payer still owes and what the payee is
+     * still owed, each after their pending payments. Returned as DECIMAL text (>= 0).
+     */
+    public function maxPayable(int $groupId, int $payer, int $payee): string
+    {
+        return (string) $this->value(
+            "SELECT GREATEST(0, LEAST(
+                 -fn_member_net_balance(?, ?) - (SELECT COALESCE(SUM(amount), 0) FROM settlements WHERE group_id = ? AND payer_id = ? AND status = 'pending'),
+                  fn_member_net_balance(?, ?) - (SELECT COALESCE(SUM(amount), 0) FROM settlements WHERE group_id = ? AND payee_id = ? AND status = 'pending')))",
+            [$groupId, $payer, $groupId, $payer, $groupId, $payee, $groupId, $payee]);
+    }
+
     /** CALL sp_record_settlement; returns the settlement id. */
     public function record(int $groupId, int $payer, int $payee, string $amount, string $date,
                            string $method, ?string $note, int $createdBy, string $token): int

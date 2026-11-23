@@ -61,7 +61,7 @@ $kinds = ['trip' => 'Trip', 'home' => 'Home', 'family' => 'Family', 'friends' =>
             <div class="slip-actions">
               <span class="slip-amount"><?= e(inr($s['amount'])) ?></span>
               <?php if ($meFrom || $meTo): ?>
-                <a class="btn btn-sm btn-settle" href="<?= e(url("/groups/$gid/settle?" . http_build_query(['payer' => $s['from'], 'payee' => $s['to'], 'amount' => $s['amount']]))) ?>">Record</a>
+                <a class="btn btn-sm btn-settle" href="<?= e(url("/groups/$gid/settle?" . http_build_query(['payer' => $s['from'], 'payee' => $s['to'], 'amount' => $s['amount']]))) ?>"><?= $meFrom ? 'Pay' : 'Record' ?></a>
               <?php endif; ?>
             </div>
           </li>

@@ -500,7 +500,37 @@ check('U7', 'UPI ID longer than the 100-character column -> field error, not a 5
 $aarav->post('/profile', ['full_name' => 'Aarav Sharma', 'email' => 'aarav@splitwiseplus.test', 'phone' => '9820011111', 'upi_id' => 'aarav.k@okicici']);
 $aarav->get("/groups/$gid/settle?payer=2&payee=2&amount=100");
 check('U8', 'No "Pay with UPI" to yourself (payer = payee)', preg_match('/id="upiPay"[^>]*\shidden/', $aarav->body) === 1);
-$aarav->post('/profile', ['full_name' => 'Aarav Sharma', 'email' => 'aarav@splitwiseplus.test', 'phone' => '9820011111', 'upi_id' => '']);
+$aarav->post('/profile', ['full_name' => 'Aarav Sharma', 'email' => 'aarav@splitwiseplus.test', 'phone' => '9820011111', 'upi_id' => 'aarav.sharma@example']);
+
+// server-computed outstanding amount (same rule as sp_record_settlement), full and partial payments
+$snehaP = login($BASE, 'sneha');
+$maxSql = "SELECT GREATEST(0, LEAST(-fn_member_net_balance(1,5) - (SELECT COALESCE(SUM(amount),0) FROM settlements WHERE group_id=1 AND payer_id=5 AND status='pending'),
+            fn_member_net_balance(1,2) - (SELECT COALESCE(SUM(amount),0) FROM settlements WHERE group_id=1 AND payee_id=2 AND status='pending')))";
+$max = (string) $val($maxSql);
+$snehaP->get('/groups/1/settle?payer=5&payee=2');
+check('U9', 'Pay page pre-fills the outstanding amount computed by the server (after pending payments) and offers a full payment',
+    $max !== '0.00' && $snehaP->field('amount') === $max && $snehaP->has('Outstanding:') && $snehaP->has('Pay the full amount'));
+$snehaP->get('/groups/1/settle?payer=5&payee=2&amount=999999');
+$big = $snehaP->field('amount');
+$snehaP->get('/groups/1/settle?payer=5&payee=2&amount=100');
+check('U10', 'A larger ?amount= is replaced by the outstanding amount; a smaller one is kept (part payment)', $big === $max && $snehaP->field('amount') === '100.00');
+check('U11', 'Payer sees "Copy UPI ID" fallback and the "I\'ve paid: mark as sent" button',
+    $snehaP->has('id="copyUpi" data-upi="aarav.sharma@example"') && $snehaP->has("I've paid: mark as sent"));
+$tok = $snehaP->field('request_token');
+$snehaP->post('/settlements', ['group_id' => 1, 'payer_id' => 5, 'payee_id' => 2, 'amount' => '100', 'settlement_date' => $today,
+    'method' => 'upi', 'note' => 'UPI ref 1234', 'request_token' => $tok]);
+$sidU = (int) $val("SELECT settlement_id FROM settlements WHERE note='UPI ref 1234'");
+check('U12', 'Marked as sent -> settlement stays pending (opening a UPI app proves nothing)', $val('SELECT status FROM settlements WHERE settlement_id=?', [$sidU]) === 'pending');
+$aaravU = login($BASE, 'aarav');
+$aaravU->get('/dashboard');
+$hasHint = $aaravU->has('UPI: check your bank or UPI app first');
+$aaravU->post("/settlements/$sidU/confirm", ['back' => '/dashboard']);
+$aaravU->get('/dashboard');
+$aaravU->post("/settlements/$sidU/confirm", ['back' => '/dashboard'])->follow();
+check('U13', 'Receiver confirms once (told to check the UPI app first); a second confirm is refused, status stays confirmed, audit kept',
+    $hasHint && $val('SELECT status FROM settlements WHERE settlement_id=?', [$sidU]) === 'confirmed'
+    && $aaravU->has('Only pending settlements can be answered')
+    && (int) $val("SELECT COUNT(*) FROM audit_logs WHERE table_name='settlements' AND record_id=? AND action='UPDATE'", [$sidU]) === 1);
 
 // ======================================================================= bill scan (Phase 6, SCAN_PROVIDER=mock)
 $billPng = tempnam(sys_get_temp_dir(), 'bill');

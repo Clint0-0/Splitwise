@@ -46,6 +46,12 @@ $upiHref  = $payerSel === $uid && $payeeSel !== $uid && isset($upi[$payeeSel])
           <label class="form-label" for="amount">Amount (₹)</label>
           <input class="form-control form-control-lg<?= is_invalid($errors, 'amount') ?>" id="amount" name="amount" inputmode="decimal" placeholder="0.00" value="<?= e(old($old, 'amount', $prefill['amount'])) ?>">
           <?= field_error($errors, 'amount') ?>
+          <?php if ($maxPayable !== '0.00' && (int) $prefill['payee_id'] > 0): ?>
+            <div class="form-text" id="fullAmount" data-payer="<?= (int) $prefill['payer_id'] ?>" data-payee="<?= (int) $prefill['payee_id'] ?>" data-max="<?= e($maxPayable) ?>">
+              Outstanding: <strong><?= e(inr($maxPayable)) ?></strong> (after pending payments).
+              <a href="<?= e(url("/groups/$gid/settle?" . http_build_query(['payer' => $prefill['payer_id'], 'payee' => $prefill['payee_id'], 'amount' => $maxPayable]))) ?>" id="useFull">Pay the full amount</a> or type less for a part payment.
+            </div>
+          <?php endif; ?>
         </div>
         <div class="col-sm-6">
           <label class="form-label" for="settlement_date">Date</label>
@@ -65,8 +71,8 @@ $upiHref  = $payerSel === $uid && $payeeSel !== $uid && isset($upi[$payeeSel])
           <input class="form-control" id="note" name="note" maxlength="255" value="<?= e(old($old, 'note')) ?>" placeholder="GPay reference, what it was for…">
         </div>
       </div>
-      <p class="note mt-3">If you received the money, it counts straight away. If you paid, it counts once the other person confirms.</p>
-      <button class="btn btn-settle" type="submit">Record payment</button>
+      <p class="note mt-3">If you received the money, it counts straight away. If you paid, it stays <strong>pending</strong> until the other person confirms they received it.</p>
+      <button class="btn btn-settle" type="submit" id="recordBtn" data-sent="I've paid: mark as sent" data-received="Record money I received" data-other="Record payment"><?= $payerSel === $uid ? "I've paid: mark as sent" : ($payeeSel === $uid ? 'Record money I received' : 'Record payment') ?></button>
       <a class="btn btn-link" href="<?= e(url("/groups/$gid")) ?>">Cancel</a>
     </form>
   </section>
@@ -79,11 +85,13 @@ $upiHref  = $payerSel === $uid && $payeeSel !== $uid && isset($upi[$payeeSel])
         <canvas id="upiQr" width="176" height="176" role="img" aria-label="QR code to pay with any UPI app"></canvas>
         <div>
           <a class="btn btn-settle" id="upiLink" href="<?= e($upiHref ?? '#') ?>"><i class="bi bi-box-arrow-up-right" aria-hidden="true"></i> Open UPI app</a>
-          <p class="note mt-2 mb-0">On a phone, tap the button. On a computer, scan the code with GPay, PhonePe, Paytm or BHIM.</p>
+          <button type="button" class="btn btn-quiet btn-sm ms-1" id="copyUpi" data-upi="<?= e($upiHref !== null ? $upi[$payeeSel] : '') ?>" hidden><i class="bi bi-clipboard" aria-hidden="true"></i> Copy UPI ID</button>
+          <span class="note ms-1" id="copyMsg" aria-live="polite"></span>
+          <p class="note mt-2 mb-0">On a phone, tap the button. On a computer, scan the code with GPay, PhonePe, Paytm or BHIM. If neither works, copy the UPI ID into your app.</p>
         </div>
       </div>
       <p class="note mt-3 mb-0">The money goes straight from your bank to theirs; SplitWise+ never touches it and can't see whether it went through.
-        After paying, press <strong>Record payment</strong>. It counts once they confirm it.</p>
+        Opening the app does not mean the payment happened. After paying, put the UPI reference in the note and press <strong>I've paid: mark as sent</strong>. It counts once they confirm they received it.</p>
     </section>
     <section class="section" aria-labelledby="sug-h">
       <h2 id="sug-h">Suggested payments</h2>

@@ -5,6 +5,7 @@ namespace App\Controllers;
 
 use App\Core\Auth;
 use App\Core\Controller;
+use App\Helpers\Money;
 use App\Core\Session;
 use App\Core\ValidationException;
 use App\Models\GroupModel;
@@ -40,18 +41,21 @@ final class SettlementController extends Controller
     {
         $uid = Auth::requireId();
         $group = (new GroupService())->requireMember($id, $uid);
+        $payer = $this->request->queryInt('payer', $uid);
+        $payee = $this->request->queryInt('payee', 0);
+        // Phase 6: the amount comes from the SERVER (what the payer can still pay this payee);
+        // a smaller ?amount= from a suggestion link is kept (partial payment), a larger one is not
+        $max = ($payee > 0 && $payee !== $payer) ? (new SettlementModel())->maxPayable($id, $payer, $payee) : '0.00';
+        $asked = preg_match('/^\d{1,10}(\.\d{1,2})?$/', $this->request->queryStr('amount')) ? $this->request->queryStr('amount') : '';
+        $amount = $max === '0.00' ? '' : (($asked !== '' && Money::toPaise($asked) > 0 && Money::toPaise($asked) <= Money::toPaise($max)) ? Money::fromPaise(Money::toPaise($asked)) : $max);
         $this->view('settlements/form', [
             'title'       => 'Record a payment',
             'group'       => $group,
             'uid'         => $uid,
             'members'     => (new GroupModel())->members($id),
             'suggestions' => (new BalanceService())->suggestions($id),
-            'prefill'     => [
-                'payer_id' => $this->request->queryInt('payer', $uid),
-                'payee_id' => $this->request->queryInt('payee', 0),
-                'amount'   => preg_match('/^\d+(\.\d{1,2})?$/', $this->request->queryStr('amount'))
-                                ? $this->request->queryStr('amount') : '',
-            ],
+            'prefill'     => ['payer_id' => $payer, 'payee_id' => $payee, 'amount' => $amount],
+            'maxPayable'  => $max,
             'token'       => uuid4(),   // idempotency key: a double-submit cannot record twice
             'upi'         => (new GroupModel())->upiIds($id),
             'scripts'     => ['vendor/qrcode-generator/qrcode.js', 'js/upi-pay.js'],

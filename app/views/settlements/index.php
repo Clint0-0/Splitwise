@@ -25,8 +25,8 @@
         <td class="text-end">
           <?php if ($s['status'] === 'pending' && $mePayee): ?>
             <div class="d-inline-flex gap-2">
-              <form method="post" action="<?= e(url("/settlements/$sid/confirm")) ?>"><?= csrf_field() ?><button class="btn btn-sm btn-confirm">Confirm</button></form>
-              <form method="post" action="<?= e(url("/settlements/$sid/reject")) ?>"><?= csrf_field() ?><button class="btn btn-sm btn-danger-quiet">Reject</button></form>
+              <form method="post" action="<?= e(url("/settlements/$sid/confirm")) ?>"><?= csrf_field() ?><button class="btn btn-sm btn-confirm" aria-label="I received <?= e(inr($s['amount'])) ?> from <?= e($s['payer_name']) ?>">Received</button></form>
+              <form method="post" action="<?= e(url("/settlements/$sid/reject")) ?>"><?= csrf_field() ?><button class="btn btn-sm btn-danger-quiet" aria-label="I did not receive <?= e(inr($s['amount'])) ?> from <?= e($s['payer_name']) ?>">Not received</button></form>
             </div>
           <?php elseif ($s['status'] === 'pending' && (int) $s['created_by'] === $uid): ?>
             <form method="post" action="<?= e(url("/settlements/$sid/cancel")) ?>"><?= csrf_field() ?><button class="btn btn-sm btn-quiet" aria-label="Cancel payment to <?= e($s['payee_name']) ?>">Cancel</button></form>
@@ -37,7 +37,7 @@
     </tbody>
   </table>
   </div>
-  <p class="note mt-2 mb-0">+ is money you received, − is money you paid. Pending payments count once the receiver confirms; rejected and cancelled ones (struck through) never count.</p>
+  <p class="note mt-2 mb-0">+ is money you received, − is money you paid. Pending payments count once the receiver confirms the money arrived (for UPI, check your bank or UPI app first); rejected and cancelled ones (struck through) never count.</p>
   <div class="mt-3"><?php require __DIR__ . '/../partials/pagination.php'; ?></div>
 <?php endif; ?>
 </section>

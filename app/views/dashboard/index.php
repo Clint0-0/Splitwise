@@ -29,7 +29,7 @@
     <h2 id="conf-h">Did you receive this money?</h2>
     <?php foreach ($toConfirm as $s): ?>
       <div class="todo-item">
-        <span><?= e($s['payer_name']) ?> says they paid you <strong class="amount"><?= e(inr($s['amount'])) ?></strong> on <?= e(nice_date($s['settlement_date'])) ?> (<?= e($s['group_name']) ?>).</span>
+        <span><?= e($s['payer_name']) ?> says they paid you <strong class="amount"><?= e(inr($s['amount'])) ?></strong> on <?= e(nice_date($s['settlement_date'])) ?> (<?= e($s['group_name']) ?><?= $s['method'] === 'upi' ? ', UPI: check your bank or UPI app first' : '' ?>).</span>
         <form method="post" action="<?= e(url('/settlements/' . (int) $s['settlement_id'] . '/confirm')) ?>"><?= csrf_field() ?><input type="hidden" name="back" value="/dashboard"><button class="btn btn-sm btn-confirm">Yes, confirm</button></form>
         <form method="post" action="<?= e(url('/settlements/' . (int) $s['settlement_id'] . '/reject')) ?>"><?= csrf_field() ?><input type="hidden" name="back" value="/dashboard"><button class="btn btn-sm btn-danger-quiet">Not received</button></form>
       </div>

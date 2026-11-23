@@ -65,6 +65,32 @@
     box.hidden = false;
   }
 
-  [payer, payee, amount].forEach((el) => { el.addEventListener('input', update); el.addEventListener('change', update); });
+  // Copy UPI ID fallback (clipboard API needs https or localhost; otherwise select the text)
+  const copy = document.getElementById('copyUpi');
+  const copyMsg = document.getElementById('copyMsg');
+  if (copy) {
+    copy.hidden = false;
+    copy.addEventListener('click', async () => {
+      const id = copy.dataset.upi;
+      try { await navigator.clipboard.writeText(id); copyMsg.textContent = 'Copied ' + id; }
+      catch (e) { copyMsg.textContent = 'UPI ID: ' + id; }
+    });
+  }
+
+  // "Pay the full amount": the server-computed outstanding amount, only for the pair it was computed for
+  const full = document.getElementById('fullAmount');
+  const useFull = document.getElementById('useFull');
+  if (useFull) useFull.addEventListener('click', (ev) => { ev.preventDefault(); amount.value = full.dataset.max; update(); });
+
+  const btn = document.getElementById('recordBtn');
+  function labels() {
+    if (full) full.hidden = payer.value !== full.dataset.payer || payee.value !== full.dataset.payee;
+    if (btn) btn.textContent = payer.value === uid ? btn.dataset.sent : (payee.value === uid ? btn.dataset.received : btn.dataset.other);
+    const opt = payee.options[payee.selectedIndex];
+    if (copy) copy.dataset.upi = opt ? (opt.dataset.upi || '') : '';
+  }
+
+  [payer, payee, amount].forEach((el) => { el.addEventListener('input', () => { labels(); update(); }); el.addEventListener('change', () => { labels(); update(); }); });
+  labels();
   update();
 })();
