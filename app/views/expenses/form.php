@@ -156,7 +156,7 @@ while (count($itemRows) < max(4, count(array_filter($itemRows, fn($r) => $r['nam
       <div class="scan-box">
         <label class="form-label" for="bill"><i class="bi bi-camera" aria-hidden="true"></i> Scan the bill <span class="text-muted fw-normal">(photo: JPG, PNG or WebP, max 5 MB)</span></label>
         <div class="scan-row">
-          <input class="form-control<?= is_invalid($errors, 'bill') ?>" type="file" id="bill" name="bill" accept="image/jpeg,image/png,image/webp" capture="environment" aria-describedby="bill-help">
+          <input class="form-control<?= is_invalid($errors, 'bill') ?>" type="file" id="bill" name="bill" accept="image/jpeg,image/png,image/webp" aria-describedby="bill-help">
           <button class="btn btn-quiet" type="submit" formnovalidate
                   formaction="<?= e(url('/expenses/scan' . ($editing ? '?expense=' . (int) $e['expense_id'] : ''))) ?>">Read items</button>
         </div>

@@ -6,7 +6,7 @@ $amtSel   = (string) old($old, 'amount', $prefill['amount']);
 $amtPaise = preg_match('/^\d{1,10}(\.\d{1,2})?$/', $amtSel) ? App\Helpers\Money::toPaise($amtSel) : 0;
 $names    = array_column($members, 'full_name', 'user_id');
 $upiNote  = 'SplitWise ' . $group['name'];
-$upiHref  = $payerSel === $uid && isset($upi[$payeeSel])
+$upiHref  = $payerSel === $uid && $payeeSel !== $uid && isset($upi[$payeeSel])
     ? App\Services\UpiLink::build($upi[$payeeSel], (string) ($names[$payeeSel] ?? ''), $amtPaise, $upiNote) : null; ?>
 <div class="page-head">
   <div>

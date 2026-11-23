@@ -362,6 +362,10 @@ final class ExpenseService
                 continue;
             }
             $qtyRaw = trim((string) ($r['qty'] ?? ''));
+            if (preg_match('/^\d{6,}/', $qtyRaw) === 1) {   // quantity is DECIMAL(7,2)
+                $v->add("item_$i", 'Quantity can be at most 99999.99.');
+                continue;
+            }
             $qty = $v->try(fn() => Money::parseHundredths($qtyRaw === '' ? '1' : $qtyRaw, "item_$i", 9999999));
             if ($qty !== null && $qty <= 0) {
                 $v->add("item_$i", 'Quantity must be more than 0.');

@@ -156,6 +156,7 @@ check('UPI: link has payee, 2-decimal amount, INR and a cleaned note',
 check('UPI: no link for a malformed ID, zero or negative amount',
     UpiLink::build('no-at-sign', 'X', 100, '') === null && UpiLink::build('a.b@ybl', 'X', 0, '') === null
     && UpiLink::build('a.b@ybl', 'X', -5, '') === null);
+check('UPI: no link for an ID longer than the 100-character column', UpiLink::build(str_repeat('a', 64) . '@' . str_repeat('b', 64), 'X', 100, '') === null);
 check('UPI: & and = in names cannot inject extra parameters', !str_contains(
     (string) UpiLink::build('ab@ybl', 'Tom&am=1', 100, 'x&pa=evil@ybl'), '&am=1&') 
     && substr_count((string) UpiLink::build('ab@ybl', 'Tom&am=1', 100, 'x&pa=evil@ybl'), 'pa=') === 1);

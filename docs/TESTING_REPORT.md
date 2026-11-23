@@ -560,4 +560,13 @@ Also checked by hand in Chrome (desktop 1280 and phone 390 px): no horizontal ov
 | 64 | Enter in any expense field would submit to "Read items" (first submit button in the form) | hidden default "save" button placed first (SN1 checks it) |
 | 65 | UPI validation was first added to the sign-up method instead of the profile update (sign-up crashed) | moved; H8–H10 + U1/U2 cover both |
 
+| 66 | UPI ID of 101–129 chars passed the format check, then hit the VARCHAR(100) column: HTTP 500 | length check in profile + `UpiLink` (U7) |
+| 67 | "Pay with UPI" shown when you picked yourself as the receiver | hidden when payer = payee (U8) |
+| 68 | Windows/XAMPP: `max_execution_time` 30 s is wall-clock, shorter than the 45 s API timeout → fatal error on a slow scan | `set_time_limit(75)` before the call |
+| 69 | `capture="environment"` made Android open the camera only, so an existing bill photo couldn't be picked | attribute removed |
+| 70 | Quantity ≥ 100000 said only "Value is too large." | "Quantity can be at most 99999.99." (IT9) |
+| 71 | A receipt chosen before "Read items" silently vanished (file fields reset on reload) | the scan message says to choose it again (SN9) |
+
+Bug round 2 totals: unit 76, functional 146 (others unchanged). Page sweep at 1440/1366/1024/768/390/320 px on the itemized, UPI and profile pages: no overflow, no console errors.
+
 Not tested: the real Anthropic API (no key here), real UPI apps on phones (deep links behave differently per app; the QR is the fallback), deployment.

@@ -22,7 +22,7 @@ final class UpiLink
 
     public static function valid(?string $upiId): bool
     {
-        return $upiId !== null && preg_match(self::ID_PATTERN, $upiId) === 1;
+        return $upiId !== null && strlen($upiId) <= 100 && preg_match(self::ID_PATTERN, $upiId) === 1;
     }
 
     /**

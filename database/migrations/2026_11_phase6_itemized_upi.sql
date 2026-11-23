@@ -11,6 +11,8 @@ SET NAMES utf8mb4;
 -- Then re-run database/security/app_user.sql (with YOUR app password) so the
 -- app account may write the two new tables.
 -- A fresh install from splitwise_plus.sql already contains all of this.
+-- Run it ONCE. A second run stops at the first ALTER (error 3822 "Duplicate check
+-- constraint name") without changing anything (each ALTER is atomic).
 -- =====================================================================
 USE splitwise_plus;
 

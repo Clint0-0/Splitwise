@@ -184,7 +184,8 @@ final class ExpenseController extends Controller
         }
         \App\Core\Session::flashInput($input, []);
         $n = count($bill['items']);
-        \App\Core\Session::flash('success', "Read $n item" . ($n === 1 ? '' : 's') . ' from the bill. Check them against the bill, tick who had each, then save.');
+        \App\Core\Session::flash('success', "Read $n item" . ($n === 1 ? '' : 's') . ' from the bill. Check them against the bill, tick who had each, then save.'
+            . ($this->request->file('receipt') !== null ? ' Choose the receipt file again: browsers clear file fields when the page reloads.' : ''));
         $this->redirect($back);
     }
 

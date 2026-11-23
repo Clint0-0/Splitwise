@@ -411,6 +411,10 @@ $bad = $bill; $bad['description'] = 'Itemized huge discount'; $bad['total_amount
 $aarav->post('/expenses', $bad);
 check('IT6', 'Bill total far below the items (big discount) still splits without negatives',
     (int) $val("SELECT COUNT(*) FROM expense_splits s JOIN expenses e USING (expense_id) WHERE e.description='Itemized huge discount' AND s.share_amount = 0.50") === 1);
+$bad = $bill; $bad['description'] = 'Itemized qty'; $bad['items'][0]['qty'] = '100000';
+$aarav->get("/expenses/create?group=$gid");
+$aarav->post('/expenses', $bad)->follow();
+check('IT9', 'Quantity above the column limit gets a clear message on that row', $aarav->has('Quantity can be at most 99999.99.'));
 $aarav->get("/expenses/$eI/edit");
 $aarav->post("/expenses/$eI", ['description' => 'Itemized dinner', 'total_amount' => '704', 'category_id' => '2', 'expense_date' => $today,
     'paid_by' => '2', 'split_method' => 'equal', 'participants' => [2, 3], 'version' => $aarav->field('version')]);
@@ -446,6 +450,15 @@ check('U5', 'UPI ID not shown on other pages, and non-members cannot open the se
     !$t->has('okicici') && $sneha2->status === 403);
 $aarav->post('/profile', ['full_name' => 'Aarav Sharma', 'email' => 'aarav@splitwiseplus.test', 'phone' => '9820011111', 'upi_id' => '']);
 check('U6', 'Clearing the field removes the UPI ID (NULL)', $val('SELECT upi_id FROM users WHERE user_id=2') === null);
+$aarav->post('/profile', ['full_name' => 'Aarav Sharma', 'email' => 'aarav@splitwiseplus.test', 'phone' => '9820011111',
+    'upi_id' => str_repeat('a', 64) . '@' . str_repeat('b', 64)]);
+$st7 = $aarav->status;
+$aarav->follow();
+check('U7', 'UPI ID longer than the 100-character column -> field error, not a 500', $st7 === 303 && $aarav->has('UPI ID must be at most 100 characters'));
+$aarav->post('/profile', ['full_name' => 'Aarav Sharma', 'email' => 'aarav@splitwiseplus.test', 'phone' => '9820011111', 'upi_id' => 'aarav.k@okicici']);
+$aarav->get("/groups/$gid/settle?payer=2&payee=2&amount=100");
+check('U8', 'No "Pay with UPI" to yourself (payer = payee)', preg_match('/id="upiPay"[^>]*\shidden/', $aarav->body) === 1);
+$aarav->post('/profile', ['full_name' => 'Aarav Sharma', 'email' => 'aarav@splitwiseplus.test', 'phone' => '9820011111', 'upi_id' => '']);
 
 // ======================================================================= bill scan (Phase 6, SCAN_PROVIDER=mock)
 $billPng = tempnam(sys_get_temp_dir(), 'bill');
@@ -469,6 +482,8 @@ $aarav->post('/expenses/scan', ['group_id' => $gid, 'description' => 'Lunch at w
     'expense_date' => $today, 'paid_by' => '2'], true, ['bill' => [$billPng, 'image/png', 'bill.png']])->follow();
 check('SN3', 'What you already typed (description, total) is kept, not overwritten by the scan',
     $aarav->field('description') === 'Lunch at work' && $aarav->field('total_amount') === '950');
+$aarav->post('/expenses/scan', ['group_id' => $gid], true, ['bill' => [$billPng, 'image/png', 'bill.png'], 'receipt' => [$billPng, 'image/png', 'r.png']])->follow();
+check('SN9', 'If a receipt file was chosen, the scan tells you to choose it again (file fields reset on reload)', $aarav->has('Choose the receipt file again'));
 $txt = tempnam(sys_get_temp_dir(), 'txt');
 file_put_contents($txt, "%PDF-1.4 not an image");
 $aarav->post('/expenses/scan', ['group_id' => $gid, 'description' => 'Kept'], true, ['bill' => [$txt, 'image/png', 'bill.png']])->follow();
@@ -482,9 +497,9 @@ check('SN6', "Cannot scan into someone else's group expense (403)", $sneha3->sta
 $aarav->get("/expenses/create?group=$gid");
 $aarav->post('/expenses/scan', ['group_id' => $gid], 'bad-token', ['bill' => [$billPng, 'image/png', 'bill.png']]);
 check('SN7', 'Scan needs the CSRF token (419)', $aarav->status === 419);
-// daily limit is 4 in tests/functional/run.sh: SN2 + SN3 used 2 (SN4/SN5 failed before counting)
+// daily limit is 4 in tests/functional/run.sh: SN2, SN3, SN9 used 3 (SN4/SN5 failed before counting)
 $aarav->get("/expenses/create?group=$gid");
-for ($k = 0; $k < 3; $k++) {
+for ($k = 0; $k < 2; $k++) {
     $aarav->post('/expenses/scan', ['group_id' => $gid], true, ['bill' => [$billPng, 'image/png', 'bill.png']])->follow();
 }
 check('SN8', 'Per-user daily scan limit enforced (counted in MySQL app_kv)', $aarav->has('used today&#039;s 4 bill scans')

@@ -1,5 +1,11 @@
 # CHANGELOG — SplitWise+
 
+## [0.8.1] — Phase 6 bug fixes (2026-11-24)
+### Fixed
+- Long UPI IDs (101–129 chars) caused a 500; now a field error. No UPI panel when paying yourself.
+- Bill scan: no PHP timeout on Windows during slow API calls; phones can choose an existing photo; reminder to re-choose the receipt.
+- Clear quantity-limit message. Tests: unit 76, functional 146.
+
 ## [0.8.0] — Phase 6: itemized bills, Pay with UPI, bill scanning (2026-11-24, branch `feature/phase-6`)
 The DBMS submission version is tagged `v1.0-submission` (= `main` @ b92fb91).
 ### Added

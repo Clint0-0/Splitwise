@@ -138,6 +138,9 @@ final class BillScanner
 
         // SCAN_API_URL lets the test suite point at a local fake API; ignored in production
         $url = !is_production() && ($u = (string) Env::get('SCAN_API_URL', '')) !== '' ? $u : self::API_URL;
+        // Windows/XAMPP counts max_execution_time (default 30 s) in wall-clock time, so a
+        // slow API reply would kill the request with a fatal error: allow the curl timeout
+        @set_time_limit(75);
         $ch = curl_init($url);
         curl_setopt_array($ch, [
             CURLOPT_POST           => true,

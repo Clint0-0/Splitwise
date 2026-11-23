@@ -87,6 +87,7 @@ final class AuthService
             ->required('full_name', $name, 'Full name')->maxLen('full_name', $name, 100, 'Full name')
             ->required('email', $email, 'Email')->email('email', $email)
             ->regex('phone', $phone, '/^\+?[0-9]{10,14}$/', 'Phone: 10–14 digits.')
+            ->maxLen('upi_id', $upi, 100, 'UPI ID')
             ->regex('upi_id', $upi, \App\Services\UpiLink::ID_PATTERN, 'Enter a UPI ID like name@okhdfcbank.');
         if (!$v->fails() && $this->users->exists('email', $email, $userId)) {
             $v->add('email', 'Another account uses this email.');

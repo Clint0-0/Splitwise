@@ -51,7 +51,7 @@
     const opt = payee.options[payee.selectedIndex];
     const upi = opt ? (opt.dataset.upi || '') : '';
     const amt = paise(amount.value);
-    if (payer.value !== uid || !ID.test(upi) || amt <= 0) { box.hidden = true; return; }
+    if (payer.value !== uid || payee.value === uid || !ID.test(upi) || amt <= 0) { box.hidden = true; return; }
     const name = opt.textContent.replace(/\s*\(you\)\s*$/, '').trim();
     const href = 'upi://pay?pa=' + enc(upi) + '&pn=' + enc(name.slice(0, 50)) + '&am=' + (amt / 100).toFixed(2)
       + '&cu=INR' + (clean(box.dataset.note) ? '&tn=' + enc(clean(box.dataset.note)) : '');
