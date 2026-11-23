@@ -570,3 +570,21 @@ Also checked by hand in Chrome (desktop 1280 and phone 390 px): no horizontal ov
 Bug round 2 totals: unit 76, functional 146 (others unchanged). Page sweep at 1440/1366/1024/768/390/320 px on the itemized, UPI and profile pages: no overflow, no console errors.
 
 Not tested: the real Anthropic API (no key here), real UPI apps on phones (deep links behave differently per app; the QR is the fallback), deployment.
+
+## Phase 6 — revised strategy round (2026-11-24)
+| Suite | Before | After | New checks |
+|---|---|---|---|
+| Unit | 76 | 90 | uneven/fractional units, zero units, weighted 3,000-bill property test; scan charges/date/warnings; SMTP session against a local fake server; production refuses plain SMTP and keeps reset links out of logs; error-log scrubbing; Sentry envelope against a local fake endpoint |
+| Database | 86 | 89 | I10 discount sign CHECK, I11 charges + cascade, I12 units CHECK; A10 now includes charges |
+| Functional | 146 | 172 | IT10–IT15 units + charges; U9–U13 server amount, part payment, copy ID, mark-as-sent, single confirmation; SN10–SN13 scan date/charges/uncertain/review tick/monthly cap/admin panel; PR1–PR6 password reset; **E2E1–E2E5 full workflow** |
+| Deployment | 30 | 34 | B1 backup + verified restore, B2 restore test detects drift, B3 sample-free build + first-admin CLI, B4 production reset without APP_URL builds no link and logs no token |
+
+Also: JS item preview = PHP on 3,000 random **weighted** bills; browser runs of units/charges, pay controls (clipboard copy, full-amount, labels) and the scanned-bill review at 390 px with no console errors; the preview table fits at 390 px.
+
+| # | Bug found while building | Fix |
+|---|---|---|
+| 72 | Charge-row padding loop could never end (`count < count + 1`) | target computed before the loop |
+| 73 | `$data['date'] ?? null && …` (?? binds looser than &&) would warn on every valid scan date | explicit `!empty(...) &&` + unit test |
+| 74 | Password-reset expiry compared in different time zones by a test helper | the app stores and compares PHP-local times consistently; test compares against `created_at` |
+
+Not tested (needs the owner): real deployment, real SMTP delivery, real scan API on real bills (`docs/OCR_PROVIDER_EVALUATION.md` plan), real UPI apps (`docs/UPI_DEVICE_TESTS.md`).

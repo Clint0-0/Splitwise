@@ -156,6 +156,15 @@ Dockerfile, never in Git, never in browser JavaScript. Do not paste them into ch
 | `SCAN_API_KEY` | (secret) | **yes** if `SCAN_PROVIDER=anthropic` | enter in the host's secret settings only; never in git, the image or chat |
 | `SCAN_MODEL` | empty | no | override the vision model |
 | `SCAN_DAILY_LIMIT` | `20` | no | scans per user per day |
+| `SCAN_MONTHLY_LIMIT` | `1000` | no | whole-site scans per month (hard spending cap) |
+| `SCAN_COST_PAISE` | `70` | no | estimated cost of one scan, shown on the admin page |
+| `APP_URL` | `https://your-domain` | **yes** for password reset | links in e-mails are built from this, never from the request's Host header |
+| `MAIL_DRIVER` | `smtp` | no | `log` (default) writes mail to the log; reset-link bodies are not logged in production |
+| `MAIL_FROM`, `MAIL_FROM_NAME` | `no-reply@your-domain`, `SplitWise+` | no | sender (must be allowed by your SMTP provider) |
+| `SMTP_HOST`, `SMTP_PORT`, `SMTP_ENCRYPTION` | provider values, `587`, `starttls` | no | `none` is refused in production |
+| `SMTP_USER` | provider value | no | |
+| `SMTP_PASSWORD` | (secret) | **yes** | host's secret settings only |
+| `SENTRY_DSN` | (secret-ish) | no | optional error monitoring (Sentry or compatible); only type, message (scrubbed), file/line, path, stack frames are sent |
 | `UPLOAD_MAX_BYTES` | `5242880` | no | can only lower the limit (5 MB is also a database CHECK); lower it to the platform body limit if needed |
 
 `DB_PASS` (old name) is still accepted. Real environment variables always override a `.env` file.
@@ -235,3 +244,14 @@ debts · 16 budgets + alerts · 17 analytics charts + tables · 18 notifications
 | Everyone locked out after a few bad logins | `APP_TRUST_PROXY=false` behind a proxy: all visitors share the proxy IP |
 | Receipt upload fails with no app message | platform request-size limit reached before PHP — lower `UPLOAD_MAX_BYTES` |
 | `Packet too large` on receipt insert | provider `max_allowed_packet` below 8 MB (MySQL 8 default is 64 MB) |
+
+## 12. Production readiness added in Phase 6
+Host choice: see [`HOSTING_COMPARISON.md`](HOSTING_COMPARISON.md) (recommendation: Railway; staging not deployed yet: needs your accounts).
+
+- **No sample accounts in production:** `APP_DB_PASSWORD=… php database/build_hosted.php --db=NAME --no-sample` (categories only, `hosted_verify.sql` checks that no `@splitwiseplus.test` account exists). Then create the first admin once: `php tools/create_admin.php --username=… --email=… --name="…"` (password from `ADMIN_PASSWORD` or a hidden prompt; ≥ 12 characters).
+- **E-mail:** `MAIL_DRIVER=smtp` with any SMTP provider. Used for password resets and "Email me" notification copies.
+- **Password recovery:** `/forgot-password` → e-mailed link (1 hour, single use, only its SHA-256 stored) → `/reset-password`. Same answer whether or not the address has an account; 3 requests per address and 20 per IP per hour; after a reset every session of that user is ended. Needs `APP_URL`.
+- **Backups:** `tools/backup.sh` (consistent `mysqldump --single-transaction`, routines, triggers, receipt bytes; gzip, mode 600, retention). Schedule it daily (host cron job or a scheduled container) and copy the files **off** the database provider. **Restore test:** `tools/restore_test.sh FILE` loads a backup into a scratch database, compares tables, views, triggers, routines, row counts, balances and receipt bytes with the source, then drops the scratch copy. Do it after every schema change and at least monthly. Both are covered by deployment tests B1/B2.
+- **Error monitoring:** every unhandled error is logged as one JSON line with a short reference that the user sees ("Error reference: a1b2c3d4"); with `SENTRY_DSN` it is also sent to Sentry. Uptime: point a monitor at `/readyz`.
+- **Receipts:** stored in MySQL (`receipts.content`), so they persist across deploys and are inside every backup. Fine at this scale; move to object storage only if the database grows uncomfortable (document the trade-off before doing so).
+

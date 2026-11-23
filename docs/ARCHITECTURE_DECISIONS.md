@@ -109,3 +109,11 @@ Change from the master prompt's suggested tree: added `app/services/`, `app/core
 | 34 | Composite FKs `(item_id, expense_id)` and `(expense_id, user_id)` on `expense_item_shares` | the database itself refuses an item share for a non-participant or for another expense's item | trusting PHP only; triggers |
 | 35 | UPI via `upi://pay` deep link + QR + copy-ID fallback; payer marks it sent, receiver confirms receipt (`sp_respond_settlement`, pending-only, row lock) | SplitWise+ never collects, holds or moves money; no gateway fees. Whether any regulation applies to this handoff has **not** been assessed here; get advice before a public launch | payment gateway (Razorpay etc.) collecting for users |
 | 36 | Bill scan only pre-fills the form; behind a flag; key from env; mock never in production | AI reads can be wrong, cost money and send a photo to a third party | auto-saving scanned bills; running OCR (Tesseract) on the server |
+| 37 | Item shares weighted by units (DECIMAL(6,2), default 1) | covers "2 naan vs 1" and quantity splits with the same largest-remainder code | separate quantity column per person; free-form amounts per person |
+| 38 | Optional charge lines must reconcile exactly (Σ items + Σ charges = total); without them the residual is "unlisted charges" | an exact bill breakdown when known, no forced data entry when not | always requiring charges; storing a separate tax total |
+| 39 | Money stays DECIMAL(12,2) rupees in every table, integer paise only inside PHP calculations | one representation in the database (brief requirement) | paise integers in new tables only |
+| 40 | Settle amount pre-filled from the server's outstanding amount, not the URL | the URL can be edited; the database rule is the truth | trusting `?amount=` |
+| 41 | Password-reset links built from `APP_URL` only | Host-header injection would let an attacker receive the token | deriving the host from the request in production |
+| 42 | Scanned bills need an explicit review tick | AI output is a suggestion; saving must be a human decision | auto-save; a silent "scanned" badge |
+| 43 | Recommended host: Railway (see HOSTING_COMPARISON.md) | Dockerfile + MySQL 8.0 in one project, backups/PITR toggle, no function time limit | Vercel (needs a second MySQL provider), Render (no managed MySQL) |
+

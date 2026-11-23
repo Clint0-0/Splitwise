@@ -95,8 +95,10 @@ Phase 2 acceptance criteria: tables create ✓ · FKs work ✓ · constraints re
 - ✅ 6.1 Split by item (schema, calculator, form + live preview, expense page, migration, tests).
 - ✅ 6.2 Pay with UPI (profile field, deep link + QR, receiver confirms; no gateway).
 - ✅ 6.3 Bill scanning behind `SCAN_PROVIDER` (mock + Anthropic vision provider; request/response checked against a local fake API). **Not run against the real API** (no key in this environment).
-- ⛔ 6.4 Real deployment + real e-mail: needs the owner's hosting / managed MySQL / e-mail accounts.
-- Tests: unit 76, DB 86, functional 146, scenarios 23, deployment 30; axe 0 violations incl. itemized and UPI pages.
+- ✅ Revised brief (2026-11-24): units per person per item, charge lines, server-computed UPI amount + copy-ID + mark-as-sent wording, scan date/charges/uncertainty/warnings/review tick/monthly cap/admin cost panel, password reset, SMTP, error monitoring, sample-free build + first-admin CLI, backup + restore test, hosting and OCR evaluations, end-to-end test.
+- ⛔ Staging/production deployment, real SMTP, real scan API, real-phone UPI tests (`docs/UPI_DEVICE_TESTS.md`), real-bill OCR measurement: need the owner's accounts/devices.
+- ⏸ Tag `v1.0-submission` (b92fb91) exists only locally in the build environment: the remote refused the tag push; waiting for the owner's approval/push.
+- Tests: unit 90, DB 89, functional 172 (incl. E2E1–E2E5), deployment 34, scenarios 23, deployment 30; axe 0 violations incl. itemized and UPI pages.
 
 ## Notes for Phase 5 (testing) — kept for reference
 - Phase 3/4 suites are automated; Phase 5 adds the financial scenario walk-throughs, manual cross-browser check on a team laptop (Windows + XAMPP + MySQL 8.0), and the final regression run.

@@ -397,8 +397,11 @@ No foreign keys (sessions exist before login; counters are keyed by hashes). The
 - `expenses.split_method` gains `'itemized'`.
 - `expense_items(item_id PK, expense_id FK → expenses CASCADE, line_no TINYINT 1..50, name VARCHAR(80), quantity DECIMAL(7,2) > 0, amount DECIMAL(12,2) > 0)`, `UNIQUE(expense_id, line_no)`, `UNIQUE(item_id, expense_id)`.
 - `expense_item_shares(item_id, expense_id, user_id, share_amount DECIMAL(12,2) >= 0, PK(item_id, user_id))` with composite FKs `(item_id, expense_id)` → `expense_items` CASCADE and `(expense_id, user_id)` → `expense_splits` CASCADE.
+- `expense_item_shares.share_units DECIMAL(6,2) NOT NULL DEFAULT 1.00` CHECK > 0: weight of that person on that line (2 = had twice as much).
+- `expense_charges(charge_id PK, expense_id FK → expenses CASCADE, line_no 1..10, kind ENUM('tax','service','discount','other'), label VARCHAR(60), amount DECIMAL(12,2))`, `UNIQUE(expense_id, line_no)`, sign CHECK (discount < 0, tax/service > 0, other ≠ 0). When present, Σ items + Σ charges = `expenses.total_amount` (checked in the write transaction).
+- Runtime: `password_resets(token_hash CHAR(64) PK, user_id FK → users CASCADE, expires_at, used_at, created_at)`; `app_sessions.user_id` (end every session after a password reset).
 - View `v_expense_item_allocation(expense_id, user_id, items_subtotal, extras_share, share_amount, item_count)`.
-- 3NF check: `amount` is the line total as printed (quantity is descriptive, so no derived `qty × price` is stored); tax/discount is not stored (derived from `expenses.total_amount − Σ amount`). Total base tables = 18.
+- 3NF check: `amount` is the line total as printed (quantity is descriptive, so no derived `qty × price` is stored); tax/discount is not stored (derived from `expenses.total_amount − Σ amount`). Total base tables = 20 (17 business + 3 runtime). Money is DECIMAL(12,2) rupees in every table.
 
 ### 4.12 `tags` / 4.13 `expense_tags`
 `tags(tag_id PK, name VARCHAR(30) NOT NULL UNIQUE)` — lower-case labels like `goa-2026`, `office`.

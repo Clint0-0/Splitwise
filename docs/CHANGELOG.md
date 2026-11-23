@@ -1,5 +1,18 @@
 # CHANGELOG — SplitWise+
 
+## [0.9.0] — Phase 6 brief (revised strategy) implemented (2026-11-24)
+### Added
+- Item-wise bills: **units per person per item** (quantity / unequal shares; typing units ticks the person) and **charge lines** (tax / GST, service charge, discount, other/round-off) that must reconcile exactly with the total; `expense_charges`, `expense_item_shares.share_units`.
+- UPI: amount pre-filled from the **server-computed outstanding** amount (same rule as `sp_record_settlement`), full or part payment, **Copy UPI ID** fallback, "I've paid: mark as sent" (pending) → receiver "Received" / "Not received"; group page "Pay" button.
+- Scanning: bill **date** and **charges** extracted, per-line **uncertain** flags, sum-vs-total and date **warnings**, required **"I checked it" tick** before saving a scanned bill, **site-wide monthly cap** and admin usage/cost panel.
+- Production: **password reset** (hashed single-use tokens, no account probing, throttled, `APP_URL` links, logs out everywhere), **SMTP** mailer, **error monitoring** (JSON log line + reference id, optional Sentry), **sample-free hosted build** + `tools/create_admin.php`, **backup** and **verified restore-test** scripts.
+- Docs: `HOSTING_COMPARISON.md`, `OCR_PROVIDER_EVALUATION.md`, `UPI_DEVICE_TESTS.md`.
+- End-to-end workflow test E2E1–E2E5 (scan → review → assign → tax → expense → balances → UPI → confirm).
+### Changed
+- 20 tables (17 business + 3 runtime: `password_resets` added), categories moved to `seeders/reference_data.sql`; migration part 2 renamed `2026_11_phase6b_units_charges_resets.sql`.
+- ADR 35 no longer claims anything about regulation.
+- Tests: unit 90, database 89, functional 172, deployment 34.
+
 ## [0.8.1] — Phase 6 bug fixes (2026-11-24)
 ### Fixed
 - Long UPI IDs (101–129 chars) caused a 500; now a field error. No UPI panel when paying yourself.

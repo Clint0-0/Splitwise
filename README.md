@@ -2,7 +2,7 @@
 
 DBMS mini project (team of 3). Track shared expenses, split them six ways (including item by item from the bill), see who owes whom, settle up (with UPI pay links), simplify debts, manage budgets and analyse spending.
 
-**Status:** Phase 6 (production features) in progress on branch `feature/phase-6`: itemized bills, Pay with UPI, bill scanning (feature flag). The DBMS submission version is tag `v1.0-submission`. 331 automated tests + 11 SQL scripts pass, 0 accessibility violations. See `docs/IMPLEMENTATION_STATUS.md`.
+**Status:** Phase 6 (production features) in progress on branch `feature/phase-6`: itemized bills, Pay with UPI, bill scanning (feature flag). The DBMS submission version is tag `v1.0-submission`. 374 automated tests + 11 SQL scripts pass, 0 accessibility violations. See `docs/IMPLEMENTATION_STATUS.md`.
 
 ## Stack
 PHP 8.2+ (PDO), MySQL 8.0, Bootstrap 5.3, JavaScript, Chart.js 4, XAMPP (Apache + PHP). Fonts: Baloo 2 and Mukta (Ek Type, SIL Open Font License), stored locally.
@@ -47,10 +47,11 @@ Without XAMPP: `php -d upload_max_filesize=6M -d post_max_size=8M -S 127.0.0.1:8
 **Mock e-mail:** users who tick "Email me" on their profile get a copy of each notification appended to `storage/logs/mail.log` (nothing is really sent).
 
 ## Phase 6 features
-- **Split by item.** In a group expense choose *By item*, type each bill line and tick who had it. Shared lines are split equally; tax, service charge or a discount (bill total − items) is shared in proportion to what each person had. Stored in `expense_items` + `expense_item_shares` (composite foreign keys make "only participants can share an item" a database rule).
+- **Split by item.** In a group expense choose *By item*, type each bill line and tick who had it (or give units, e.g. 2 naan vs 1). List tax / GST, service charge and discounts, or leave them out and the difference is treated as charges; they're shared in proportion to what each person had, and everything reconciles to the bill total exactly. Stored in `expense_items`, `expense_item_shares` and `expense_charges` (composite foreign keys make "only participants can share an item" a database rule).
 - **Pay with UPI.** Add your UPI ID on the Profile page. When a group member records a payment to you, they get a `upi://pay` button and QR code with the amount filled in. The money goes bank-to-bank; the app never touches it, so the payment still needs your confirmation like any other.
 - **Scan the bill** (off by default). `SCAN_PROVIDER=mock` shows a demo bill locally; `SCAN_PROVIDER=anthropic` + `SCAN_API_KEY` reads real photos with a vision model. The scan only fills the form: you check the lines and save. The photo is not stored. Daily limit per user: `SCAN_DAILY_LIMIT`.
-- **Already have the database?** Back it up, then run `database/migrations/2026_11_phase6_itemized_upi.sql` as root and re-run `database/security/app_user.sql` (with your password). No data is changed. A fresh import of `database/splitwise_plus.sql` already includes everything.
+- **Forgot password**, real e-mail (SMTP), error monitoring, sample-free production builds, backups with a verified restore test: see `docs/DEPLOYMENT.md` §12. Host evaluation: `docs/HOSTING_COMPARISON.md`; scan provider evaluation: `docs/OCR_PROVIDER_EVALUATION.md`; manual UPI phone checks: `docs/UPI_DEVICE_TESTS.md`.
+- **Already have the database?** Back it up, then run `database/migrations/2026_11_phase6_itemized_upi.sql`, then `database/migrations/2026_11_phase6b_units_charges_resets.sql` as root, and re-run `database/security/app_user.sql` (with your password). No data is changed. A fresh import of `database/splitwise_plus.sql` already includes everything.
 
 **Where runtime data lives:** sessions, login-throttle counters and uploaded receipts are stored in MySQL (tables `app_sessions`, `app_kv`, `receipts.content`), so several app servers can share them.
 
@@ -81,7 +82,7 @@ One command, Windows or Linux (resets the database to the sample data at the end
 php tests/run_all.php --password=YOUR_ROOT_PASSWORD
 # Windows: C:\xampp\php\php.exe tests\run_all.php --mysql="C:\Program Files\MySQL\MySQL Server 8.0\bin\mysql.exe" --password=...
 ```
-It runs unit (76), every SQL script (11), database (86), functional (146) and money-scenario (23) tests. Linux-only shortcuts: `tests/database/run.sh`, `tests/functional/run.sh`, and `tests/deployment/run.sh` (30 deployment-readiness checks: production mode, hosted-style DB, shared sessions). Before the viva, each member runs `docs/TEAM_TEST_CHECKLIST.md`.
+It runs unit (90), every SQL script (11), database (89), functional (172) and money-scenario (23) tests. Linux-only shortcuts: `tests/database/run.sh`, `tests/functional/run.sh`, and `tests/deployment/run.sh` (34 deployment-readiness checks: production mode, hosted-style DB, shared sessions). Before the viva, each member runs `docs/TEAM_TEST_CHECKLIST.md`.
 
 ## Running the database tests
 ```bash
