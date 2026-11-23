@@ -47,9 +47,10 @@ final class DbSessionHandler implements \SessionHandlerInterface, \SessionUpdate
     public function write(string $id, string $data): bool
     {
         try {
-            $this->db->prepare('INSERT INTO app_sessions (session_id, payload, last_activity) VALUES (?, ?, ?) AS n
-                                ON DUPLICATE KEY UPDATE payload = n.payload, last_activity = n.last_activity')
-                ->execute([$id, $data, time()]);
+            $uid = isset($_SESSION['user_id']) && is_int($_SESSION['user_id']) ? $_SESSION['user_id'] : null;
+            $this->db->prepare('INSERT INTO app_sessions (session_id, payload, last_activity, user_id) VALUES (?, ?, ?, ?) AS n
+                                ON DUPLICATE KEY UPDATE payload = n.payload, last_activity = n.last_activity, user_id = n.user_id')
+                ->execute([$id, $data, time(), $uid]);
             return true;
         } catch (\Throwable $t) {
             error_log('session write failed: ' . $t->getMessage());

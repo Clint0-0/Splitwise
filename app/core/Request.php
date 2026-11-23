@@ -109,7 +109,8 @@ final class Request
                     $units[$uid] = $u;
                 }
             }
-            $out[$k] = ['name' => $str('name'), 'qty' => $str('qty'), 'amount' => $str('amount'), 'who' => $who, 'units' => $units];
+            $out[$k] = ['name' => $str('name'), 'qty' => $str('qty'), 'amount' => $str('amount'), 'who' => $who, 'units' => $units,
+                        'uncertain' => $str('uncertain') === '1' ? '1' : ''];
         }
         return $out;
     }

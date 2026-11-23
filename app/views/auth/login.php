@@ -8,7 +8,8 @@
         <input id="login" name="login" class="form-control" required autocomplete="username" value="<?= e(old($old, 'login')) ?>">
       </div>
       <div class="mb-3">
-        <label for="password" class="form-label">Password</label>
+        <div class="d-flex justify-content-between"><label for="password" class="form-label">Password</label>
+          <a class="small" href="<?= e(url('/forgot-password')) ?>">Forgot password?</a></div>
         <input id="password" name="password" type="password" class="form-control" required autocomplete="current-password">
       </div>
       <button class="btn btn-primary w-100" type="submit">Log in</button>

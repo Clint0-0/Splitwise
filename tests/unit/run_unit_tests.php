@@ -168,6 +168,7 @@ check('UPI: & and = in names cannot inject extra parameters', !str_contains(
     && substr_count((string) UpiLink::build('ab@ybl', 'Tom&am=1', 100, 'x&pa=evil@ybl'), 'pa=') === 1);
 
 // ---------------------------------------------------------------- bill scanner (Phase 6)
+$NULLDEV = PHP_OS_FAMILY === 'Windows' ? 'NUL' : '/dev/null';
 use App\Services\BillScanner;
 $envSet = function (array $vars): void { foreach ($vars as $k => $v) { putenv($v === null ? $k : "$k=$v"); } };
 $envSet(['SCAN_PROVIDER' => 'mock', 'APP_ENV' => 'production']);
@@ -180,14 +181,28 @@ $scanner = new BillScanner();
 $n = $scanner->normalise("Sure!\n{\"merchant\":\"A\\u0007B\",\"items\":[{\"name\":\"Tea\",\"qty\":1.5,\"amount\":20.005},"
     . "{\"name\":\"  \",\"amount\":5},{\"name\":\"Neg\",\"amount\":-3},{\"name\":\"Str\",\"amount\":\"12.3\"},{\"name\":\"" . str_repeat('x', 200) . "\",\"amount\":1}],\"total\":\"x\"}\nThanks");
 check('Scan: reply cleaned (JSON found in prose, blank/negative lines dropped, names clamped, amounts 2-dp, bad total -> null)',
-    count($n['items']) === 3 && $n['items'][0] === ['name' => 'Tea', 'qty' => '1.5', 'amount' => '20.01']
+    count($n['items']) === 3 && $n['items'][0] === ['name' => 'Tea', 'qty' => '1.5', 'amount' => '20.01', 'uncertain' => false]
     && $n['items'][1]['amount'] === '12.30' && mb_strlen($n['items'][2]['name']) === 80 && $n['total'] === null && $n['merchant'] === 'A B');
+$future = date('Y-m-d', strtotime('+3 days'));
+$n = $scanner->normalise(json_encode(['merchant' => 'X', 'date' => $future, 'total' => 120,
+    'items' => [['name' => 'Dosa', 'amount' => 100, 'uncertain' => true], ['name' => 'Tea', 'amount' => 10]],
+    'charges' => [['kind' => 'tax', 'label' => 'GST', 'amount' => 5], ['kind' => 'discount', 'label' => 'Promo', 'amount' => -2],
+                  ['kind' => 'other', 'label' => 'Round off', 'amount' => -0.5], ['kind' => 'bogus', 'amount' => 9]]]));
+check('Scan: charges kept (discount made positive, round-off keeps its minus, unknown kinds dropped); future date refused',
+    $n['charges'] === [['kind' => 'tax', 'label' => 'GST', 'amount' => '5.00'], ['kind' => 'discount', 'label' => 'Promo', 'amount' => '2.00'],
+                       ['kind' => 'other', 'label' => 'Round off', 'amount' => '-0.50']] && $n['date'] === null);
+check('Scan: warnings name the unsure line, the sum/total mismatch (112.50 vs 120) and the bad date',
+    count($n['warnings']) === 3 && str_contains($n['warnings'][0], 'Dosa') && str_contains($n['warnings'][1], '₹112.50')
+    && str_contains($n['warnings'][2], 'date'));
+$n = $scanner->normalise('{"date":"2026-11-01","total":110,"items":[{"name":"A","amount":100}],"charges":[{"kind":"tax","label":"GST","amount":10}]}');
+check('Scan: clean bill -> valid date kept, no warnings, nobody assigned to any item',
+    $n['date'] === '2026-11-01' && $n['warnings'] === [] && !array_key_exists('who', $n['items'][0]));
 check('Scan: no readable items -> friendly error', throwsValidation(fn() => $scanner->normalise('{"items":[]}'), "Couldn't read any items")
     && throwsValidation(fn() => $scanner->normalise('I cannot help'), "Couldn't read any items"));
 check('Scan: at most 50 lines kept', count($scanner->normalise(json_encode(['items' => array_fill(0, 80, ['name' => 'i', 'amount' => 1])]))['items']) === 50);
 // real HTTP request/response shape against a local fake API (no network)
 $port = 18000 + mt_rand(0, 999);
-$srv = proc_open([PHP_BINARY, '-S', "127.0.0.1:$port", __DIR__ . '/fixtures/fake_anthropic.php'], [1 => ['file', '/dev/null', 'w'], 2 => ['file', '/dev/null', 'w']], $pp);
+$srv = proc_open([PHP_BINARY, '-S', "127.0.0.1:$port", __DIR__ . '/fixtures/fake_anthropic.php'], [1 => ['file', $NULLDEV, 'w'], 2 => ['file', $NULLDEV, 'w']], $pp);
 usleep(400000);
 $png = base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==');
 $envSet(['SCAN_PROVIDER' => 'anthropic', 'SCAN_API_KEY' => 'test-key-123', 'SCAN_API_URL' => "http://127.0.0.1:$port/v1/messages"]);
@@ -203,6 +218,59 @@ check('Scan: SCAN_API_URL test override is guarded by !is_production() (static c
     return str_contains($src, "!is_production() && (\$u = (string) Env::get('SCAN_API_URL'"); })());
 proc_terminate($srv);
 $envSet(['SCAN_PROVIDER' => null, 'SCAN_API_KEY' => null, 'SCAN_API_URL' => null, 'APP_ENV' => null]);
+
+// ---------------------------------------------------------------- mail + error monitoring (Phase 6)
+use App\Services\Mailer;
+use App\Core\ErrorReporter;
+$port = 19000 + mt_rand(0, 999);
+$tr = tempnam(sys_get_temp_dir(), 'smtp');
+$smtp = proc_open([PHP_BINARY, __DIR__ . '/fixtures/fake_smtp.php', (string) $port, $tr], [1 => ['file', $NULLDEV, 'w'], 2 => ['file', $NULLDEV, 'w']], $pp);
+usleep(300000);
+$envSet(['APP_ENV' => 'local', 'MAIL_DRIVER' => 'smtp', 'SMTP_HOST' => '127.0.0.1', 'SMTP_PORT' => (string) $port, 'SMTP_ENCRYPTION' => 'none',
+         'SMTP_USER' => 'mailer@example.com', 'SMTP_PASSWORD' => 'smtp-secret-9', 'MAIL_FROM' => 'no-reply@example.com', 'MAIL_FROM_NAME' => 'SplitWise+']);
+$sent = Mailer::send("priya@example.com\r\nBcc: evil@x.com", 'Priya', "Hi\r\nBcc: x", "Hello ₹ world");
+$sent2 = Mailer::send('priya@example.com', 'Priya Nair', "Reset — ₹", "Line 1\n.\nLine 3");
+usleep(300000);
+proc_terminate($smtp);
+$log = (string) @file_get_contents($tr); $data = (string) @file_get_contents("$tr.data");
+check('Mail: header injection in the address is refused (not sent)', $sent === false);
+check('Mail: SMTP session (EHLO, AUTH LOGIN, MAIL FROM, RCPT TO, DATA) with UTF-8 subject, base64 body', $sent2
+    && str_contains($log, 'C: MAIL FROM:<no-reply@example.com>') && str_contains($log, 'C: RCPT TO:<priya@example.com>')
+    && str_contains($log, 'C: ' . base64_encode('mailer@example.com')) && str_contains($data, 'Subject: =?UTF-8?B?' . base64_encode('[SplitWise+] Reset — ₹') . '?=')
+    && base64_decode(implode('', array_slice(explode("\r\n", trim(explode("\r\n\r\n", $data, 2)[1] ?? '')), 0))) === "Line 1\n.\nLine 3", $log);
+$envSet(['APP_ENV' => 'production']);
+check('Mail: SMTP_ENCRYPTION=none refused in production', Mailer::send('priya@example.com', 'P', 'S', 'B') === false);
+$envSet(['MAIL_DRIVER' => 'log', 'MAIL_LOG' => $mlog = tempnam(sys_get_temp_dir(), 'ml')]);
+Mailer::send('priya@example.com', 'P', 'Reset your password', 'token link https://x/reset-password?token=abc', true);
+check('Mail: in production a sensitive mail is logged without its body (no reset link in logs)',
+    str_contains((string) file_get_contents($mlog), 'body not logged') && !str_contains((string) file_get_contents($mlog), 'token=abc'));
+$envSet(['APP_ENV' => 'local']);
+Mailer::send('priya@example.com', 'P', 'Reset your password', 'link token=abc', true);
+check('Mail: locally the full message goes to MAIL_LOG (so you can click the link while developing)', str_contains((string) file_get_contents($mlog), 'link token=abc'));
+check('Errors: scrub hides DSN passwords and long hex tokens',
+    ErrorReporter::scrub('mysql://u:pa55@h/db token ' . str_repeat('ab', 32)) === 'mysql://u:***@h/db token ***');
+$sport = 19500 + mt_rand(0, 400);
+$sout = tempnam(sys_get_temp_dir(), 'sen');
+$sentry = proc_open([PHP_BINARY, '-S', "127.0.0.1:$sport", __DIR__ . '/fixtures/fake_sentry.php'], [1 => ['file', $NULLDEV, 'w'], 2 => ['file', $NULLDEV, 'w']], $pp, null, ['SENTRY_OUT' => $sout] + getenv());
+usleep(400000);
+$envSet(['SENTRY_DSN' => "http://publickey123@127.0.0.1:$sport/42"]);
+$_SERVER['REQUEST_URI'] = '/reset-password?token=' . str_repeat('c', 64); $_SERVER['REQUEST_METHOD'] = 'POST';
+$errLog = tempnam(sys_get_temp_dir(), 'el'); $prevLog = ini_set('error_log', $errLog);
+$ref = ErrorReporter::report(new RuntimeException('boom with secret ' . str_repeat('d', 40)));
+ini_set('error_log', (string) $prevLog);
+usleep(200000);
+proc_terminate($sentry);
+$line = json_decode(trim((string) preg_replace('/^\[[^\]]*\] /', '', trim((string) file_get_contents($errLog)))), true);
+$got = json_decode((string) @file_get_contents($sout), true) ?: [];
+check('Errors: one JSON log line with ref, type, path (no query string), scrubbed message',
+    is_array($line) && $line['ref'] === $ref && $line['type'] === 'RuntimeException' && $line['path'] === '/reset-password'
+    && str_contains($line['msg'], '***') && !str_contains((string) file_get_contents($errLog), str_repeat('c', 64)));
+check('Errors: Sentry envelope sent to /api/42/envelope/ with the key header; no token, no request data',
+    ($got['uri'] ?? '') === '/api/42/envelope/' && str_contains($got['auth'] ?? '', 'sentry_key=publickey123')
+    && str_contains($got['body'] ?? '', '"type":"RuntimeException"') && !str_contains($got['body'] ?? '', str_repeat('c', 64))
+    && !str_contains($got['body'] ?? '', str_repeat('d', 40)));
+$envSet(['MAIL_DRIVER' => null, 'SMTP_HOST' => null, 'SMTP_PORT' => null, 'SMTP_ENCRYPTION' => null, 'SMTP_USER' => null, 'SMTP_PASSWORD' => null,
+         'MAIL_FROM' => null, 'MAIL_FROM_NAME' => null, 'MAIL_LOG' => null, 'SENTRY_DSN' => null, 'APP_ENV' => null]);
 
 // ---------------------------------------------------------------- debt simplifier
 check('Simplify: cycle A->B->C->A (all nets 0) -> no transfers', $simp->simplify([1 => 0, 2 => 0, 3 => 0]) === []);

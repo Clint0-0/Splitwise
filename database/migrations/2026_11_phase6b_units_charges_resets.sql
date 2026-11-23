@@ -2,7 +2,8 @@ SET NAMES utf8mb4;
 -- =====================================================================
 -- SplitWise+ | Phase 6 migration, part 2 (run AFTER 2026_11_phase6_itemized_upi.sql)
 -- Adds: expense_item_shares.share_units (uneven / quantity-based item
--- shares) and expense_charges (tax, service charge, discount lines).
+-- shares), expense_charges (tax, service charge, discount lines),
+-- password_resets and app_sessions.user_id (log out everywhere).
 -- Non-destructive. Back up first. Run ONCE as root, then re-run
 -- database/security/app_user.sql (with YOUR app password).
 -- =====================================================================
@@ -28,6 +29,23 @@ CREATE TABLE expense_charges (
   CONSTRAINT chk_expense_charges_sign CHECK (
     (kind = 'discount' AND amount < 0) OR (kind IN ('tax','service') AND amount > 0)
     OR (kind = 'other' AND amount <> 0))
+) ENGINE=InnoDB;
+
+ALTER TABLE app_sessions
+  ADD COLUMN user_id INT UNSIGNED NULL AFTER last_activity,
+  ADD INDEX idx_app_sessions_user (user_id);
+
+CREATE TABLE password_resets (
+  token_hash  CHAR(64)     NOT NULL,
+  user_id     INT UNSIGNED NOT NULL,
+  expires_at  DATETIME     NOT NULL,
+  used_at     DATETIME     NULL,
+  created_at  DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT pk_password_resets PRIMARY KEY (token_hash),
+  CONSTRAINT fk_password_resets_user FOREIGN KEY (user_id)
+    REFERENCES users (user_id) ON DELETE CASCADE,
+  CONSTRAINT chk_password_resets_hash CHECK (REGEXP_LIKE(token_hash, '^[0-9a-f]{64}$', 'c')),
+  INDEX idx_password_resets_user (user_id)
 ) ENGINE=InnoDB;
 
 SELECT 'Phase 6 part 2 applied. Now re-run database/security/app_user.sql.' AS next_step;

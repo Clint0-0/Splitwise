@@ -431,8 +431,10 @@ CREATE TABLE app_sessions (
   session_id    VARCHAR(128)  NOT NULL,
   payload       MEDIUMBLOB    NOT NULL,
   last_activity INT UNSIGNED  NOT NULL,
+  user_id       INT UNSIGNED  NULL,       -- who is logged in (Phase 6: "log out everywhere" after a password reset)
   CONSTRAINT pk_app_sessions PRIMARY KEY (session_id),
-  INDEX idx_app_sessions_activity (last_activity)
+  INDEX idx_app_sessions_activity (last_activity),
+  INDEX idx_app_sessions_user (user_id)
 ) ENGINE=InnoDB;
 
 -- Small expiring counters/values: login-throttle counters, the mock-mail cursor.
@@ -442,6 +444,21 @@ CREATE TABLE app_kv (
   expires_at INT UNSIGNED NULL,          -- NULL = never expires
   CONSTRAINT pk_app_kv PRIMARY KEY (kv_key),
   INDEX idx_app_kv_expires (expires_at)
+) ENGINE=InnoDB;
+
+-- Password-reset tokens (Phase 6). Only the SHA-256 of the token is stored; the
+-- token itself exists only in the e-mailed link. Single use, expires after 1 hour.
+CREATE TABLE password_resets (
+  token_hash  CHAR(64)     NOT NULL,
+  user_id     INT UNSIGNED NOT NULL,
+  expires_at  DATETIME     NOT NULL,
+  used_at     DATETIME     NULL,
+  created_at  DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT pk_password_resets PRIMARY KEY (token_hash),
+  CONSTRAINT fk_password_resets_user FOREIGN KEY (user_id)
+    REFERENCES users (user_id) ON DELETE CASCADE,
+  CONSTRAINT chk_password_resets_hash CHECK (REGEXP_LIKE(token_hash, '^[0-9a-f]{64}$', 'c')),
+  INDEX idx_password_resets_user (user_id)
 ) ENGINE=InnoDB;
 
 -- >>> functions/functions.sql
@@ -1304,6 +1321,30 @@ END$$
 
 DELIMITER ;
 
+-- >>> seeders/reference_data.sql
+-- =====================================================================
+-- SplitWise+ | reference_data.sql — data every installation needs (also the
+-- hosted production one built with --no-sample): the category hierarchy.
+-- =====================================================================
+SET NAMES utf8mb4;
+
+-- Categories (hierarchy: parent rows first) ------------------------------
+INSERT INTO categories (category_id, name, parent_category_id, icon, color) VALUES
+ (1,  'Food & Dining', NULL, 'bi-cup-hot',        '#E4572E'),
+ (2,  'Restaurants',   1,    'bi-shop',           '#F17C67'),
+ (3,  'Groceries',     1,    'bi-basket',         '#F3A712'),
+ (4,  'Travel',        NULL, 'bi-airplane',       '#29335C'),
+ (5,  'Flights',       4,    'bi-airplane-engines','#3D4C8A'),
+ (6,  'Hotels',        4,    'bi-building',       '#5867A8'),
+ (7,  'Transport',     NULL, 'bi-car-front',      '#669BBC'),
+ (8,  'Rent',          NULL, 'bi-house-door',     '#2A9D8F'),
+ (9,  'Utilities',     NULL, 'bi-lightning',      '#8AB17D'),
+ (10, 'Entertainment', NULL, 'bi-film',           '#9B5DE5'),
+ (11, 'Shopping',      NULL, 'bi-bag',            '#F15BB5'),
+ (12, 'Health',        NULL, 'bi-heart-pulse',    '#D62828'),
+ (13, 'Education',     NULL, 'bi-book',           '#003049'),
+ (14, 'Other',         NULL, 'bi-three-dots',     '#6C757D');
+
 -- >>> seeders/sample_data.sql
 -- =====================================================================
 -- SplitWise+ | sample_data.sql — realistic INR test data
@@ -1340,23 +1381,6 @@ INSERT INTO users (user_id, username, email, password_hash, full_name, phone, ro
 -- uses, so a demo "Pay with UPI" can never send money to a real person.
 UPDATE users SET upi_id = 'aarav.sharma@example' WHERE user_id = 2;
 UPDATE users SET upi_id = 'priya.nair@example'   WHERE user_id = 3;
-
--- Categories (hierarchy: parent rows first) ------------------------------
-INSERT INTO categories (category_id, name, parent_category_id, icon, color) VALUES
- (1,  'Food & Dining', NULL, 'bi-cup-hot',        '#E4572E'),
- (2,  'Restaurants',   1,    'bi-shop',           '#F17C67'),
- (3,  'Groceries',     1,    'bi-basket',         '#F3A712'),
- (4,  'Travel',        NULL, 'bi-airplane',       '#29335C'),
- (5,  'Flights',       4,    'bi-airplane-engines','#3D4C8A'),
- (6,  'Hotels',        4,    'bi-building',       '#5867A8'),
- (7,  'Transport',     NULL, 'bi-car-front',      '#669BBC'),
- (8,  'Rent',          NULL, 'bi-house-door',     '#2A9D8F'),
- (9,  'Utilities',     NULL, 'bi-lightning',      '#8AB17D'),
- (10, 'Entertainment', NULL, 'bi-film',           '#9B5DE5'),
- (11, 'Shopping',      NULL, 'bi-bag',            '#F15BB5'),
- (12, 'Health',        NULL, 'bi-heart-pulse',    '#D62828'),
- (13, 'Education',     NULL, 'bi-book',           '#003049'),
- (14, 'Other',         NULL, 'bi-three-dots',     '#6C757D');
 
 -- Groups ----------------------------------------------------------------
 INSERT INTO expense_groups (group_id, name, description, group_type, created_by, created_at) VALUES

@@ -10,8 +10,8 @@ SELECT check_name, IF(ok, 'PASS', 'FAIL') AS result, detail FROM (
   SELECT 1 AS n, 'Server is MySQL 8.0 (not MariaDB)' AS check_name,
          VERSION() LIKE '8.0.%' AND VERSION() NOT LIKE '%MariaDB%' AS ok, VERSION() AS detail
   UNION ALL
-  SELECT 2, '19 tables (17 business + 2 runtime)',
-         (SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA='splitwise_plus' AND TABLE_TYPE='BASE TABLE') = 19,
+  SELECT 2, '20 tables (17 business + 3 runtime)',
+         (SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA='splitwise_plus' AND TABLE_TYPE='BASE TABLE') = 20,
          (SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA='splitwise_plus' AND TABLE_TYPE='BASE TABLE')
   UNION ALL
   SELECT 3, '12 views',

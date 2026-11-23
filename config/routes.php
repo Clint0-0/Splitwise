@@ -31,6 +31,11 @@ $router->get('/login',     [AuthController::class, 'showLogin'], $guest);
 $router->post('/login',    [AuthController::class, 'login'], $guest);
 $router->get('/register',  [AuthController::class, 'showRegister'], $guest);
 $router->post('/register', [AuthController::class, 'register'], $guest);
+// Phase 6: password recovery (guest only; the answer never reveals whether an account exists)
+$router->get('/forgot-password',  [AuthController::class, 'showForgot'], $guest);
+$router->post('/forgot-password', [AuthController::class, 'forgot'], $guest);
+$router->get('/reset-password',   [AuthController::class, 'showReset'], $guest);
+$router->post('/reset-password',  [AuthController::class, 'reset'], $guest);
 $router->post('/logout',   [AuthController::class, 'logout'], $auth);
 
 // Dashboard & profile

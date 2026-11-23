@@ -176,7 +176,15 @@ final class ExpenseController extends Controller
             $this->redirect($back);
         }
         $input['split_method'] = 'itemized';
-        $input['items'] = array_map(fn($it) => $it + ['who' => []], $bill['items']);
+        // lines only: WHO had each item is always left for the person to tick
+        $input['items'] = array_map(fn($it) => ['name' => $it['name'], 'qty' => $it['qty'], 'amount' => $it['amount'],
+            'who' => [], 'units' => [], 'uncertain' => $it['uncertain'] ? '1' : ''], $bill['items']);
+        $input['charges'] = array_map(fn($c) => ['kind' => $c['kind'], 'label' => $c['label'], 'amount' => $c['amount']], $bill['charges']);
+        $input['scanned'] = '1';           // the save then needs the "I checked it" tick
+        unset($input['scan_reviewed']);
+        if ($bill['date'] !== null) {
+            $input['expense_date'] = $bill['date'];
+        }
         if (trim((string) ($input['total_amount'] ?? '')) === '' && $bill['total'] !== null) {
             $input['total_amount'] = $bill['total'];
         }
@@ -184,6 +192,9 @@ final class ExpenseController extends Controller
             $input['description'] = mb_substr($bill['merchant'], 0, 120);
         }
         \App\Core\Session::flashInput($input, []);
+        foreach ($bill['warnings'] as $w) {
+            \App\Core\Session::flash('warning', $w);
+        }
         $n = count($bill['items']);
         \App\Core\Session::flash('success', "Read $n item" . ($n === 1 ? '' : 's') . ' from the bill. Check them against the bill, tick who had each, then save.'
             . ($this->request->file('receipt') !== null ? ' Choose the receipt file again: browsers clear file fields when the page reloads.' : ''));

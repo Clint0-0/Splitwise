@@ -556,6 +556,26 @@ check('SN3', 'What you already typed (description, total) is kept, not overwritt
     $aarav->field('description') === 'Lunch at work' && $aarav->field('total_amount') === '950');
 $aarav->post('/expenses/scan', ['group_id' => $gid], true, ['bill' => [$billPng, 'image/png', 'bill.png'], 'receipt' => [$billPng, 'image/png', 'r.png']])->follow();
 check('SN9', 'If a receipt file was chosen, the scan tells you to choose it again (file fields reset on reload)', $aarav->has('Choose the receipt file again'));
+$aarav->post('/expenses/scan', ['group_id' => $gid, 'description' => '', 'total_amount' => '', 'category_id' => '2', 'paid_by' => '2',
+    'expense_date' => $today], true, ['bill' => [$billPng, 'image/png', 'bill.png']])->follow();
+check('SN10', 'Scan also fills the bill date and the CGST/SGST charge lines, flags the hard-to-read line, warns, and asks for a review tick; nobody is pre-assigned',
+    $aarav->field('expense_date') === '2026-11-20' && $aarav->field('charges[0][label]') === 'CGST 2.5%' && $aarav->field('charges[1][amount]') === '21.50'
+    && $aarav->has('item-row item-uncertain') && $aarav->has('Hard to read, check these lines: Jeera rice')
+    && $aarav->has('id="scan_reviewed"') && !preg_match('/name="items\[\d+\]\[who\]\[\]" value="\d+"[^>]*checked/', $aarav->body));
+$scanSave = ['group_id' => $gid, 'description' => 'Scanned dinner', 'total_amount' => '903', 'category_id' => '2', 'expense_date' => '2026-11-20',
+    'paid_by' => '2', 'split_method' => 'itemized', 'scanned' => '1',
+    'items' => [['name' => 'Paneer butter masala', 'qty' => '1', 'amount' => '320', 'who' => ['2', '3']],
+                ['name' => 'Butter naan', 'qty' => '4', 'amount' => '200', 'who' => ['3']],
+                ['name' => 'Jeera rice', 'qty' => '1', 'amount' => '180', 'who' => [(string) $tid]],
+                ['name' => 'Sweet lassi', 'qty' => '2', 'amount' => '160', 'who' => ['2', '3', (string) $tid]]],
+    'charges' => [['kind' => 'tax', 'label' => 'CGST 2.5%', 'amount' => '21.50'], ['kind' => 'tax', 'label' => 'SGST 2.5%', 'amount' => '21.50']]];
+$aarav->post('/expenses', $scanSave)->follow();
+$noTick = (int) $val("SELECT COUNT(*) FROM expenses WHERE description='Scanned dinner'");
+check('SN11', 'A scanned bill is not saved until the review box is ticked', $noTick === 0 && $aarav->has('confirm you checked the scanned lines'));
+$aarav->post('/expenses', $scanSave + ['scan_reviewed' => '1']);
+check('SN12', 'After the review tick it saves through the normal path: items, both charges, splits = ₹903',
+    $val("SELECT SUM(s.share_amount) FROM expense_splits s JOIN expenses e USING (expense_id) WHERE e.description='Scanned dinner'") === '903.00'
+    && (int) $val("SELECT COUNT(*) FROM expense_charges c JOIN expenses e USING (expense_id) WHERE e.description='Scanned dinner'") === 2);
 $txt = tempnam(sys_get_temp_dir(), 'txt');
 file_put_contents($txt, "%PDF-1.4 not an image");
 $aarav->post('/expenses/scan', ['group_id' => $gid, 'description' => 'Kept'], true, ['bill' => [$txt, 'image/png', 'bill.png']])->follow();
@@ -569,11 +589,20 @@ check('SN6', "Cannot scan into someone else's group expense (403)", $sneha3->sta
 $aarav->get("/expenses/create?group=$gid");
 $aarav->post('/expenses/scan', ['group_id' => $gid], 'bad-token', ['bill' => [$billPng, 'image/png', 'bill.png']]);
 check('SN7', 'Scan needs the CSRF token (419)', $aarav->status === 419);
-// daily limit is 4 in tests/functional/run.sh: SN2, SN3, SN9 used 3 (SN4/SN5 failed before counting)
+// daily limit is 4 in tests/functional/run.sh: SN2, SN3, SN9, SN10 used 4 (SN4/SN5 failed before counting)
 $aarav->get("/expenses/create?group=$gid");
-for ($k = 0; $k < 2; $k++) {
+for ($k = 0; $k < 1; $k++) {
     $aarav->post('/expenses/scan', ['group_id' => $gid], true, ['bill' => [$billPng, 'image/png', 'bill.png']])->follow();
 }
+$priyaS = login($BASE, 'priya');
+$db->exec("UPDATE app_kv SET kv_value = '1000' WHERE kv_key LIKE 'scan:month:%' AND kv_key NOT LIKE '%:failed'");
+$priyaS->get("/expenses/create?group=$gid");
+$priyaS->post('/expenses/scan', ['group_id' => $gid], true, ['bill' => [$billPng, 'image/png', 'bill.png']])->follow();
+$capped = $priyaS->has('reached its monthly limit');
+$adm = login($BASE, 'admin');
+$adm->get('/admin');
+check('SN13', 'Site-wide monthly scan cap stops scanning for everyone; admin page shows scans, failures and estimated cost',
+    $capped && $adm->has('Bill scanning (') && $adm->has('Scans this month') && $adm->has('Estimated cost'));
 check('SN8', 'Per-user daily scan limit enforced (counted in MySQL app_kv)', $aarav->has('used today&#039;s 4 bill scans')
     && (int) $val("SELECT MAX(CAST(kv_value AS UNSIGNED)) FROM app_kv WHERE kv_key LIKE 'scan:u:2:%'") === 5);
 
@@ -946,6 +975,119 @@ foreach (['priya', 'aarav', 'kabir', 'sneha', 'rohan'] as $un) {
     if (!$ok) { $bandOk = false; $bandInfo .= "$un in=$in out=$out net=$net; "; }
 }
 check('X17', 'Dashboard "Owed to you" / "You owe" = sum of the "Who owes whom" debts, and their difference = net balance (5 users)', $bandOk, $bandInfo);
+
+// ======================================================================= password reset (Phase 6, MAIL_DRIVER=log -> storage/logs/mail.log)
+$mailFile = __DIR__ . '/../../storage/logs/mail.log';
+$guestR = new Browser($BASE);
+$guestR->get('/login');
+$hasLink = $guestR->has('Forgot password?');
+$guestR->get('/forgot-password');
+$guestR->post('/forgot-password', ['email' => 'nobody@example.com'])->follow();
+$noAcct = text($guestR->body);
+$guestR->get('/forgot-password');
+$guestR->post('/forgot-password', ['email' => 'Ananya@SplitwisePlus.test'])->follow();
+check('PR1', 'Forgot-password: link on the login page; identical answer for an unknown e-mail and a real one (no account probing)',
+    $hasLink && str_contains($noAcct, 'If an account uses that e-mail') && str_contains(text($guestR->body), 'If an account uses that e-mail')
+    && (int) $val('SELECT COUNT(*) FROM password_resets WHERE user_id = 7') === 1 && (int) $val('SELECT COUNT(*) FROM password_resets') === 1);
+$mailTxt = (string) @file_get_contents($mailFile);
+preg_match_all('#/reset-password\?token=([0-9a-f]{64})#', $mailTxt, $tm);
+$rtok = end($tm[1]) ?: '';
+check('PR2', 'The e-mail carries a one-hour link; only the SHA-256 of the token is stored',
+    $rtok !== '' && str_contains($mailTxt, 'ananya@splitwiseplus.test') && $val('SELECT token_hash FROM password_resets WHERE user_id = 7') === hash('sha256', $rtok)
+    && (int) $val('SELECT COUNT(*) FROM password_resets WHERE token_hash = ?', [$rtok]) === 0
+    && abs((int) $val('SELECT TIMESTAMPDIFF(MINUTE, created_at, expires_at) FROM password_resets WHERE user_id = 7') - 60) <= 1);
+$other = login($BASE, 'ananya');                       // a session on "another device"
+$other->get('/dashboard');
+$otherIn = $other->status === 200;
+$guestR->get("/reset-password?token=$rtok");
+$formOk = $guestR->has('Choose a new password') && $guestR->header('Referrer-Policy') === 'no-referrer';
+$guestR->post('/reset-password', ['token' => $rtok, 'password' => 'short', 'password_confirm' => 'short'])->follow();
+$weak = $guestR->has('at least 8 characters');
+$guestR->post('/reset-password', ['token' => $rtok, 'password' => 'NewSecret123', 'password_confirm' => 'NewSecret123'])->follow();
+$other->get('/dashboard');
+$try = new Browser($BASE); $try->get('/login'); $try->post('/login', ['login' => 'ananya', 'password' => 'Password@123']);
+$oldFails = !str_ends_with($try->location, '/dashboard');
+$try2 = new Browser($BASE); $try2->get('/login'); $try2->post('/login', ['login' => 'ananya', 'password' => 'NewSecret123']);
+check('PR3', 'Reset form (no-referrer) rejects a weak password; a good one works, the old one stops working, and every other session is logged out',
+    $formOk && $weak && $guestR->has('Password changed') && $otherIn && $other->status === 303 && $oldFails && str_ends_with($try2->location, '/dashboard'));
+$g2 = new Browser($BASE);
+$g2->get("/reset-password?token=$rtok");
+$reused = $g2->has('expired or was already used');
+$g2->get('/login');
+$g2->post('/reset-password', ['token' => $rtok, 'password' => 'Another123x', 'password_confirm' => 'Another123x'])->follow();
+check('PR4', 'A used link cannot be used again (page and POST both refuse)', $reused && $g2->has('expired or was already used'));
+$g3 = new Browser($BASE);
+$g3->get('/forgot-password');
+$g3->post('/forgot-password', ['email' => 'kabir@splitwiseplus.test']);
+preg_match_all('#/reset-password\?token=([0-9a-f]{64})#', (string) @file_get_contents($mailFile), $tm2);
+$ktok = end($tm2[1]) ?: '';
+$val("UPDATE password_resets SET expires_at = NOW() - INTERVAL 1 MINUTE WHERE user_id = 6");
+$g3->get("/reset-password?token=$ktok");
+check('PR5', 'An expired link is refused', $ktok !== '' && $g3->has('expired or was already used'));
+for ($k = 0; $k < 3; $k++) { $g3->get('/forgot-password'); $g3->post('/forgot-password', ['email' => 'kabir@splitwiseplus.test']); }
+check('PR6', 'Reset requests are throttled per e-mail (3 per hour): 4 requests -> only 3 e-mails, same answer each time',
+    substr_count((string) @file_get_contents($mailFile), "To: Kabir Singh <kabir@splitwiseplus.test>\nSubject: [SplitWise+] Reset your password") === 3
+    && (int) $val('SELECT COUNT(*) FROM password_resets WHERE user_id = 6') === 1);
+
+// ======================================================================= Phase 6 end-to-end workflow
+// receipt -> scan (mock OCR) -> review -> assign (incl. uneven units) -> tax -> expense -> balances -> UPI handoff -> receiver confirms -> settled
+$net = fn(int $u) => (string) $val('SELECT fn_member_net_balance(?, ?)', [$gid, $u]);
+$before = [2 => $net(2), 3 => $net(3), $tid => $net($tid)];
+$pr = login($BASE, 'priya');                 // Priya pays the restaurant this time
+$pr->get("/expenses/create?group=$gid");
+$val("DELETE FROM app_kv WHERE kv_key LIKE 'scan:%'");   // fresh scan quota for this flow
+$pr->post('/expenses/scan', ['group_id' => $gid, 'description' => '', 'total_amount' => '', 'category_id' => '2', 'paid_by' => '3',
+    'expense_date' => $today], true, ['bill' => [$billPng, 'image/png', 'bill.png']])->follow();
+$scanOk = $pr->field('items[0][name]') === 'Paneer butter masala' && $pr->field('total_amount') === '903.00' && $pr->has('id="scan_reviewed"');
+// the person reviews: corrects nothing, assigns people (naan 3:1 Priya:tester), keeps the scanned charges, ticks the review box
+$e2e = ['group_id' => $gid, 'description' => $pr->field('description'), 'total_amount' => $pr->field('total_amount'), 'category_id' => '2',
+    'expense_date' => $pr->field('expense_date'), 'paid_by' => '3', 'split_method' => 'itemized', 'scanned' => '1', 'scan_reviewed' => '1',
+    'items' => [
+        ['name' => $pr->field('items[0][name]'), 'qty' => $pr->field('items[0][qty]'), 'amount' => $pr->field('items[0][amount]'), 'who' => ['2', '3']],
+        ['name' => $pr->field('items[1][name]'), 'qty' => $pr->field('items[1][qty]'), 'amount' => $pr->field('items[1][amount]'), 'who' => ['3', (string) $tid],
+         'units' => [3 => '3', $tid => '1']],
+        ['name' => $pr->field('items[2][name]'), 'qty' => $pr->field('items[2][qty]'), 'amount' => $pr->field('items[2][amount]'), 'who' => [(string) $tid]],
+        ['name' => $pr->field('items[3][name]'), 'qty' => $pr->field('items[3][qty]'), 'amount' => $pr->field('items[3][amount]'), 'who' => ['2', (string) $tid]],
+    ],
+    'charges' => [
+        ['kind' => $pr->field('charges[0][amount]') !== '' ? 'tax' : '', 'label' => $pr->field('charges[0][label]'), 'amount' => $pr->field('charges[0][amount]')],
+        ['kind' => $pr->field('charges[1][amount]') !== '' ? 'tax' : '', 'label' => $pr->field('charges[1][label]'), 'amount' => $pr->field('charges[1][amount]')],
+    ]];
+$pr->post('/expenses', $e2e);
+$eE = (int) $val("SELECT MAX(expense_id) FROM expenses WHERE description = 'Demo Dhaba' AND paid_by = 3");
+// expected: Paneer 320 -> 160/160 (A,P); Naan 200 -> 150 P / 50 T; Rice 180 -> T; Lassi 160 -> 80/80 (A,T)
+// subtotals A 240, P 310, T 310 = 860; tax 43 by subtotal -> A 12, P 15.5, T 15.5 => A 252.00, P 325.50, T 325.50 (sum 903)
+$shares = $val("SELECT GROUP_CONCAT(share_amount ORDER BY FIELD(user_id, 2, 3, $tid)) FROM expense_splits WHERE expense_id = ?", [$eE]);
+$after = [2 => $net(2), 3 => $net(3), $tid => $net($tid)];
+$delta = fn(int $u) => round((float) $after[$u] - (float) $before[$u], 2);
+check('E2E1', 'Scanned bill -> reviewed -> assigned (uneven naan) -> CGST/SGST shared by subtotal -> saved: 252.00 / 325.50 / 325.50 = ₹903',
+    $scanOk && $shares === '252.00,325.50,325.50' && (int) $val('SELECT COUNT(*) FROM expense_charges WHERE expense_id = ?', [$eE]) === 2, (string) $shares);
+check('E2E2', 'Balances move by exactly paid − share: Aarav −252.00, Priya +577.50, tester −325.50; group still sums to 0',
+    $delta(2) === -252.0 && $delta(3) === 577.5 && $delta($tid) === -325.5
+    && $val('SELECT SUM(net_balance) FROM v_group_member_balances WHERE group_id = ?', [$gid]) === '0.00');
+$pr->post('/profile', ['full_name' => 'Priya Nair', 'email' => 'priya@splitwiseplus.test', 'phone' => '9820022222', 'upi_id' => 'priya.nair@example']);
+$val('UPDATE users SET is_active = 1 WHERE user_id = ?', [$tid]);   // the admin tests deactivated the tester; bring them back
+$t = new Browser($BASE);
+$t->get('/login');
+$t->post('/login', ['login' => 'tester', 'password' => 'NewSecret456']);
+$t->get("/groups/$gid/settle?payer=$tid&payee=3");
+$owed = $t->field('amount');
+$maxT = (string) $val("SELECT GREATEST(0, LEAST(-fn_member_net_balance(?, ?) - (SELECT COALESCE(SUM(amount),0) FROM settlements WHERE group_id=? AND payer_id=? AND status='pending'),
+            fn_member_net_balance(?, 3) - (SELECT COALESCE(SUM(amount),0) FROM settlements WHERE group_id=? AND payee_id=3 AND status='pending')))", [$gid, $tid, $gid, $tid, $gid, $gid]);
+check('E2E3', 'Pay page: server-computed amount, UPI link to Priya with exactly that amount',
+    $owed === $maxT && $owed !== '0.00' && $t->has('href="upi://pay?pa=priya.nair@example&amp;pn=Priya%20Nair&amp;am=' . $owed . '&amp;cu=INR'));
+$t->post('/settlements', ['group_id' => $gid, 'payer_id' => $tid, 'payee_id' => 3, 'amount' => $owed, 'settlement_date' => $today,
+    'method' => 'upi', 'note' => 'E2E UPI ref 777', 'request_token' => $t->field('request_token')]);
+$sE = (int) $val("SELECT settlement_id FROM settlements WHERE note = 'E2E UPI ref 777'");
+$pendingNet = $net($tid);
+check('E2E4', 'Marked as sent -> pending; balances do not change yet', $val('SELECT status FROM settlements WHERE settlement_id = ?', [$sE]) === 'pending' && $pendingNet === $after[$tid]);
+$pr->get('/dashboard');
+$pr->post("/settlements/$sE/confirm", ['back' => '/dashboard']);
+$t->get("/groups/$gid/settle?payer=$tid&payee=3");
+check('E2E5', 'Priya confirms receipt -> confirmed; the debt is cleared (nothing more to pay her) and the group still sums to 0',
+    $val('SELECT status FROM settlements WHERE settlement_id = ?', [$sE]) === 'confirmed'
+    && (float) $net($tid) === round((float) $after[$tid] + (float) $owed, 2)
+    && !$t->has('Outstanding:') && $val('SELECT SUM(net_balance) FROM v_group_member_balances WHERE group_id = ?', [$gid]) === '0.00');
 
 // ======================================================================= misc
 $aarav->get('/does-not-exist');

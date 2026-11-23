@@ -56,12 +56,15 @@ try {
         echo View::render('errors/error', ['status' => $h->status, 'message' => $h->getMessage()], 'layouts/guest');
     }
 } catch (Throwable $t) {
-    error_log((string) $t);
+    $ref = App\Core\ErrorReporter::report($t);   // one JSON log line (+ Sentry if SENTRY_DSN is set)
+    if (!is_production()) {
+        error_log((string) $t);                     // full trace locally only
+    }
     http_response_code(500);
     $debug = !is_production() && App\Core\Env::get('APP_DEBUG', 'false') === 'true';
     echo View::render('errors/error', [
         'status'  => 500,
-        'message' => $debug ? $t->getMessage() : 'Something went wrong. Please try again.',
+        'message' => ($debug ? $t->getMessage() : 'Something went wrong. Please try again.') . " (Error reference: $ref)",
     ], 'layouts/guest');
 } finally {
     if ($isPost && session_status() === PHP_SESSION_ACTIVE) {

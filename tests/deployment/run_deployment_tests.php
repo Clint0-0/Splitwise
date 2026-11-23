@@ -79,8 +79,8 @@ check('C8', 'Front-end libraries are committed (a fresh clone renders Bootstrap,
     array_diff($need, array_map('trim', explode("\n", $tracked))) === []);
 
 // ---------------------------------------------------------------- hosted-style database
-check('H1', 'Hosted import: 19 tables, triggers, procedures in a database with a different name',
-    (int) $val("SELECT COUNT(*) FROM information_schema.tables WHERE table_schema=DATABASE() AND table_type='BASE TABLE'") === 19
+check('H1', 'Hosted import: 20 tables, triggers, procedures in a database with a different name',
+    (int) $val("SELECT COUNT(*) FROM information_schema.tables WHERE table_schema=DATABASE() AND table_type='BASE TABLE'") === 20
     && (int) $val('SELECT COUNT(*) FROM information_schema.triggers WHERE trigger_schema=DATABASE()') > 0
     && (int) $val("SELECT COUNT(*) FROM information_schema.routines WHERE routine_schema=DATABASE() AND routine_type='PROCEDURE'") > 0);
 check('H2', 'Hosted import: sample users no longer use the published demo password',
@@ -135,5 +135,47 @@ check('F3', 'DB down: generic 500 page even with APP_DEBUG=true (production forc
     $s === 500 && str_contains($b, 'Something went wrong') && !preg_match('/SQLSTATE|sw_hosted|Access denied|127\.0\.0\.1/', $b));
 $bad = (string) @file_get_contents(getenv('LOGDIR') . '/s3.log');
 check('F4', 'DB failure is logged server-side without the password', str_contains($bad, 'Access denied') && !str_contains($bad, 'wrong-password'));
+
+// ---------------------------------------------------------------- Phase 6: backups, production build, reset safety
+$margs = getenv('MYSQL_ARGS') ?: '-uroot';
+$bdir = getenv('LOGDIR') . '/backups';
+$run = function (string $cmd) use ($margs, $ROOT): array {
+    $out = []; $code = 0;
+    exec('cd ' . escapeshellarg($ROOT) . ' && MYSQL_ARGS=' . escapeshellarg($margs) . ' ' . $cmd . ' 2>&1', $out, $code);
+    return [$code, implode("\n", $out)];
+};
+[$c1, $o1] = $run('bash tools/backup.sh ' . getenv('DBN') . ' ' . escapeshellarg($bdir) . ' 14');
+$file = glob("$bdir/*.sql.gz")[0] ?? '';
+[$c2, $o2] = $run('bash tools/restore_test.sh ' . escapeshellarg($file) . ' ' . getenv('DBN'));
+check('B1', 'Backup (mysqldump --single-transaction, gzip, mode 600) restores into a scratch DB: tables, views, triggers, routines, rows, balances, receipt bytes match; scratch dropped',
+    $c1 === 0 && $c2 === 0 && str_contains($o2, 'RESTORE OK') && (fileperms($file) & 0777) === 0600
+    && (int) $val("SELECT COUNT(*) FROM information_schema.schemata WHERE schema_name LIKE 'restore\\_test\\_%'") === 0, $o2);
+$val("INSERT INTO categories (name, icon, color) VALUES ('Restore drift', 'bi-tag', '#123456')");
+[$c3, $o3] = $run('bash tools/restore_test.sh ' . escapeshellarg($file) . ' ' . getenv('DBN'));
+check('B2', 'Restore test notices when the backup no longer matches the source (exit 1, names the table)', $c3 === 1 && str_contains($o3, 'ROWS DIFFER categories'), $o3);
+
+$nsOut = getenv('LOGDIR') . '/ns';
+[$c4, $o4] = $run('APP_DB_PASSWORD=Dep_Test_App_Pass_99 php database/build_hosted.php --db=sw_ns_dep --out=' . escapeshellarg($nsOut) . ' --no-sample');
+$db->exec('DROP DATABASE IF EXISTS sw_ns_dep');
+$db->exec('CREATE DATABASE sw_ns_dep CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci');
+[$c5, $o5] = $run("mysql $margs sw_ns_dep < " . escapeshellarg("$nsOut/hosted_schema.sql") . " && mysql $margs < " . escapeshellarg("$nsOut/hosted_verify.sql"));
+$db->exec("CREATE USER IF NOT EXISTS 'sw_ns_app'@'localhost' IDENTIFIED BY 'Ns_Dep_App_Pass_77'");
+$db->exec("GRANT SELECT, INSERT ON sw_ns_dep.* TO 'sw_ns_app'@'localhost'");
+[$c6, $o6] = $run('DB_HOST=127.0.0.1 DB_NAME=sw_ns_dep DB_USER=sw_ns_app DB_PASSWORD=Ns_Dep_App_Pass_77 ADMIN_PASSWORD=Owner_Pass_2026x php tools/create_admin.php --username=owner --email=owner@example.com --name=Owner');
+$nsUsers = $db->query("SELECT GROUP_CONCAT(CONCAT(username,':',role)) FROM sw_ns_dep.users")->fetchColumn();
+$nsCats = (int) $db->query('SELECT COUNT(*) FROM sw_ns_dep.categories')->fetchColumn();
+$db->exec('DROP DATABASE sw_ns_dep'); $db->exec("DROP USER 'sw_ns_app'@'localhost'");
+check('B3', 'Production build (--no-sample): no demo accounts, categories kept, checks PASS; first admin created by CLI without the password on the command line or in output',
+    $c4 === 0 && $c5 === 0 && !str_contains($o5, 'FAIL') && str_contains($o5, 'No sample accounts') && $nsCats === 14
+    && $c6 === 0 && $nsUsers === 'owner:admin' && !str_contains($o6, 'Owner_Pass_2026x'), $o5 . $o6);
+
+// production instance has no APP_URL: a reset must not build a link from the Host header
+$br = new Browser($A);
+$br->get('/forgot-password');
+$br->post('/forgot-password', ['email' => 'aarav@splitwiseplus.test']);
+$s1 = (string) @file_get_contents(getenv('LOGDIR') . '/s1.log');
+check('B4', 'Production password reset without APP_URL: same "check your e-mail" answer, no link built from the Host header, no token in the logs',
+    $br->status === 303 && str_contains($s1, 'APP_URL is not set') && !preg_match('/reset-password\?token=[0-9a-f]{64}/', $s1)
+    && (int) $val('SELECT COUNT(*) FROM password_resets') === 0);
 
 finish();

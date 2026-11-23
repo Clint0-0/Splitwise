@@ -9,7 +9,7 @@ OUT=splitwise_plus.sql
   echo "-- Requires MySQL 8.0. Creates database splitwise_plus (drops it first)."
   for f in schema/01_create_database.sql schema/02_tables.sql schema/03_indexes.sql schema/04_infrastructure.sql \
            functions/functions.sql views/views.sql triggers/triggers.sql \
-           procedures/procedures.sql seeders/sample_data.sql; do
+           procedures/procedures.sql seeders/reference_data.sql seeders/sample_data.sql; do
     echo; echo "-- >>> $f"; cat "$f"
   done
 } > "$OUT"

@@ -291,6 +291,10 @@ final class ExpenseService
         $items = [];
         $charges = [];
         if ($method === 'itemized' && $groupId !== null) {
+            // a scanned bill is saved only after the person says they checked it against the paper bill
+            if (($in['scanned'] ?? '') === '1' && ($in['scan_reviewed'] ?? '') !== '1') {
+                $v->add('scan_reviewed', 'Tick the box to confirm you checked the scanned lines against the bill.');
+            }
             $rows = $this->parseItems((array) ($in['items'] ?? []), $v);
             $charges = $this->parseCharges((array) ($in['charges'] ?? []), $v);
             if (!$v->fails() && $total !== null && $charges !== []) {

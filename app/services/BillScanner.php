@@ -21,7 +21,10 @@ use App\Helpers\Money;
  *              optional SCAN_MODEL. The photo is not stored by SplitWise+.
  *   mock       returns a fixed sample bill, for local demos and the test suite only
  *              (refused when APP_ENV=production)
- * SCAN_DAILY_LIMIT  scans per user per day (default 20), counted in app_kv.
+ * SCAN_DAILY_LIMIT    scans per user per day (default 20), counted in app_kv.
+ * SCAN_MONTHLY_LIMIT  scans for the whole site per calendar month (default 1000): a hard
+ *                     spending cap. SCAN_COST_PAISE = estimated cost of one scan, for the
+ *                     admin page (default 70 paise ≈ one Sonnet-class vision call).
  */
 final class BillScanner
 {
@@ -55,7 +58,8 @@ final class BillScanner
 
     /**
      * @param array $file one entry of $_FILES
-     * @return array{merchant: string, items: list<array{name:string, qty:string, amount:string}>, total: ?string}
+     * @return array{merchant: string, date: ?string, items: list<array{name:string, qty:string, amount:string, uncertain:bool}>,
+     *               charges: list<array{kind:string, label:string, amount:string}>, total: ?string, warnings: list<string>}
      */
     public function scan(int $userId, array $file): array
     {
@@ -64,7 +68,42 @@ final class BillScanner
         }
         [$bytes, $mime] = $this->readImage($file);
         $this->countScan($userId);
-        return $this->read($bytes, $mime);
+        try {
+            return $this->read($bytes, $mime);
+        } catch (ValidationException $e) {
+            self::bump('scan:month:' . date('Y-m') . ':failed');
+            throw $e;
+        }
+    }
+
+    /** Site-wide usage for the admin page: this month's scans, failures, estimated cost, cap. */
+    public static function usage(): array
+    {
+        $st = Database::pdo()->prepare('SELECT kv_key, CAST(kv_value AS UNSIGNED) AS n FROM app_kv WHERE kv_key IN (?, ?)');
+        $m = date('Y-m');
+        $st->execute(["scan:month:$m", "scan:month:$m:failed"]);
+        $rows = array_column($st->fetchAll(\PDO::FETCH_ASSOC), 'n', 'kv_key');
+        $n = (int) ($rows["scan:month:$m"] ?? 0);
+        $cost = max(0, (int) (Env::get('SCAN_COST_PAISE', '70') ?? '70'));
+        return ['month' => $m, 'scans' => $n, 'failed' => (int) ($rows["scan:month:$m:failed"] ?? 0),
+                'cost_paise' => $n * $cost, 'limit' => self::monthlyLimit(), 'provider' => self::provider()];
+    }
+
+    private static function monthlyLimit(): int
+    {
+        return max(1, (int) (Env::get('SCAN_MONTHLY_LIMIT', '1000') ?? '1000'));
+    }
+
+    /** Atomic +1 on an app_kv counter; returns the new value. */
+    private static function bump(string $key, int $ttl = 400 * 86400): int
+    {
+        $pdo = Database::pdo();
+        $pdo->prepare("INSERT INTO app_kv (kv_key, kv_value, expires_at) VALUES (?, '1', ?)
+                       ON DUPLICATE KEY UPDATE kv_value = CAST(kv_value AS UNSIGNED) + 1")
+            ->execute([$key, time() + $ttl]);
+        $st = $pdo->prepare('SELECT CAST(kv_value AS UNSIGNED) FROM app_kv WHERE kv_key = ?');
+        $st->execute([$key]);
+        return (int) $st->fetchColumn();
     }
 
     /** Ask the configured provider about already-checked image bytes, then clean the answer. */
@@ -97,15 +136,13 @@ final class BillScanner
     private function countScan(int $userId): void
     {
         $limit = max(1, (int) (Env::get('SCAN_DAILY_LIMIT', '20') ?? '20'));
-        $key = 'scan:u:' . $userId . ':' . date('Y-m-d');
-        $pdo = Database::pdo();
-        $pdo->prepare("INSERT INTO app_kv (kv_key, kv_value, expires_at) VALUES (?, '1', ?)
-                       ON DUPLICATE KEY UPDATE kv_value = CAST(kv_value AS UNSIGNED) + 1")
-            ->execute([$key, time() + 2 * 86400]);
-        $st = $pdo->prepare('SELECT CAST(kv_value AS UNSIGNED) FROM app_kv WHERE kv_key = ?');
-        $st->execute([$key]);
-        if ((int) $st->fetchColumn() > $limit) {
+        if (self::bump('scan:u:' . $userId . ':' . date('Y-m-d'), 2 * 86400) > $limit) {
             throw ValidationException::single('bill', "You've used today's $limit bill scans. Enter the items by hand, or try again tomorrow.");
+        }
+        // site-wide monthly cap = spending limit; counted only for scans that get this far
+        $month = 'scan:month:' . date('Y-m');
+        if (self::bump($month) > self::monthlyLimit()) {
+            throw ValidationException::single('bill', 'Bill scanning has reached its monthly limit for this site. Enter the items by hand.');
         }
     }
 
@@ -113,11 +150,15 @@ final class BillScanner
     {
         return <<<TXT
         This is a photo of a restaurant or shop bill, usually from India (amounts in rupees).
-        Read every purchased line item. Reply with ONLY one JSON object, no other text:
-        {"merchant": "<shop name or empty>", "items": [{"name": "<item>", "qty": <number>, "amount": <line total in rupees>}], "total": <grand total payable in rupees or null>}
-        Rules: "amount" is the line total (qty × price) as printed. Do NOT include tax, GST, CGST/SGST,
-        service charge, discounts, round-off or the total as items. Use null for total if you cannot read it.
-        If the image is not a bill, reply {"merchant": "", "items": [], "total": null}.
+        Read it. Reply with ONLY one JSON object, no other text:
+        {"merchant": "<shop name or empty>", "date": "<YYYY-MM-DD or null>",
+         "items": [{"name": "<item>", "qty": <number>, "amount": <line total in rupees>, "uncertain": <true if any part of this line was hard to read>}],
+         "charges": [{"kind": "tax|service|discount|other", "label": "<as printed, e.g. CGST 2.5%>", "amount": <rupees, always positive>}],
+         "total": <grand total payable in rupees or null>}
+        Rules: "amount" is the line total (qty × price) as printed. Tax, GST, CGST/SGST, service charge,
+        discounts and round-off go in "charges" (round-off = "other", negative only if printed as a minus), never in "items".
+        Do not guess who ate what. Use null for anything you cannot read.
+        If the image is not a bill, reply {"merchant": "", "date": null, "items": [], "charges": [], "total": null}.
         TXT;
     }
 
@@ -176,11 +217,14 @@ final class BillScanner
 
     private function mockReply(): string
     {
-        return '{"merchant": "Demo Dhaba", "items": [
-            {"name": "Paneer butter masala", "qty": 1, "amount": 320},
-            {"name": "Butter naan", "qty": 4, "amount": 200},
-            {"name": "Jeera rice", "qty": 1, "amount": 180},
-            {"name": "Sweet lassi", "qty": 2, "amount": 160}
+        return '{"merchant": "Demo Dhaba", "date": "2026-11-20", "items": [
+            {"name": "Paneer butter masala", "qty": 1, "amount": 320, "uncertain": false},
+            {"name": "Butter naan", "qty": 4, "amount": 200, "uncertain": false},
+            {"name": "Jeera rice", "qty": 1, "amount": 180, "uncertain": true},
+            {"name": "Sweet lassi", "qty": 2, "amount": 160, "uncertain": false}
+        ], "charges": [
+            {"kind": "tax", "label": "CGST 2.5%", "amount": 21.50},
+            {"kind": "tax", "label": "SGST 2.5%", "amount": 21.50}
         ], "total": 903.00}';
     }
 
@@ -214,15 +258,54 @@ final class BillScanner
                 continue;
             }
             $qty = $money($it['qty'] ?? 1) ?? '1.00';
-            $items[] = ['name' => mb_substr($name, 0, 80), 'qty' => rtrim(rtrim($qty, '0'), '.'), 'amount' => $amount];
+            $items[] = ['name' => mb_substr($name, 0, 80), 'qty' => rtrim(rtrim($qty, '0'), '.'), 'amount' => $amount,
+                        'uncertain' => ($it['uncertain'] ?? false) === true];
         }
         if ($items === []) {
             throw ValidationException::single('bill', "Couldn't read any items on that photo. Try a sharper, straight-on picture, or enter them by hand.");
         }
+        $charges = [];
+        foreach (array_slice((array) ($data['charges'] ?? []), 0, 10) as $c) {
+            if (!is_array($c) || !in_array($c['kind'] ?? '', ['tax', 'service', 'discount', 'other'], true)) {
+                continue;
+            }
+            $raw = $c['amount'] ?? null;
+            $neg = $c['kind'] === 'other' && is_numeric($raw) && (float) $raw < 0;
+            $amt = $money(is_numeric($raw) ? abs((float) $raw) : null);
+            if ($amt === null) {
+                continue;
+            }
+            $label = mb_substr(trim((string) preg_replace('/[\x00-\x1F\x7F]+/u', ' ', (string) ($c['label'] ?? ''))), 0, 60);
+            $charges[] = ['kind' => $c['kind'], 'label' => $label, 'amount' => ($neg ? '-' : '') . $amt];
+        }
+        $date = is_string($data['date'] ?? null) && preg_match('/^(\d{4})-(\d{2})-(\d{2})$/', $data['date'], $d)
+            && checkdate((int) $d[2], (int) $d[3], (int) $d[1]) && $data['date'] <= date('Y-m-d') ? $data['date'] : null;
+        $total = $money($data['total'] ?? null);
+
+        // confidence warnings: say what to double-check; never silently "fix" the numbers
+        $warnings = [];
+        $unsure = array_column(array_filter($items, fn($i) => $i['uncertain']), 'name');
+        if ($unsure !== []) {
+            $warnings[] = 'Hard to read, check these lines: ' . implode(', ', $unsure) . '.';
+        }
+        $sum = array_sum(array_map(fn($i) => Money::toPaise($i['amount']), $items))
+             + array_sum(array_map(fn($c) => ($c['kind'] === 'discount' ? -1 : 1) * Money::toPaise($c['amount']), $charges));
+        if ($total === null) {
+            $warnings[] = "Couldn't read the bill total: type it in.";
+        } elseif ($sum !== Money::toPaise($total)) {
+            $warnings[] = sprintf('The lines add up to %s but the bill total reads %s: a line or charge may be missing or misread.',
+                inr(Money::fromPaise($sum)), inr($total));
+        }
+        if (!empty($data['date']) && $date === null) {
+            $warnings[] = "Couldn't read a valid bill date: check the date.";
+        }
         return [
             'merchant' => mb_substr(trim((string) preg_replace('/[\x00-\x1F\x7F]+/u', ' ', (string) ($data['merchant'] ?? ''))), 0, 120),
+            'date'     => $date,
             'items'    => $items,
-            'total'    => $money($data['total'] ?? null),
+            'charges'  => $charges,
+            'total'    => $total,
+            'warnings' => $warnings,
         ];
     }
 }

@@ -15,7 +15,7 @@ DBN=sw_hosted_test
 APPPW="dep-test-$(head -c 9 /dev/urandom | od -An -tx1 | tr -d ' \n')"
 DEMOPW="Demo-$(head -c 6 /dev/urandom | od -An -tx1 | tr -d ' \n')-9"
 TMP="$(mktemp -d)"
-cleanup() { kill ${S1:-} ${S2:-} ${S3:-} 2>/dev/null; $MYSQL -e "DROP DATABASE IF EXISTS $DBN; DROP USER IF EXISTS 'sw_hosted'@'%';" 2>/dev/null; rm -rf "$TMP"; }
+cleanup() { kill ${S1:-} ${S2:-} ${S3:-} 2>/dev/null; $MYSQL -e "DROP DATABASE IF EXISTS $DBN; DROP DATABASE IF EXISTS sw_ns_dep; DROP USER IF EXISTS 'sw_hosted'@'%'; DROP USER IF EXISTS 'sw_ns_app'@'localhost';" 2>/dev/null; rm -rf "$TMP"; }
 trap cleanup EXIT
 
 DEMO_PASSWORD="$DEMOPW" APP_DB_PASSWORD="$APPPW" php "$ROOT/database/build_hosted.php" --db=$DBN --out="$TMP/build" >/dev/null || { echo "BUILD FAILED"; exit 1; }
@@ -34,4 +34,4 @@ env "${common[@]}" DB_PASSWORD="$APPPW" php -S 127.0.0.1:8772 -t "$ROOT/public" 
 env "${common[@]}" DB_PASSWORD="wrong-password" php -S 127.0.0.1:8773 -t "$ROOT/public" "$ROOT/public/router.php" >"$TMP/s3.log" 2>&1 & S3=$!
 sleep 1
 
-ROOT="$ROOT" DBN=$DBN DEMOPW="$DEMOPW" APPPW="$APPPW" LOGDIR="$TMP" php "$ROOT/tests/deployment/run_deployment_tests.php"
+ROOT="$ROOT" DBN=$DBN DEMOPW="$DEMOPW" APPPW="$APPPW" LOGDIR="$TMP" MYSQL_ARGS="${MYSQL_ARGS:--uroot}" php "$ROOT/tests/deployment/run_deployment_tests.php"

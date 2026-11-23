@@ -23,7 +23,8 @@ if (isset($old['items']) && is_array($old['items'])) {
         if (is_int($k) && is_array($r)) {
             $itemRows[$k] = ['name' => (string) ($r['name'] ?? ''), 'qty' => (string) ($r['qty'] ?? ''), 'amount' => (string) ($r['amount'] ?? ''),
                              'who' => array_map('intval', (array) ($r['who'] ?? [])),
-                             'units' => array_map('strval', array_filter((array) ($r['units'] ?? []), 'is_string'))];
+                             'units' => array_map('strval', array_filter((array) ($r['units'] ?? []), 'is_string')),
+                             'uncertain' => ($r['uncertain'] ?? '') === '1'];
         }
     }
 } else {
@@ -183,7 +184,9 @@ while (count($itemRows) < max(4, count(array_filter($itemRows, fn($r) => $r['nam
       <?= field_error($errors, 'items') ?>
       <ol class="item-rows" id="itemRows">
       <?php foreach ($itemRows as $i => $r): ?>
-        <li class="item-row" data-index="<?= $i ?>">
+        <li class="item-row<?= !empty($r['uncertain']) ? ' item-uncertain' : '' ?>" data-index="<?= $i ?>">
+          <?php if (!empty($r['uncertain'])): ?><p class="uncertain-note"><i class="bi bi-exclamation-triangle" aria-hidden="true"></i> Hard to read on the photo: check this line.</p>
+            <input type="hidden" name="items[<?= $i ?>][uncertain]" value="1"><?php endif; ?>
           <div class="item-fields">
             <div class="item-name">
               <label class="form-label small" for="it_<?= $i ?>_name">Item</label>
@@ -237,6 +240,14 @@ while (count($itemRows) < max(4, count(array_filter($itemRows, fn($r) => $r['nam
           </div>
         <?php endforeach; ?>
       </fieldset>
+      <?php $scanned = ($old['scanned'] ?? '') === '1'; if ($scanned): ?>
+        <input type="hidden" name="scanned" value="1">
+        <div class="form-check scan-review mt-3">
+          <input class="form-check-input<?= is_invalid($errors, 'scan_reviewed') ?>" type="checkbox" id="scan_reviewed" name="scan_reviewed" value="1" required>
+          <label class="form-check-label" for="scan_reviewed"><strong>I checked the scanned lines, charges and total against the paper bill</strong>, and ticked who had each item.</label>
+          <?= field_error($errors, 'scan_reviewed') ?>
+        </div>
+      <?php endif; ?>
       <div class="table-responsive mt-3" tabindex="0" role="region" aria-label="Item split preview">
       <table class="table split-table" id="itemPreview">
         <thead><tr><th scope="col">Who</th><th scope="col" class="num">Items</th><th scope="col" class="num">Tax / discount</th><th scope="col" class="num">Their part</th></tr></thead>

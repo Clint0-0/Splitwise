@@ -67,7 +67,7 @@ $db->exec('SET @app_user_id = 1');
 // ---------------------------------------------------------------- structure
 $cnt = fn(string $type) => (int) val($db,
     "SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA='splitwise_plus' AND TABLE_TYPE=?", [$type]);
-record('S1', '19 base tables exist (17 business + app_sessions, app_kv)', $cnt('BASE TABLE') === 19);
+record('S1', '20 base tables exist (17 business + app_sessions, app_kv, password_resets)', $cnt('BASE TABLE') === 20);
 record('S2', '12 views exist', $cnt('VIEW') === 12);
 record('S3', '11 triggers covering all 6 timing/event pairs',
     (int) val($db, "SELECT COUNT(*) FROM information_schema.TRIGGERS WHERE TRIGGER_SCHEMA='splitwise_plus'") === 11

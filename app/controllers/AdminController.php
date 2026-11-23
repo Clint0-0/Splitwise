@@ -22,6 +22,7 @@ final class AdminController extends Controller
             'title' => 'Admin',
             'stats' => (new AnalyticsModel())->system(),
             'recent'=> (new AnalyticsModel())->audit(null, 10, 0),
+            'scan'  => \App\Services\BillScanner::usage(),
         ]);
     }
 
