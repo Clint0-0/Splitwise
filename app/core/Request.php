@@ -78,6 +78,8 @@ final class Request
         foreach ($_POST as $k => $v) {
             if ($k === 'items' && is_array($v)) {
                 $out[$k] = self::items($v);
+            } elseif ($k === 'charges' && is_array($v)) {
+                $out[$k] = self::charges($v);
             } elseif (is_array($v)) {
                 $out[$k] = in_array($k, self::ARRAY_FIELDS, true) ? array_filter($v, 'is_string') : '';
             } else {
@@ -101,7 +103,30 @@ final class Request
             }
             $str = static fn(string $f): string => isset($row[$f]) && is_string($row[$f]) ? $row[$f] : '';
             $who = isset($row['who']) && is_array($row['who']) ? array_values(array_filter($row['who'], 'is_string')) : [];
-            $out[$k] = ['name' => $str('name'), 'qty' => $str('qty'), 'amount' => $str('amount'), 'who' => $who];
+            $units = [];
+            foreach ((isset($row['units']) && is_array($row['units']) ? $row['units'] : []) as $uid => $u) {
+                if (is_int($uid) && $uid > 0 && is_string($u)) {
+                    $units[$uid] = $u;
+                }
+            }
+            $out[$k] = ['name' => $str('name'), 'qty' => $str('qty'), 'amount' => $str('amount'), 'who' => $who, 'units' => $units];
+        }
+        return $out;
+    }
+
+    /**
+     * Bill charge rows: charges[n][kind|label|amount] (strings). At most 15 rows kept.
+     * @return array<int,array{kind:string, label:string, amount:string}>
+     */
+    private static function charges(array $rows): array
+    {
+        $out = [];
+        foreach (array_slice($rows, 0, 15, true) as $k => $row) {
+            if (!is_array($row) || !is_int($k) || $k < 0 || $k > 99) {
+                continue;
+            }
+            $str = static fn(string $f): string => isset($row[$f]) && is_string($row[$f]) ? $row[$f] : '';
+            $out[$k] = ['kind' => $str('kind'), 'label' => $str('label'), 'amount' => $str('amount')];
         }
         return $out;
     }

@@ -196,13 +196,37 @@ CREATE TABLE expense_item_shares (
   item_id       INT UNSIGNED  NOT NULL,
   expense_id    INT UNSIGNED  NOT NULL,
   user_id       INT UNSIGNED  NOT NULL,
+  share_units   DECIMAL(6,2)  NOT NULL DEFAULT 1.00,  -- weight: 2 = had twice as much as someone with 1
   share_amount  DECIMAL(12,2) NOT NULL,     -- this person's part of the line (before tax/discount)
   CONSTRAINT pk_expense_item_shares PRIMARY KEY (item_id, user_id),
   CONSTRAINT fk_item_shares_item FOREIGN KEY (item_id, expense_id)
     REFERENCES expense_items (item_id, expense_id) ON DELETE CASCADE,
   CONSTRAINT fk_item_shares_split FOREIGN KEY (expense_id, user_id)
     REFERENCES expense_splits (expense_id, user_id) ON DELETE CASCADE,
-  CONSTRAINT chk_item_shares_amount CHECK (share_amount >= 0)
+  CONSTRAINT chk_item_shares_amount CHECK (share_amount >= 0),
+  CONSTRAINT chk_item_shares_units CHECK (share_units > 0)
+) ENGINE=InnoDB;
+
+-- 7c. expense_charges (Phase 6: tax / service charge / discount lines of a bill)
+-- Optional. When present, Σ items + Σ charges must equal expenses.total_amount
+-- (checked in the write transaction). Every charge is shared in proportion to
+-- each person's item subtotal. Discounts are stored negative.
+CREATE TABLE expense_charges (
+  charge_id   INT UNSIGNED     NOT NULL AUTO_INCREMENT,
+  expense_id  INT UNSIGNED     NOT NULL,
+  line_no     TINYINT UNSIGNED NOT NULL,
+  kind        ENUM('tax','service','discount','other') NOT NULL,
+  label       VARCHAR(60)      NOT NULL,
+  amount      DECIMAL(12,2)    NOT NULL,
+  CONSTRAINT pk_expense_charges PRIMARY KEY (charge_id),
+  CONSTRAINT uq_expense_charges_line UNIQUE (expense_id, line_no),
+  CONSTRAINT fk_expense_charges_expense FOREIGN KEY (expense_id)
+    REFERENCES expenses (expense_id) ON DELETE CASCADE,
+  CONSTRAINT chk_expense_charges_line CHECK (line_no BETWEEN 1 AND 10),
+  CONSTRAINT chk_expense_charges_label CHECK (CHAR_LENGTH(TRIM(label)) > 0),
+  CONSTRAINT chk_expense_charges_sign CHECK (
+    (kind = 'discount' AND amount < 0) OR (kind IN ('tax','service') AND amount > 0)
+    OR (kind = 'other' AND amount <> 0))
 ) ENGINE=InnoDB;
 
 -- 8. settlements ------------------------------------------------------

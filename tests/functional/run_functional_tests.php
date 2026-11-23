@@ -415,6 +415,48 @@ $bad = $bill; $bad['description'] = 'Itemized qty'; $bad['items'][0]['qty'] = '1
 $aarav->get("/expenses/create?group=$gid");
 $aarav->post('/expenses', $bad)->follow();
 check('IT9', 'Quantity above the column limit gets a clear message on that row', $aarav->has('Quantity can be at most 99999.99.'));
+// uneven / quantity shares + charge lines
+$aarav->get("/expenses/create?group=$gid");
+$aarav->post('/expenses', ['group_id' => $gid, 'description' => 'Itemized uneven', 'total_amount' => '704', 'category_id' => '2',
+    'expense_date' => $today, 'paid_by' => '2', 'split_method' => 'itemized',
+    'items' => [
+        ['name' => 'Butter naan', 'qty' => '4', 'amount' => '200', 'who' => ['2', '3'], 'units' => [2 => '3', 3 => '']],   // Aarav 3, Priya 1
+        ['name' => 'Dal', 'qty' => '1', 'amount' => '440', 'who' => ['2'], 'units' => [$tid => '1']],                      // units tick the tester
+    ],
+    'charges' => [
+        ['kind' => 'tax', 'label' => 'CGST 2.5%', 'amount' => '16'], ['kind' => 'tax', 'label' => 'SGST 2.5%', 'amount' => '16'],
+        ['kind' => 'service', 'label' => '', 'amount' => '42'], ['kind' => 'discount', 'label' => 'Happy hour', 'amount' => '10'],
+        ['kind' => '', 'label' => '', 'amount' => ''],
+    ]]);
+$eU = (int) $val("SELECT expense_id FROM expenses WHERE description='Itemized uneven'");
+check('IT10', 'Uneven units (naan 3:1) and units-only participant: item parts 150/50 and 220/220',
+    $eU > 0 && $val("SELECT GROUP_CONCAT(sh.share_amount ORDER BY i.line_no, sh.user_id) FROM expense_item_shares sh JOIN expense_items i USING (item_id) WHERE sh.expense_id=?", [$eU])
+        === '150.00,50.00,220.00,220.00'
+    && $val("SELECT share_units FROM expense_item_shares sh JOIN expense_items i USING (item_id) WHERE sh.expense_id=? AND i.name='Butter naan' AND sh.user_id=2", [$eU]) === '3.00');
+check('IT11', 'Charge lines saved with signs (discount negative, default label) and items + charges = total; shares sum to ₹704',
+    $val("SELECT GROUP_CONCAT(CONCAT(kind,':',label,':',amount) ORDER BY line_no SEPARATOR '|') FROM expense_charges WHERE expense_id=?", [$eU])
+        === 'tax:CGST 2.5%:16.00|tax:SGST 2.5%:16.00|service:Service charge:42.00|discount:Happy hour:-10.00'
+    && $val('SELECT SUM(share_amount) FROM expense_splits WHERE expense_id=?', [$eU]) === '704.00');
+$aarav->get("/expenses/$eU");
+check('IT12', 'Expense page lists each charge line and the uneven units (×3)', str_contains($tx = text($aarav->body), 'CGST 2.5%') && str_contains($tx, 'Happy hour')
+    && str_contains($tx, 'Aarav Sharma ×3'));
+$aarav->get("/expenses/$eU/edit");
+check('IT13', 'Edit form pre-fills units and charges (discount shown as a positive number)',
+    $aarav->field("items[0][units][2]") === '3' && $aarav->field('charges[3][amount]') === '10.00' && $aarav->field('charges[0][label]') === 'CGST 2.5%');
+$aarav->get("/expenses/create?group=$gid");
+$aarav->post('/expenses', ['group_id' => $gid, 'description' => 'Itemized mismatch', 'total_amount' => '700', 'category_id' => '2',
+    'expense_date' => $today, 'paid_by' => '2', 'split_method' => 'itemized',
+    'items' => [['name' => 'Dal', 'qty' => '', 'amount' => '640', 'who' => ['2']]],
+    'charges' => [['kind' => 'tax', 'label' => 'GST', 'amount' => '64'], ['kind' => 'discount', 'label' => '', 'amount' => '-5']]])->follow();
+check('IT14', 'A discount typed with a minus sign is refused (discounts are typed positive), nothing saved',
+    $aarav->has('at most 2 decimals')
+    && (int) $val("SELECT COUNT(*) FROM expenses WHERE description='Itemized mismatch'") === 0);
+$aarav->post('/expenses', ['group_id' => $gid, 'description' => 'Itemized mismatch', 'total_amount' => '700', 'category_id' => '2',
+    'expense_date' => $today, 'paid_by' => '2', 'split_method' => 'itemized',
+    'items' => [['name' => 'Dal', 'qty' => '', 'amount' => '640', 'who' => ['2']]],
+    'charges' => [['kind' => 'tax', 'label' => 'GST', 'amount' => '64']]])->follow();
+check('IT15', 'Items + charges ≠ total -> clear message with both sums, nothing saved',
+    $aarav->has('add up to ₹704.00, but the bill total is ₹700.00') && (int) $val("SELECT COUNT(*) FROM expenses WHERE description='Itemized mismatch'") === 0);
 $aarav->get("/expenses/$eI/edit");
 $aarav->post("/expenses/$eI", ['description' => 'Itemized dinner', 'total_amount' => '704', 'category_id' => '2', 'expense_date' => $today,
     'paid_by' => '2', 'split_method' => 'equal', 'participants' => [2, 3], 'version' => $aarav->field('version')]);

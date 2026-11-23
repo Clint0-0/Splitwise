@@ -67,16 +67,23 @@ $verbs = ['INSERT' => 'Added', 'UPDATE' => 'Edited', 'SOFT_DELETE' => 'Deleted',
           <?php foreach ($items as $it): ?>
             <tr>
               <td class="who"><?= e($it['name']) ?><?php if ((float) $it['quantity'] !== 1.0): ?> <span class="note">× <?= e(rtrim(rtrim((string) $it['quantity'], '0'), '.')) ?></span><?php endif; ?></td>
-              <td class="who small"><?= e(implode(', ', array_map(fn($u) => $names[$u] ?? '?', array_keys($it['users'])))) ?></td>
+              <td class="who small"><?= e(implode(', ', array_map(fn($u) => ($names[$u] ?? '?')
+                  . ((float) ($it['units'][$u] ?? 1) !== 1.0 ? ' ×' . rtrim(rtrim((string) $it['units'][$u], '0'), '.') : ''), array_keys($it['users'])))) ?></td>
               <td class="num"><?= e(inr($it['amount'])) ?></td>
             </tr>
           <?php endforeach; ?>
           </tbody>
           <tfoot>
             <tr><th scope="row" colspan="2">Items total</th><td class="num"><?= e(inr(App\Helpers\Money::fromPaise($itemsSum))) ?></td></tr>
-            <?php if ($extra !== 0): ?>
-            <tr><th scope="row" colspan="2"><?= $extra > 0 ? 'Tax / service charge' : 'Discount' ?> <span class="note">(shared by what each person had)</span></th>
+            <?php foreach ($charges as $c): ?>
+            <tr><th scope="row" colspan="2"><?= e($c['label']) ?></th><td class="num"><?= e(inr($c['amount'])) ?></td></tr>
+            <?php endforeach; ?>
+            <?php if ($charges === [] && $extra !== 0): ?>
+            <tr><th scope="row" colspan="2"><?= $extra > 0 ? 'Tax / service charge' : 'Discount' ?> <span class="note">(not itemised)</span></th>
               <td class="num"><?= e(inr(App\Helpers\Money::fromPaise($extra))) ?></td></tr>
+            <?php endif; ?>
+            <?php if ($extra !== 0): ?>
+            <tr><td colspan="3" class="note">Tax, charges and discounts are shared in proportion to what each person had.</td></tr>
             <?php endif; ?>
           </tfoot>
         </table>

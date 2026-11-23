@@ -425,3 +425,17 @@ legend.form-label { font-size: 1rem; font-family: var(--font-body); }
 .scan-box{border:1px dashed var(--violet,#4B3A9C);border-radius:.6rem;padding:.75rem;margin-bottom:.9rem;background:var(--paper,#F5F3FA)}
 .scan-row{display:flex;gap:.5rem;flex-wrap:wrap}
 .scan-row .form-control{flex:1 1 14rem;min-width:0}
+.item-units{margin-top:.4rem}
+.item-units summary{font-size:.85rem;color:var(--violet,#4B3A9C);cursor:pointer}
+.units-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(9rem,1fr));gap:.4rem}
+.units-cell{display:flex;align-items:center;gap:.4rem;font-size:.85rem;min-width:0}
+.units-cell span{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.units-cell input{width:4.5rem;flex:0 0 auto}
+.charge-row{display:grid;grid-template-columns:10rem 1fr 7.5rem;gap:.5rem;margin-bottom:.4rem}
+.charge-row .invalid-feedback{grid-column:1/-1}
+@media (max-width:575.98px){.charge-row{grid-template-columns:1fr 7rem}.charge-row input[name$="[label]"]{grid-column:1/-1;grid-row:2}}
+@media (max-width:575.98px){
+  #itemPreview{font-size:.82rem}
+  #itemPreview th,#itemPreview td{padding:.4rem .3rem}
+  #itemPreview td.who{white-space:normal}
+}

@@ -67,7 +67,7 @@ $db->exec('SET @app_user_id = 1');
 // ---------------------------------------------------------------- structure
 $cnt = fn(string $type) => (int) val($db,
     "SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA='splitwise_plus' AND TABLE_TYPE=?", [$type]);
-record('S1', '18 base tables exist (16 business + app_sessions, app_kv)', $cnt('BASE TABLE') === 18);
+record('S1', '19 base tables exist (17 business + app_sessions, app_kv)', $cnt('BASE TABLE') === 19);
 record('S2', '12 views exist', $cnt('VIEW') === 12);
 record('S3', '11 triggers covering all 6 timing/event pairs',
     (int) val($db, "SELECT COUNT(*) FROM information_schema.TRIGGERS WHERE TRIGGER_SCHEMA='splitwise_plus'") === 11
@@ -321,12 +321,14 @@ if ($appPass !== false && $appPass !== '') {
             exec_($d, "DELETE FROM app_sessions WHERE session_id='t1'");
             exec_($d, "DELETE FROM app_kv WHERE kv_key='t:k'");
             return true; }));
-        record('A10', 'App user can write itemized bill lines and item shares', inTx($app, function (PDO $d) {
+        record('A10', 'App user can write itemized bill lines, item shares and charges', inTx($app, function (PDO $d) {
             exec_($d, "INSERT INTO expense_items (expense_id,line_no,name,amount) VALUES (1,1,'Line',10.00)");
             $i = (int) $d->lastInsertId();
             $u = (int) val($d, 'SELECT user_id FROM expense_splits WHERE expense_id=1 LIMIT 1');
             exec_($d, 'INSERT INTO expense_item_shares (item_id,expense_id,user_id,share_amount) VALUES (?,1,?,10.00)', [$i, $u]);
+            exec_($d, "INSERT INTO expense_charges (expense_id,line_no,kind,label,amount) VALUES (1,1,'tax','GST',1.00)");
             exec_($d, 'DELETE FROM expense_items WHERE item_id=?', [$i]);
+            exec_($d, 'DELETE FROM expense_charges WHERE expense_id=1');
             return true; }));
         record('A9', 'App user can store receipt bytes (receipts.content LONGBLOB)', inTx($app, function (PDO $d) {
             exec_($d, "INSERT INTO receipts (expense_id,file_path,original_name,mime_type,file_size,content,uploaded_by)
@@ -381,6 +383,20 @@ record('I7', 'Deleting the expense removes its items and item shares (ON DELETE 
     exec_($d, 'DELETE FROM expenses WHERE expense_id=?', [$e]);
     return (int) val($d, 'SELECT COUNT(*) FROM expense_items WHERE expense_id=?', [$e]) === 0
         && (int) val($d, 'SELECT COUNT(*) FROM expense_item_shares WHERE expense_id=?', [$e]) === 0; }));
+expectError($db, 'I10', 'Discount stored as a positive amount is refused (chk_expense_charges_sign)',
+    function (PDO $d) use ($itemBill) { [$e] = $itemBill($d);
+        exec_($d, "INSERT INTO expense_charges (expense_id,line_no,kind,label,amount) VALUES (?,1,'discount','Promo',10.00)", [$e]); },
+    'chk_expense_charges_sign');
+record('I11', 'Charges: tax positive and discount negative accepted; removed with the expense (CASCADE)', inTx($db, function (PDO $d) use ($itemBill) {
+    [$e] = $itemBill($d);
+    exec_($d, "INSERT INTO expense_charges (expense_id,line_no,kind,label,amount) VALUES (?,1,'tax','GST',15.00),(?,2,'discount','Promo',-5.00)", [$e, $e]);
+    $ok = (int) val($d, 'SELECT COUNT(*) FROM expense_charges WHERE expense_id=?', [$e]) === 2;
+    exec_($d, 'DELETE FROM expenses WHERE expense_id=?', [$e]);
+    return $ok && (int) val($d, 'SELECT COUNT(*) FROM expense_charges WHERE expense_id=?', [$e]) === 0; }));
+expectError($db, 'I12', 'Item share units must be > 0 (CHECK)',
+    function (PDO $d) use ($itemBill) { [$e, $i] = $itemBill($d);
+        exec_($d, 'INSERT INTO expense_item_shares (item_id,expense_id,user_id,share_units,share_amount) VALUES (?,?,2,0,90.00)', [$i, $e]); },
+    'chk_item_shares_units');
 record('I8', 'users.upi_id accepts a normal UPI address', inTx($db, function (PDO $d) {
     exec_($d, "UPDATE users SET upi_id='aarav.k@okicici' WHERE user_id=2");
     return val($d, 'SELECT upi_id FROM users WHERE user_id=2') === 'aarav.k@okicici'; }));

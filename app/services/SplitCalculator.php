@@ -129,13 +129,15 @@ final class SplitCalculator
     }
 
     /**
-     * Itemized bill (Phase 6). Each line is shared EQUALLY by the people ticked on
-     * it (largest remainder, payer first). Whatever the lines do not explain,
+     * Itemized bill (Phase 6). Each line is shared by the people ticked on it in
+     * proportion to their units (default 1 each = equal; "2 naan vs 1" = 2:1),
+     * largest remainder, payer first. Whatever the lines do not explain,
      * extra = total − Σ lines, is tax / service charge (> 0) or a discount (< 0);
      * it is spread in proportion to each person's item subtotal, again by largest
      * remainder. Σ shares == total and every share >= 0, always.
      *
-     * @param array<int,array{amount:int, users:list<int>}> $items line totals in paise (keys kept)
+     * @param array<int,array{amount:int, users:list<int>, weights?:array<int,int>}> $items line totals in
+     *        paise (keys kept); weights = user_id => units in hundredths (missing = 100 each)
      * @return array{shares: array<int,int>, items: array<int,array<int,int>>, subtotals: array<int,int>, extra: int}
      */
     public function itemized(int $totalPaise, int $payerId, array $items): array
@@ -160,7 +162,15 @@ final class SplitCalculator
             if ($users === []) {
                 throw ValidationException::single("item_$i", 'Tick who had this item.');
             }
-            $part = $this->allocate($it['amount'], array_fill_keys($users, 1), $payerId);
+            $weights = [];
+            foreach ($users as $u) {
+                $w = (int) ($it['weights'][$u] ?? 100);
+                if ($w <= 0) {
+                    throw ValidationException::single("item_$i", 'Units must be more than 0.');
+                }
+                $weights[$u] = $w;
+            }
+            $part = $this->allocate($it['amount'], $weights, $payerId);
             ksort($part);
             $itemShares[$i] = $part;
             foreach ($part as $uid => $p) {

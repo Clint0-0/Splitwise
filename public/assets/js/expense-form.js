@@ -62,7 +62,7 @@
     const sub = {}, out = {};
     let sumItems = 0;
     items.forEach((it) => {
-      const part = allocate(it.amount, Object.fromEntries(it.users.map((u) => [u, 1])), payerId);
+      const part = allocate(it.amount, Object.fromEntries(it.users.map((u) => [u, (it.weights && it.weights[u]) || 100])), payerId);
       Object.keys(part).forEach((u) => { sub[u] = (sub[u] || 0) + part[u]; });
       sumItems += it.amount;
     });
@@ -85,11 +85,26 @@
       const amtRaw = r.querySelector('[name$="[amount]"]').value;
       if (name === '' && amtRaw.trim() === '') return;
       const amount = hundredths(amtRaw, false);
+      const weights = {};
+      let badUnits = false;
+      r.querySelectorAll('.units-cell input').forEach((inp) => {
+        const uid = parseInt(inp.name.match(/\[units\]\[(\d+)\]/)[1], 10);
+        if (inp.value.trim() === '') return;
+        const w = hundredths(inp.value, false);
+        if (w === null || w > 999999) { badUnits = true; return; }
+        if (w > 0) {
+          weights[uid] = w;
+          const chip = r.querySelector('input[type=checkbox][value="' + uid + '"]');
+          if (chip && !chip.checked) chip.checked = true;   // typing units ticks the person (as the server does)
+        }
+      });
       const users = [...r.querySelectorAll('input[type=checkbox]:checked')].map((c) => parseInt(c.value, 10));
+      users.forEach((u) => { if (weights[u] === undefined) { const inp = r.querySelector('.units-cell input[name$="[units][' + u + ']"]'); if (inp && inp.value.trim() !== '' && hundredths(inp.value, false) === 0) badUnits = true; } });
       if (!name) bad = bad || 'Item ' + (k + 1) + ' needs a name.';
       else if (!amount) bad = bad || 'Item ' + (k + 1) + ' needs an amount.';
+      else if (badUnits) bad = bad || 'Item ' + (k + 1) + ': units must be numbers above 0.';
       else if (!users.length) bad = bad || 'Tick who had item ' + (k + 1) + '.';
-      else items.push({ amount, users });
+      else items.push({ amount, users, weights });
     });
     preview.querySelectorAll('tbody tr').forEach((tr) => { tr.querySelectorAll('.num').forEach((c) => { c.textContent = '–'; }); tr.hidden = false; });
     const t = hundredths(total.value, false);
@@ -97,6 +112,22 @@
     if (bad) return fail(bad);
     if (!items.length) { itemStatus.textContent = 'Add the bill items and tick who had each.'; itemStatus.className = 'split-status text-muted'; return; }
     if (!t) { itemStatus.textContent = 'Enter the bill total above (including tax).'; itemStatus.className = 'split-status text-muted'; return; }
+    // optional charge lines: must reconcile exactly with the total when present
+    let chargeSum = 0, anyCharge = false, badCharge = '';
+    document.querySelectorAll('#chargeRows .charge-row').forEach((row, k) => {
+      const amtRaw = row.querySelector('.charge-amount').value.trim();
+      if (amtRaw === '') return;
+      const kind = row.querySelector('select').value;
+      const v = hundredths(amtRaw, kind === 'other');
+      if (!kind) badCharge = badCharge || 'Choose the type of charge ' + (k + 1) + '.';
+      else if (v === null || v === 0) badCharge = badCharge || 'Charge ' + (k + 1) + ' needs a non-zero amount.';
+      else { anyCharge = true; chargeSum += kind === 'discount' ? -Math.abs(v) : v; }
+    });
+    if (badCharge) return fail(badCharge);
+    const itemSum = items.reduce((a, it) => a + it.amount, 0);
+    if (anyCharge && itemSum + chargeSum !== t) {
+      return fail('Items ' + rupees(itemSum) + ' + charges ' + rupees(chargeSum) + ' = ' + rupees(itemSum + chargeSum) + ', but the bill total is ' + rupees(t) + '.');
+    }
     const payerId = payer ? parseInt(payer.value, 10) : 0;
     const r = itemized(t, payerId, items);
     if (r.extra <= -r.sumItems) return fail('The discount is larger than the items.');
@@ -131,6 +162,7 @@
       clone.querySelectorAll('input:not([type=checkbox])').forEach((i) => { i.value = ''; i.classList.remove('is-invalid'); });
       clone.querySelectorAll('input[type=checkbox]').forEach((c) => { c.checked = false; });
       clone.querySelectorAll('.invalid-feedback').forEach((x) => x.remove());
+      const det = clone.querySelector('details'); if (det) det.open = false;
       const leg = clone.querySelector('legend');
       if (leg) leg.textContent = 'Who had item ' + (rows.length + 1);
       itemList.appendChild(clone);

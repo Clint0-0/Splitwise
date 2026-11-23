@@ -51,24 +51,42 @@ final class ExpenseModel extends Model
             [$expenseId, $lineNo, $name, $qty, $amount]);
     }
 
-    public function addItemShare(int $itemId, int $expenseId, int $userId, string $amount): void
+    public function addItemShare(int $itemId, int $expenseId, int $userId, string $amount, string $units = '1.00'): void
     {
-        $this->run('INSERT INTO expense_item_shares (item_id, expense_id, user_id, share_amount) VALUES (?, ?, ?, ?)',
-            [$itemId, $expenseId, $userId, $amount]);
+        $this->run('INSERT INTO expense_item_shares (item_id, expense_id, user_id, share_units, share_amount) VALUES (?, ?, ?, ?, ?)',
+            [$itemId, $expenseId, $userId, $units, $amount]);
     }
 
-    /** Bill lines with who shares each: [{item_id, line_no, name, quantity, amount, users: [uid => amount]}]. */
+    public function deleteCharges(int $expenseId): void
+    {
+        $this->run('DELETE FROM expense_charges WHERE expense_id = ?', [$expenseId]);
+    }
+
+    public function addCharge(int $expenseId, int $lineNo, string $kind, string $label, string $amount): void
+    {
+        $this->run('INSERT INTO expense_charges (expense_id, line_no, kind, label, amount) VALUES (?, ?, ?, ?, ?)',
+            [$expenseId, $lineNo, $kind, $label, $amount]);
+    }
+
+    /** Tax / service / discount lines of an itemized bill, in bill order. */
+    public function charges(int $expenseId): array
+    {
+        return $this->all('SELECT line_no, kind, label, amount FROM expense_charges WHERE expense_id = ? ORDER BY line_no', [$expenseId]);
+    }
+
+    /** Bill lines with who shares each: [{item_id, line_no, name, quantity, amount, users: [uid => amount], units: [uid => units]}]. */
     public function items(int $expenseId): array
     {
         $items = [];
         foreach ($this->all('SELECT item_id, line_no, name, quantity, amount FROM expense_items
                               WHERE expense_id = ? ORDER BY line_no', [$expenseId]) as $r) {
-            $items[(int) $r['item_id']] = $r + ['users' => []];
+            $items[(int) $r['item_id']] = $r + ['users' => [], 'units' => []];
         }
         if ($items !== []) {
-            foreach ($this->all('SELECT sh.item_id, sh.user_id, sh.share_amount FROM expense_item_shares sh
+            foreach ($this->all('SELECT sh.item_id, sh.user_id, sh.share_units, sh.share_amount FROM expense_item_shares sh
                                   WHERE sh.expense_id = ?', [$expenseId]) as $r) {
                 $items[(int) $r['item_id']]['users'][(int) $r['user_id']] = $r['share_amount'];
+                $items[(int) $r['item_id']]['units'][(int) $r['user_id']] = $r['share_units'];
             }
         }
         return array_values($items);

@@ -79,8 +79,8 @@ check('C8', 'Front-end libraries are committed (a fresh clone renders Bootstrap,
     array_diff($need, array_map('trim', explode("\n", $tracked))) === []);
 
 // ---------------------------------------------------------------- hosted-style database
-check('H1', 'Hosted import: 18 tables, triggers, procedures in a database with a different name',
-    (int) $val("SELECT COUNT(*) FROM information_schema.tables WHERE table_schema=DATABASE() AND table_type='BASE TABLE'") === 18
+check('H1', 'Hosted import: 19 tables, triggers, procedures in a database with a different name',
+    (int) $val("SELECT COUNT(*) FROM information_schema.tables WHERE table_schema=DATABASE() AND table_type='BASE TABLE'") === 19
     && (int) $val('SELECT COUNT(*) FROM information_schema.triggers WHERE trigger_schema=DATABASE()') > 0
     && (int) $val("SELECT COUNT(*) FROM information_schema.routines WHERE routine_schema=DATABASE() AND routine_type='PROCEDURE'") > 0);
 check('H2', 'Hosted import: sample users no longer use the published demo password',

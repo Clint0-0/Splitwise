@@ -22,15 +22,30 @@ if (isset($old['items']) && is_array($old['items'])) {
     foreach ($old['items'] as $k => $r) {
         if (is_int($k) && is_array($r)) {
             $itemRows[$k] = ['name' => (string) ($r['name'] ?? ''), 'qty' => (string) ($r['qty'] ?? ''), 'amount' => (string) ($r['amount'] ?? ''),
-                             'who' => array_map('intval', (array) ($r['who'] ?? []))];
+                             'who' => array_map('intval', (array) ($r['who'] ?? [])),
+                             'units' => array_map('strval', array_filter((array) ($r['units'] ?? []), 'is_string'))];
         }
     }
 } else {
     $itemRows = array_map(fn($it) => ['name' => $it['name'], 'qty' => rtrim(rtrim((string) $it['quantity'], '0'), '.'),
-        'amount' => $it['amount'], 'who' => array_map('intval', array_keys($it['users']))], $items ?? []);
+        'amount' => $it['amount'], 'who' => array_map('intval', array_keys($it['users'])),
+        // only uneven units are shown; 1 is the default
+        'units' => array_map(fn($u) => rtrim(rtrim((string) $u, '0'), '.'), array_filter($it['units'] ?? [], fn($u) => (float) $u !== 1.0))], $items ?? []);
+}
+// charge rows: old input > saved > blank (3 rows)
+$kinds = App\Services\ExpenseService::CHARGE_KINDS;
+if (isset($old['charges']) && is_array($old['charges'])) {
+    $chargeRows = array_values(array_filter($old['charges'], 'is_array'));
+} else {
+    $chargeRows = array_map(fn($c) => ['kind' => $c['kind'], 'label' => $c['label'] === ($kinds[$c['kind']] ?? '') ? '' : $c['label'],
+        'amount' => $c['kind'] === 'discount' ? ltrim((string) $c['amount'], '-') : (string) $c['amount']], $charges ?? []);
+}
+$chargeTarget = max(3, count(array_filter($chargeRows, fn($c) => trim((string) ($c['amount'] ?? '')) !== '')) + 1);
+while (count($chargeRows) < $chargeTarget) {
+    $chargeRows[] = ['kind' => '', 'label' => '', 'amount' => ''];
 }
 $itemRows = array_values($itemRows);
-$blank = ['name' => '', 'qty' => '', 'amount' => '', 'who' => []];
+$blank = ['name' => '', 'qty' => '', 'amount' => '', 'who' => [], 'units' => []];
 while (count($itemRows) < max(4, count(array_filter($itemRows, fn($r) => $r['name'] !== '' || $r['amount'] !== '')) + 2)) {
     $itemRows[] = $blank;
 }
@@ -150,8 +165,8 @@ while (count($itemRows) < max(4, count(array_filter($itemRows, fn($r) => $r['nam
 
     <div id="itemBox" data-show-when="itemized">
       <h2 class="h6 split-box-title">Bill items <span class="text-muted fw-normal">(used when the split is “By item”)</span></h2>
-      <p class="note">Enter each line of the bill and tick who had it. Shared items are split equally between the people ticked.
-        Anything the items don't cover (tax, service charge) or a discount is shared in proportion to what each person had.</p>
+      <p class="note">Enter each line of the bill and tick who had it. A shared item is split equally, or by units if someone had more
+        (“Split this item unevenly”). Tax, service charge and discounts are shared in proportion to what each person had.</p>
       <?php if (!empty($scanOn)): ?>
       <div class="scan-box">
         <label class="form-label" for="bill"><i class="bi bi-camera" aria-hidden="true"></i> Scan the bill <span class="text-muted fw-normal">(photo: JPG, PNG or WebP, max 5 MB)</span></label>
@@ -190,11 +205,38 @@ while (count($itemRows) < max(4, count(array_filter($itemRows, fn($r) => $r['nam
               <label class="btn btn-outline-primary btn-sm" for="it_<?= $i ?>_u<?= $u ?>"><?= e($m['full_name']) ?></label>
             <?php endforeach; ?>
           </fieldset>
+          <details class="item-units"<?= ($r['units'] ?? []) !== [] ? ' open' : '' ?>>
+            <summary>Split this item unevenly</summary>
+            <p class="note mb-1">Units per person, e.g. 2 for someone who had two of the naans and 1 for someone who had one. Blank = 1.</p>
+            <div class="units-grid">
+            <?php foreach ($members as $m): $u = (int) $m['user_id']; ?>
+              <label class="units-cell"><span><?= e($m['full_name']) ?></span>
+                <input class="form-control form-control-sm" name="items[<?= $i ?>][units][<?= $u ?>]" inputmode="decimal" placeholder="1" value="<?= e($r['units'][$u] ?? '') ?>"></label>
+            <?php endforeach; ?>
+            </div>
+          </details>
           <?= field_error($errors, "item_$i") ?>
         </li>
       <?php endforeach; ?>
       </ol>
       <button type="button" class="btn btn-quiet btn-sm" id="addItem" hidden><i class="bi bi-plus-lg" aria-hidden="true"></i> Add another item</button>
+
+      <fieldset class="charges mt-3" id="chargeRows">
+        <legend class="h6 mb-1">Tax, service charge, discount <span class="text-muted fw-normal">(optional)</span></legend>
+        <p class="note">If you list them, items + charges must add up to the bill total exactly. If you leave them out, whatever the items don't cover is treated as tax/charges. Each is shared in proportion to what people had. Type a discount as a positive number.</p>
+        <?= field_error($errors, 'charges') ?>
+        <?php foreach ($chargeRows as $ci => $c): ?>
+          <div class="charge-row">
+            <select class="form-select form-select-sm<?= is_invalid($errors, "charge_$ci") ?>" name="charges[<?= $ci ?>][kind]" aria-label="Charge <?= $ci + 1 ?> type">
+              <option value="">Type…</option>
+              <?php foreach ($kinds as $k => $lbl): ?><option value="<?= $k ?>" <?= ($c['kind'] ?? '') === $k ? 'selected' : '' ?>><?= e($lbl) ?></option><?php endforeach; ?>
+            </select>
+            <input class="form-control form-control-sm" name="charges[<?= $ci ?>][label]" maxlength="60" value="<?= e((string) ($c['label'] ?? '')) ?>" placeholder="Label (optional), e.g. CGST 2.5%" aria-label="Charge <?= $ci + 1 ?> label">
+            <input class="form-control form-control-sm charge-amount<?= is_invalid($errors, "charge_$ci") ?>" name="charges[<?= $ci ?>][amount]" inputmode="decimal" value="<?= e((string) ($c['amount'] ?? '')) ?>" placeholder="0.00" aria-label="Charge <?= $ci + 1 ?> amount (₹)">
+            <?= field_error($errors, "charge_$ci") ?>
+          </div>
+        <?php endforeach; ?>
+      </fieldset>
       <div class="table-responsive mt-3" tabindex="0" role="region" aria-label="Item split preview">
       <table class="table split-table" id="itemPreview">
         <thead><tr><th scope="col">Who</th><th scope="col" class="num">Items</th><th scope="col" class="num">Tax / discount</th><th scope="col" class="num">Their part</th></tr></thead>

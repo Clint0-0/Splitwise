@@ -125,6 +125,11 @@ $r = $calc->itemized(9000, 2, [['amount' => 10000, 'users' => [1, 2, 3]]]);
 check('Itemized: ₹10 discount on ₹100 item, payer gets the odd paisa -> 30/30/30', rupees($r['shares']) === [1 => '30.00', 2 => '30.00', 3 => '30.00'] && $r['extra'] === -1000);
 $r = $calc->itemized(1000, 2, [['amount' => 1000, 'users' => [1, 2, 3]]]);
 check('Itemized: ₹10 between 3, odd paisa to payer first (333/334/333)', $r['shares'] === [1 => 333, 2 => 334, 3 => 333]);
+$r = $calc->itemized(20000, 1, [['amount' => 20000, 'users' => [1, 2], 'weights' => [1 => 300, 2 => 100]]]);
+check('Itemized: uneven units 3:1 on ₹200 naan -> 150 / 50', rupees($r['shares']) === [1 => '150.00', 2 => '50.00']);
+$r = $calc->itemized(10000, 3, [['amount' => 10000, 'users' => [1, 2, 3], 'weights' => [1 => 150, 2 => 100, 3 => 50]]]);
+check('Itemized: fractional units 1.5:1:0.5 -> 50 / 33.33 / 16.67', rupees($r['shares']) === [1 => '50.00', 2 => '33.33', 3 => '16.67']);
+check('Itemized: zero units rejected', throwsValidation(fn() => $calc->itemized(1000, 1, [['amount' => 1000, 'users' => [1], 'weights' => [1 => 0]]]), 'more than 0'));
 check('Itemized: no items rejected', throwsValidation(fn() => $calc->itemized(1000, 1, []), 'at least one item'));
 check('Itemized: item with nobody ticked rejected', throwsValidation(fn() => $calc->itemized(1000, 1, [['amount' => 1000, 'users' => []]]), 'Tick who'));
 check('Itemized: more than 50 items rejected', throwsValidation(fn() => $calc->itemized(100000, 1,
@@ -138,7 +143,8 @@ for ($i = 0; $i < 3000; $i++) {
     for ($k = 0, $n = mt_rand(1, 12); $k < $n; $k++) {
         $a = mt_rand(1, 500000);
         $sum += $a;
-        $items[] = ['amount' => $a, 'users' => array_values(array_unique(array_map(fn() => mt_rand(1, 8), range(1, mt_rand(1, 5)))))];
+        $us = array_values(array_unique(array_map(fn() => mt_rand(1, 8), range(1, mt_rand(1, 5)))));
+        $items[] = ['amount' => $a, 'users' => $us, 'weights' => array_combine($us, array_map(fn() => mt_rand(1, 999999), $us))];
     }
     $total = max(1, $sum + mt_rand(-$sum + 1, intdiv($sum, 3)));   // discount up to almost everything, or tax up to 33%
     $res = $calc->itemized($total, mt_rand(1, 8), $items);

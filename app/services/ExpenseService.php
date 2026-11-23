@@ -123,6 +123,7 @@ final class ExpenseService
                         'Someone else changed this expense while you were editing. Reload and try again.');
                 }
                 $this->expenses->deleteItems($expenseId);    // bill lines + item shares (CASCADE)
+                $this->expenses->deleteCharges($expenseId);
                 $this->expenses->deleteSplits($expenseId);   // trigger archives old splits
                 $this->writeDetails($expenseId, $data, $stored, $actor);
             });
@@ -217,8 +218,11 @@ final class ExpenseService
         foreach ($data['items'] as $line => $it) {
             $itemId = $this->expenses->addItem($expenseId, $line, $it['name'], $it['qty'], Money::fromPaise($it['amount']));
             foreach ($it['shares'] as $uid => $paise) {
-                $this->expenses->addItemShare($itemId, $expenseId, $uid, Money::fromPaise($paise));
+                $this->expenses->addItemShare($itemId, $expenseId, $uid, Money::fromPaise($paise), Money::fromPaise($it['weights'][$uid] ?? 100));
             }
+        }
+        foreach ($data['charges'] as $line => $c) {
+            $this->expenses->addCharge($expenseId, $line, $c['kind'], $c['label'], Money::fromPaise($c['amount']));
         }
         if ($data['items'] !== [] && $this->expenses->itemGap($expenseId) !== '0.00') {
             throw new \LogicException('Item share total mismatch.');   // rolls back
@@ -285,17 +289,29 @@ final class ExpenseService
 
         $split = null;
         $items = [];
+        $charges = [];
         if ($method === 'itemized' && $groupId !== null) {
             $rows = $this->parseItems((array) ($in['items'] ?? []), $v);
+            $charges = $this->parseCharges((array) ($in['charges'] ?? []), $v);
+            if (!$v->fails() && $total !== null && $charges !== []) {
+                $itemsSum = array_sum(array_column($rows, 'amount'));
+                $chargeSum = array_sum(array_column($charges, 'amount'));
+                if ($itemsSum + $chargeSum !== $total) {
+                    $v->add('charges', sprintf('Items (%s) and charges (%s) add up to %s, but the bill total is %s. Fix a line or the total.',
+                        inr(Money::fromPaise($itemsSum)), inr(Money::fromPaise($chargeSum)),
+                        inr(Money::fromPaise($itemsSum + $chargeSum)), inr(Money::fromPaise($total))));
+                }
+            }
             if (!$v->fails() && $total !== null) {
                 $res = $v->try(fn() => $this->calc->itemized($total, $payer,
-                    array_map(fn($r) => ['amount' => $r['amount'], 'users' => $r['users']], $rows)));
+                    array_map(fn($r) => ['amount' => $r['amount'], 'users' => $r['users'], 'weights' => $r['weights']], $rows)));
                 if ($res !== null) {
                     $split = ['shares' => $res['shares'],
                               'inputs' => array_fill_keys(array_keys($res['shares']), ['percentage' => null, 'units' => null, 'adjustment' => null])];
                     $line = 0;
                     foreach ($rows as $k => $r) {
-                        $items[++$line] = ['name' => $r['name'], 'qty' => $r['qty'], 'amount' => $r['amount'], 'shares' => $res['items'][$k]];
+                        $items[++$line] = ['name' => $r['name'], 'qty' => $r['qty'], 'amount' => $r['amount'],
+                                           'shares' => $res['items'][$k], 'weights' => $r['weights']];
                     }
                 }
             }
@@ -320,7 +336,51 @@ final class ExpenseService
             'inputs' => $split['inputs'],
             'tags'   => $tags,
             'items'  => $items,
+            'charges' => $charges,
         ];
+    }
+
+    public const CHARGE_KINDS = ['tax' => 'Tax / GST', 'service' => 'Service charge', 'discount' => 'Discount', 'other' => 'Other / round-off'];
+
+    /**
+     * Validate charge lines. Amounts are typed as positive numbers; a discount is stored
+     * negative; "other" (e.g. round-off) may be typed with a minus sign. Blank rows ignored.
+     * @return array<int,array{kind:string, label:string, amount:int}> keyed by line number 1..10
+     */
+    private function parseCharges(array $rows, Validator $v): array
+    {
+        $out = [];
+        $line = 0;
+        foreach ($rows as $i => $r) {
+            if (!is_array($r) || trim((string) ($r['amount'] ?? '')) === '') {
+                continue;
+            }
+            $kind = (string) ($r['kind'] ?? '');
+            if (!isset(self::CHARGE_KINDS[$kind])) {
+                $v->add("charge_$i", 'Choose what this charge is.');
+                continue;
+            }
+            $raw = str_replace('+', '', trim((string) $r['amount']));
+            $amt = $v->try(fn() => Money::parse($raw, "charge_$i", false, $kind === 'other'));
+            if ($amt === null) {
+                continue;
+            }
+            if ($amt === 0) {
+                $v->add("charge_$i", 'A charge cannot be zero.');
+                continue;
+            }
+            if ($kind === 'discount') {
+                $amt = -$amt;
+            }
+            $label = trim((string) ($r['label'] ?? ''));
+            $label = mb_substr($label !== '' ? $label : self::CHARGE_KINDS[$kind], 0, 60);
+            if (++$line > 10) {
+                $v->add('charges', 'A bill can have at most 10 charge lines.');
+                break;
+            }
+            $out[$line] = ['kind' => $kind, 'label' => $label, 'amount' => $amt];
+        }
+        return $out;
     }
 
     /** User ids ticked on any non-empty bill line (the participants of an itemized expense). */
@@ -332,6 +392,11 @@ final class ExpenseService
                 foreach ((array) ($r['who'] ?? []) as $u) {
                     if (is_string($u) && ctype_digit($u)) {
                         $ids[(int) $u] = true;
+                    }
+                }
+                foreach ((array) ($r['units'] ?? []) as $uid => $raw) {   // units typed = ticked
+                    if (is_int($uid) && preg_match('/^\d{1,6}(\.\d{1,2})?$/', trim((string) $raw)) && (float) $raw > 0) {
+                        $ids[$uid] = true;
                     }
                 }
             }
@@ -378,6 +443,28 @@ final class ExpenseService
                     $users[] = (int) $u;
                 }
             }
+            // uneven / quantity shares: units typed for a person (blank = 1); typing units ticks them
+            $weights = [];
+            $badUnits = false;
+            foreach ((array) ($r['units'] ?? []) as $uid => $raw) {
+                $raw = trim((string) $raw);
+                if ($raw === '' || !is_int($uid)) {
+                    continue;
+                }
+                $w = $v->try(fn() => Money::parseHundredths($raw, "item_$i", 999999));
+                if ($w === null || $w <= 0) {
+                    if ($w !== null && in_array($uid, $users, true)) {
+                        $v->add("item_$i", 'Units must be more than 0 (untick the person instead).');
+                    }
+                    $badUnits = $badUnits || $w === null || in_array($uid, $users, true);
+                    continue;
+                }
+                $weights[$uid] = $w;
+                $users[] = $uid;
+            }
+            if ($badUnits) {
+                continue;
+            }
             if ($users === [] && $amount !== null) {
                 $v->add("item_$i", 'Tick who had this item.');
                 continue;
@@ -385,7 +472,9 @@ final class ExpenseService
             if ($qty === null || $amount === null) {
                 continue;
             }
-            $out[$i] = ['name' => $name, 'qty' => Money::fromPaise($qty), 'amount' => $amount, 'users' => array_values(array_unique($users))];
+            $users = array_values(array_unique($users));
+            $out[$i] = ['name' => $name, 'qty' => Money::fromPaise($qty), 'amount' => $amount, 'users' => $users,
+                        'weights' => array_replace(array_fill_keys($users, 100), $weights)];
         }
         if ($out === [] && !$v->fails()) {
             $v->add('items', 'Add at least one item from the bill.');
