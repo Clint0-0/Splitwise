@@ -59,6 +59,7 @@ $router->post('/invitations/{id}/cancel',            [InvitationController::clas
 $router->get('/expenses',              [ExpenseController::class, 'index'], $auth);
 $router->get('/expenses/create',       [ExpenseController::class, 'create'], $auth);
 $router->post('/expenses',             [ExpenseController::class, 'store'], $auth);
+$router->post('/expenses/scan',        [ExpenseController::class, 'scan'], $auth);   // Phase 6: fill bill items from a photo
 $router->get('/expenses/{id}',         [ExpenseController::class, 'show'], $auth);
 $router->get('/expenses/{id}/edit',    [ExpenseController::class, 'edit'], $auth);
 $router->post('/expenses/{id}',        [ExpenseController::class, 'update'], $auth);

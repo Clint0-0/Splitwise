@@ -402,3 +402,26 @@ legend.form-label { font-size: 1rem; font-family: var(--font-body); }
   .members-table td.who { white-space: normal; }
   .members-table td.num .amount { white-space: normal; }   /* "gets back" wraps, the ₹ figure has no spaces so it stays whole */
 }
+
+/* ---- Phase 6: itemized bills ---------------------------------------- */
+.split-box-title{margin:1rem 0 .5rem}
+.item-rows{list-style:none;padding:0;margin:0 0 .75rem;counter-reset:item}
+.item-row{border:1px solid var(--lavender,#E6E0F5);border-radius:.6rem;padding:.6rem .75rem;margin-bottom:.6rem;background:#fff;counter-increment:item;position:relative}
+.item-fields{display:grid;grid-template-columns:1fr 4.5rem 7.5rem;gap:.5rem}
+.item-fields .form-label{margin-bottom:.15rem}
+.item-who{display:flex;flex-wrap:wrap;gap:.35rem;margin-top:.5rem;min-width:0}
+.item-who .btn{border-radius:999px;padding:.15rem .65rem}
+.items-table td.who{white-space:normal}
+@media (max-width:575.98px){
+  .item-fields{grid-template-columns:1fr 1fr}
+  .item-fields .item-name{grid-column:1/-1}
+}
+[hidden]{display:none!important}
+
+/* ---- Phase 6: Pay with UPI ------------------------------------------ */
+.upi-pay{border-color:var(--violet,#4B3A9C)}
+.upi-body{display:flex;gap:1rem;align-items:center;flex-wrap:wrap}
+#upiQr{width:176px;height:176px;border:1px solid var(--lavender,#E6E0F5);border-radius:.5rem;background:#fff;image-rendering:pixelated}
+.scan-box{border:1px dashed var(--violet,#4B3A9C);border-radius:.6rem;padding:.75rem;margin-bottom:.9rem;background:var(--paper,#F5F3FA)}
+.scan-row{display:flex;gap:.5rem;flex-wrap:wrap}
+.scan-row .form-control{flex:1 1 14rem;min-width:0}

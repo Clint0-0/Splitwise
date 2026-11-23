@@ -1,7 +1,7 @@
 <?php
 $id = (int) $e['expense_id'];
 $deleted = (int) $e['is_deleted'] === 1;
-$labels = ['equal' => 'Split equally', 'percentage' => 'Split by percentage', 'exact' => 'Split by exact amounts', 'shares' => 'Split by shares', 'adjustment' => 'Split equally with adjustments'];
+$labels = ['equal' => 'Split equally', 'percentage' => 'Split by percentage', 'exact' => 'Split by exact amounts', 'shares' => 'Split by shares', 'adjustment' => 'Split equally with adjustments', 'itemized' => 'Split by item'];
 $verbs = ['INSERT' => 'Added', 'UPDATE' => 'Edited', 'SOFT_DELETE' => 'Deleted', 'RESTORE' => 'Restored', 'DELETE' => 'Removed'];
 ?>
 <div class="page-head">
@@ -38,6 +38,7 @@ $verbs = ['INSERT' => 'Added', 'UPDATE' => 'Edited', 'SOFT_DELETE' => 'Deleted',
           <?php if ($e['split_method'] === 'percentage'): ?><th scope="col" class="num">Percent</th><?php endif; ?>
           <?php if ($e['split_method'] === 'shares'): ?><th scope="col" class="num">Shares</th><?php endif; ?>
           <?php if ($e['split_method'] === 'adjustment'): ?><th scope="col" class="num">Adjustment</th><?php endif; ?>
+          <?php if ($e['split_method'] === 'itemized'): ?><th scope="col" class="num">Items</th><th scope="col" class="num">Tax / discount</th><?php endif; ?>
           <th scope="col" class="num">Their part</th></tr></thead>
         <tbody>
         <?php foreach ($splits as $s): $isPayer = (int) $s['user_id'] === (int) $e['paid_by']; ?>
@@ -46,12 +47,41 @@ $verbs = ['INSERT' => 'Added', 'UPDATE' => 'Edited', 'SOFT_DELETE' => 'Deleted',
             <?php if ($e['split_method'] === 'percentage'): ?><td class="num"><?= e(rtrim(rtrim((string) $s['share_percentage'], '0'), '.')) ?>%</td><?php endif; ?>
             <?php if ($e['split_method'] === 'shares'): ?><td class="num"><?= e(rtrim(rtrim((string) $s['share_units'], '0'), '.')) ?></td><?php endif; ?>
             <?php if ($e['split_method'] === 'adjustment'): ?><td class="num"><?= e(inr($s['share_adjustment'] ?? '0')) ?></td><?php endif; ?>
+            <?php if ($e['split_method'] === 'itemized'): $a = $itemAlloc[(int) $s['user_id']] ?? null; ?>
+              <td class="num"><?= e(inr($a['items_subtotal'] ?? '0')) ?></td><td class="num"><?= e(inr($a['extras_share'] ?? '0')) ?></td><?php endif; ?>
             <td class="num fw-semibold"><?= e(inr($s['share_amount'])) ?></td>
           </tr>
         <?php endforeach; ?>
         </tbody>
       </table>
       </div>
+      <?php if ($items):
+          $names = array_column($splits, 'full_name', 'user_id');
+          $itemsSum = array_sum(array_map(fn($it) => App\Helpers\Money::toPaise((string) $it['amount']), $items));
+          $extra = App\Helpers\Money::toPaise((string) $e['total_amount']) - $itemsSum; ?>
+        <h2 class="h6 mt-4" id="items-h">Bill items</h2>
+        <div class="table-responsive" tabindex="0" role="region" aria-labelledby="items-h">
+        <table class="table items-table">
+          <thead><tr><th scope="col">Item</th><th scope="col">Who had it</th><th scope="col" class="num">Amount</th></tr></thead>
+          <tbody>
+          <?php foreach ($items as $it): ?>
+            <tr>
+              <td class="who"><?= e($it['name']) ?><?php if ((float) $it['quantity'] !== 1.0): ?> <span class="note">× <?= e(rtrim(rtrim((string) $it['quantity'], '0'), '.')) ?></span><?php endif; ?></td>
+              <td class="who small"><?= e(implode(', ', array_map(fn($u) => $names[$u] ?? '?', array_keys($it['users'])))) ?></td>
+              <td class="num"><?= e(inr($it['amount'])) ?></td>
+            </tr>
+          <?php endforeach; ?>
+          </tbody>
+          <tfoot>
+            <tr><th scope="row" colspan="2">Items total</th><td class="num"><?= e(inr(App\Helpers\Money::fromPaise($itemsSum))) ?></td></tr>
+            <?php if ($extra !== 0): ?>
+            <tr><th scope="row" colspan="2"><?= $extra > 0 ? 'Tax / service charge' : 'Discount' ?> <span class="note">(shared by what each person had)</span></th>
+              <td class="num"><?= e(inr(App\Helpers\Money::fromPaise($extra))) ?></td></tr>
+            <?php endif; ?>
+          </tfoot>
+        </table>
+        </div>
+      <?php endif; ?>
       <?php if ($e['notes']): ?><p class="mt-3 mb-0"><strong>Notes:</strong> <?= nl2br(e($e['notes'])) ?></p><?php endif; ?>
       <?php if ($tags): ?><p class="mt-2 mb-0"><?php foreach ($tags as $t): ?>
         <a class="pill pill-admin text-decoration-none" href="<?= e(url('/expenses?tag=' . rawurlencode($t))) ?>">#<?= e($t) ?></a>

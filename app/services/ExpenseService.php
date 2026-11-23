@@ -122,6 +122,7 @@ final class ExpenseService
                     throw ValidationException::single('version',
                         'Someone else changed this expense while you were editing. Reload and try again.');
                 }
+                $this->expenses->deleteItems($expenseId);    // bill lines + item shares (CASCADE)
                 $this->expenses->deleteSplits($expenseId);   // trigger archives old splits
                 $this->writeDetails($expenseId, $data, $stored, $actor);
             });
@@ -211,6 +212,17 @@ final class ExpenseService
         if ($this->expenses->splitGap($expenseId) !== '0.00') {
             throw new \LogicException('Split total mismatch.');   // rolls back
         }
+        // itemized bill: lines after the splits, because item shares reference
+        // expense_splits (expense_id, user_id) through a composite FK
+        foreach ($data['items'] as $line => $it) {
+            $itemId = $this->expenses->addItem($expenseId, $line, $it['name'], $it['qty'], Money::fromPaise($it['amount']));
+            foreach ($it['shares'] as $uid => $paise) {
+                $this->expenses->addItemShare($itemId, $expenseId, $uid, Money::fromPaise($paise));
+            }
+        }
+        if ($data['items'] !== [] && $this->expenses->itemGap($expenseId) !== '0.00') {
+            throw new \LogicException('Item share total mismatch.');   // rolls back
+        }
         $this->expenses->setTags($expenseId, $data['tags']);
         if ($stored) {
             $this->expenses->addReceipt($expenseId, $stored['path'], $stored['original'], $stored['mime'], $stored['size'], $actor, $stored['content']);
@@ -251,8 +263,10 @@ final class ExpenseService
             if (!in_array($payer, $members, true)) {
                 $v->add('paid_by', 'The payer must be an active group member.');
             }
-            $participants = array_values(array_unique(array_map('intval', (array) ($in['participants'] ?? []))));
-            if ($participants === []) {
+            $participants = $method === 'itemized'
+                ? $this->itemParticipants((array) ($in['items'] ?? []))
+                : array_values(array_unique(array_map('intval', (array) ($in['participants'] ?? []))));
+            if ($participants === [] && $method !== 'itemized') {
                 $v->add('participants', 'Select at least one participant.');
             } elseif (array_diff($participants, $members) !== []) {
                 $v->add('participants', 'Every participant must be an active group member.');
@@ -270,7 +284,22 @@ final class ExpenseService
         $tags = array_slice(array_values(array_unique($tags)), 0, 10);
 
         $split = null;
-        if (!$v->fails() && $total !== null) {
+        $items = [];
+        if ($method === 'itemized' && $groupId !== null) {
+            $rows = $this->parseItems((array) ($in['items'] ?? []), $v);
+            if (!$v->fails() && $total !== null) {
+                $res = $v->try(fn() => $this->calc->itemized($total, $payer,
+                    array_map(fn($r) => ['amount' => $r['amount'], 'users' => $r['users']], $rows)));
+                if ($res !== null) {
+                    $split = ['shares' => $res['shares'],
+                              'inputs' => array_fill_keys(array_keys($res['shares']), ['percentage' => null, 'units' => null, 'adjustment' => null])];
+                    $line = 0;
+                    foreach ($rows as $k => $r) {
+                        $items[++$line] = ['name' => $r['name'], 'qty' => $r['qty'], 'amount' => $r['amount'], 'shares' => $res['items'][$k]];
+                    }
+                }
+            }
+        } elseif (!$v->fails() && $total !== null) {
             $shareIn = (array) ($in['share'] ?? []);
             $inputs = [];
             foreach ($participants as $uid) {
@@ -290,7 +319,77 @@ final class ExpenseService
             'shares' => $split['shares'],
             'inputs' => $split['inputs'],
             'tags'   => $tags,
+            'items'  => $items,
         ];
+    }
+
+    /** User ids ticked on any non-empty bill line (the participants of an itemized expense). */
+    private function itemParticipants(array $rows): array
+    {
+        $ids = [];
+        foreach ($rows as $r) {
+            if (is_array($r) && !$this->blankItem($r)) {
+                foreach ((array) ($r['who'] ?? []) as $u) {
+                    if (is_string($u) && ctype_digit($u)) {
+                        $ids[(int) $u] = true;
+                    }
+                }
+            }
+        }
+        return array_keys($ids);
+    }
+
+    private function blankItem(array $r): bool
+    {
+        return trim((string) ($r['name'] ?? '')) === '' && trim((string) ($r['amount'] ?? '')) === '';
+    }
+
+    /**
+     * Validate bill lines. Errors are keyed item_<row index> so the form can show them on
+     * the right row. Fully blank rows (no name, no amount) are ignored.
+     * @return array<int,array{name:string, qty:string, amount:int, users:list<int>}>
+     */
+    private function parseItems(array $rows, Validator $v): array
+    {
+        $out = [];
+        foreach ($rows as $i => $r) {
+            if (!is_array($r) || $this->blankItem($r)) {
+                continue;
+            }
+            $name = trim((string) ($r['name'] ?? ''));
+            if ($name === '' || mb_strlen($name) > 80) {
+                $v->add("item_$i", $name === '' ? 'Give this item a name.' : 'Item names can be at most 80 characters.');
+                continue;
+            }
+            $qtyRaw = trim((string) ($r['qty'] ?? ''));
+            $qty = $v->try(fn() => Money::parseHundredths($qtyRaw === '' ? '1' : $qtyRaw, "item_$i", 9999999));
+            if ($qty !== null && $qty <= 0) {
+                $v->add("item_$i", 'Quantity must be more than 0.');
+                continue;
+            }
+            $amount = $v->try(fn() => Money::parse((string) ($r['amount'] ?? ''), "item_$i"));
+            $users = [];
+            foreach ((array) ($r['who'] ?? []) as $u) {
+                if (is_string($u) && ctype_digit($u)) {
+                    $users[] = (int) $u;
+                }
+            }
+            if ($users === [] && $amount !== null) {
+                $v->add("item_$i", 'Tick who had this item.');
+                continue;
+            }
+            if ($qty === null || $amount === null) {
+                continue;
+            }
+            $out[$i] = ['name' => $name, 'qty' => Money::fromPaise($qty), 'amount' => $amount, 'users' => array_values(array_unique($users))];
+        }
+        if ($out === [] && !$v->fails()) {
+            $v->add('items', 'Add at least one item from the bill.');
+        }
+        if (count($out) > SplitCalculator::MAX_ITEMS) {
+            $v->add('items', 'A bill can have at most ' . SplitCalculator::MAX_ITEMS . ' items.');
+        }
+        return $out;
     }
 
     /** Turn trigger SIGNALs into form errors; let everything else bubble up. */

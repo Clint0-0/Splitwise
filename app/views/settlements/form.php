@@ -1,4 +1,13 @@
-<?php $gid = (int) $group['group_id']; $active = array_filter($members, fn($m) => $m['status'] === 'active'); ?>
+<?php $gid = (int) $group['group_id']; $active = array_filter($members, fn($m) => $m['status'] === 'active');
+// "Pay with UPI": only when YOU are paying someone who has a UPI ID (Phase 6)
+$payerSel = (int) old($old, 'payer_id', $prefill['payer_id']);
+$payeeSel = (int) old($old, 'payee_id', $prefill['payee_id']);
+$amtSel   = (string) old($old, 'amount', $prefill['amount']);
+$amtPaise = preg_match('/^\d{1,10}(\.\d{1,2})?$/', $amtSel) ? App\Helpers\Money::toPaise($amtSel) : 0;
+$names    = array_column($members, 'full_name', 'user_id');
+$upiNote  = 'SplitWise ' . $group['name'];
+$upiHref  = $payerSel === $uid && isset($upi[$payeeSel])
+    ? App\Services\UpiLink::build($upi[$payeeSel], (string) ($names[$payeeSel] ?? ''), $amtPaise, $upiNote) : null; ?>
 <div class="page-head">
   <div>
     <h1 class="page-title">Record a payment</h1>
@@ -28,7 +37,7 @@
           <select class="form-select<?= is_invalid($errors, 'payee_id') ?>" id="payee_id" name="payee_id">
             <option value="">Choose…</option>
             <?php foreach ($active as $m): ?>
-              <option value="<?= (int) $m['user_id'] ?>" <?= (int) old($old, 'payee_id', $prefill['payee_id']) === (int) $m['user_id'] ? 'selected' : '' ?>><?= e($m['full_name']) ?><?= (int) $m['user_id'] === $uid ? ' (you)' : '' ?></option>
+              <option value="<?= (int) $m['user_id'] ?>" <?= isset($upi[(int) $m['user_id']]) ? 'data-upi="' . e($upi[(int) $m['user_id']]) . '"' : '' ?> <?= (int) old($old, 'payee_id', $prefill['payee_id']) === (int) $m['user_id'] ? 'selected' : '' ?>><?= e($m['full_name']) ?><?= (int) $m['user_id'] === $uid ? ' (you)' : '' ?></option>
             <?php endforeach; ?>
           </select>
           <?= field_error($errors, 'payee_id') ?>
@@ -63,6 +72,19 @@
   </section>
 
   <div class="stack">
+    <section class="panel upi-pay" id="upiPay" aria-labelledby="upi-h" data-uid="<?= $uid ?>" data-note="<?= e($upiNote) ?>"<?= $upiHref === null ? ' hidden' : '' ?>>
+      <h2 id="upi-h"><i class="bi bi-phone" aria-hidden="true"></i> Pay with UPI</h2>
+      <p class="mb-2" id="upiWho"><?php if ($upiHref !== null): ?>Pay <strong><?= e($names[$payeeSel] ?? '') ?></strong> <?= e(inr(App\Helpers\Money::fromPaise($amtPaise))) ?> at <span class="font-monospace"><?= e($upi[$payeeSel]) ?></span><?php endif; ?></p>
+      <div class="upi-body">
+        <canvas id="upiQr" width="176" height="176" role="img" aria-label="QR code to pay with any UPI app"></canvas>
+        <div>
+          <a class="btn btn-settle" id="upiLink" href="<?= e($upiHref ?? '#') ?>"><i class="bi bi-box-arrow-up-right" aria-hidden="true"></i> Open UPI app</a>
+          <p class="note mt-2 mb-0">On a phone, tap the button. On a computer, scan the code with GPay, PhonePe, Paytm or BHIM.</p>
+        </div>
+      </div>
+      <p class="note mt-3 mb-0">The money goes straight from your bank to theirs; SplitWise+ never touches it and can't see whether it went through.
+        After paying, press <strong>Record payment</strong>. It counts once they confirm it.</p>
+    </section>
     <section class="section" aria-labelledby="sug-h">
       <h2 id="sug-h">Suggested payments</h2>
       <?php if (!$suggestions): ?><div class="empty"><p>Everyone is settled up.</p></div><?php endif; ?>

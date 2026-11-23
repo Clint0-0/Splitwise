@@ -392,6 +392,14 @@ The spec's "Expense Participants" and "Expense Splits" are merged: a participant
 - `app_kv(kv_key VARCHAR(100) PK, kv_value VARCHAR(255), expires_at INT UNSIGNED NULL, INDEX(expires_at))` — login-throttle counters (hashed keys) and the mock-mail cursor.
 No foreign keys (sessions exist before login; counters are keyed by hashes). The 14-table business design is unchanged; total base tables = 16.
 
+### Phase 6 additions
+- `users.upi_id VARCHAR(100) NULL` + `chk_users_upi_id` (`^[A-Za-z0-9._-]{2,64}@[A-Za-z][A-Za-z0-9]{1,63}$`). Shown only to co-members on the settle page.
+- `expenses.split_method` gains `'itemized'`.
+- `expense_items(item_id PK, expense_id FK → expenses CASCADE, line_no TINYINT 1..50, name VARCHAR(80), quantity DECIMAL(7,2) > 0, amount DECIMAL(12,2) > 0)`, `UNIQUE(expense_id, line_no)`, `UNIQUE(item_id, expense_id)`.
+- `expense_item_shares(item_id, expense_id, user_id, share_amount DECIMAL(12,2) >= 0, PK(item_id, user_id))` with composite FKs `(item_id, expense_id)` → `expense_items` CASCADE and `(expense_id, user_id)` → `expense_splits` CASCADE.
+- View `v_expense_item_allocation(expense_id, user_id, items_subtotal, extras_share, share_amount, item_count)`.
+- 3NF check: `amount` is the line total as printed (quantity is descriptive, so no derived `qty × price` is stored); tax/discount is not stored (derived from `expenses.total_amount − Σ amount`). Total base tables = 18.
+
 ### 4.12 `tags` / 4.13 `expense_tags`
 `tags(tag_id PK, name VARCHAR(30) NOT NULL UNIQUE)` — lower-case labels like `goa-2026`, `office`.
 `expense_tags(expense_id FK CASCADE, tag_id FK CASCADE, PRIMARY KEY(expense_id, tag_id), INDEX(tag_id))`.

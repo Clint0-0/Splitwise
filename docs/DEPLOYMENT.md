@@ -152,6 +152,10 @@ Dockerfile, never in Git, never in browser JavaScript. Do not paste them into ch
 | `DB_SSL_VERIFY` | `true` | no | keep `true` in production |
 | `DB_CONNECT_TIMEOUT` | `5` | no | seconds |
 | `SESSION_LIFETIME` | `7200` | no | idle timeout, seconds |
+| `SCAN_PROVIDER` | `off` or `anthropic` | no | bill scanning (Phase 6). `mock` is refused when `APP_ENV=production` |
+| `SCAN_API_KEY` | (secret) | **yes** if `SCAN_PROVIDER=anthropic` | enter in the host's secret settings only; never in git, the image or chat |
+| `SCAN_MODEL` | empty | no | override the vision model |
+| `SCAN_DAILY_LIMIT` | `20` | no | scans per user per day |
 | `UPLOAD_MAX_BYTES` | `5242880` | no | can only lower the limit (5 MB is also a database CHECK); lower it to the platform body limit if needed |
 
 `DB_PASS` (old name) is still accepted. Real environment variables always override a `.env` file.

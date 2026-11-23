@@ -76,11 +76,32 @@ final class Request
     {
         $out = [];
         foreach ($_POST as $k => $v) {
-            if (is_array($v)) {
+            if ($k === 'items' && is_array($v)) {
+                $out[$k] = self::items($v);
+            } elseif (is_array($v)) {
                 $out[$k] = in_array($k, self::ARRAY_FIELDS, true) ? array_filter($v, 'is_string') : '';
             } else {
                 $out[$k] = $v;
             }
+        }
+        return $out;
+    }
+
+    /**
+     * Itemized bill rows: items[n][name|qty|amount] (strings) and items[n][who][] (user ids).
+     * Anything else is dropped; at most 60 rows are kept (the service rejects > 50).
+     * @return array<int,array{name:string, qty:string, amount:string, who:list<string>}> (row keys kept, so errors map back)
+     */
+    private static function items(array $rows): array
+    {
+        $out = [];
+        foreach (array_slice($rows, 0, 60, true) as $k => $row) {
+            if (!is_array($row) || !is_int($k) || $k < 0 || $k > 999) {
+                continue;
+            }
+            $str = static fn(string $f): string => isset($row[$f]) && is_string($row[$f]) ? $row[$f] : '';
+            $who = isset($row['who']) && is_array($row['who']) ? array_values(array_filter($row['who'], 'is_string')) : [];
+            $out[$k] = ['name' => $str('name'), 'qty' => $str('qty'), 'amount' => $str('amount'), 'who' => $who];
         }
         return $out;
     }

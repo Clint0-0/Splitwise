@@ -91,6 +91,13 @@ Phase 2 acceptance criteria: tables create ✓ · FKs work ✓ · constraints re
 | 12 | `experiments/12_candidate_management/` — requirements, ER, 3NF, schema, PHP/PDO CRUD app | ✓ executed locally, 31/31, axe 0, real screenshots |
 | — | Lab manuals (`Experiment_No_10/11/12_NEP.docx`) received 2026-11-18 and reconciled: Exp 10 gained the manual's own examples, exact PROGRAM statements and post-lab answers; Exp 11 and 12 already matched | ✓ |
 
+## Phase 6 — Production features (branch `feature/phase-6`, base tag `v1.0-submission`)
+- ✅ 6.1 Split by item (schema, calculator, form + live preview, expense page, migration, tests).
+- ✅ 6.2 Pay with UPI (profile field, deep link + QR, receiver confirms; no gateway).
+- ✅ 6.3 Bill scanning behind `SCAN_PROVIDER` (mock + Anthropic vision provider; request/response checked against a local fake API). **Not run against the real API** (no key in this environment).
+- ⛔ 6.4 Real deployment + real e-mail: needs the owner's hosting / managed MySQL / e-mail accounts.
+- Tests: unit 75, DB 86, functional 142, scenarios 23, deployment 30; axe 0 violations incl. itemized and UPI pages.
+
 ## Notes for Phase 5 (testing) — kept for reference
 - Phase 3/4 suites are automated; Phase 5 adds the financial scenario walk-throughs, manual cross-browser check on a team laptop (Windows + XAMPP + MySQL 8.0), and the final regression run.
 
@@ -115,7 +122,7 @@ Phase 2 acceptance criteria: tables create ✓ · FKs work ✓ · constraints re
 | 4 Frontend | visual design of the 16 working screens, responsiveness, accessibility | M2 | ✅ done (review pending) |
 | 5 Testing | financial scenarios, security, regression | all | ✅ done; laptop checklist pending |
 | 5.5 UI + deploy prep | UI refinement, Docker/FrankenPHP, MySQL-backed state, deployment docs/tests | M2 (UI), M3 (deploy), M1 (hosted DB) | 🟡 local done; real deployment blocked |
-| 6 Docs & viva | report, setup guide, slides, viva Q&A | M3 coordinates | — |
+| 6 Production features | itemized bills, UPI links, bill scan, (deploy + e-mail) | all | 🟡 6.1–6.3 done on branch; 6.4 blocked on accounts |
 
 ## Team allocation
 | Member | Owns | Also |

@@ -10,6 +10,7 @@ use App\Core\ValidationException;
 use App\Models\CategoryModel;
 use App\Models\ExpenseModel;
 use App\Models\GroupModel;
+use App\Services\BillScanner;
 use App\Services\ExpenseService;
 use App\Services\GroupService;
 use App\Services\SplitCalculator;
@@ -80,6 +81,8 @@ final class ExpenseController extends Controller
             'title'    => $e['description'],
             'e'        => $e,
             'splits'   => $model->splits($id),
+            'items'    => $e['split_method'] === 'itemized' ? $model->items($id) : [],
+            'itemAlloc'=> $e['split_method'] === 'itemized' ? array_column($model->itemAllocation($id), null, 'user_id') : [],
             'tags'     => $model->tags($id),
             'receipts' => $model->receipts($id),
             'history'  => $model->history($id),
@@ -140,6 +143,51 @@ final class ExpenseController extends Controller
         $this->redirect("/expenses/$id");
     }
 
+    /**
+     * Phase 6: read a bill photo and send the person back to the SAME form with the
+     * lines filled in (nothing is saved here). Posted by the "Read items" button of the
+     * expense form, so every field already typed is kept.
+     */
+    public function scan(): void
+    {
+        $uid = Auth::requireId();
+        $expenseId = $this->request->queryInt('expense', 0);
+        $input = $this->request->allPost();
+        if ($expenseId > 0) {
+            $service = new ExpenseService();
+            $e = $service->requireViewable($expenseId, $uid);
+            if ((int) $e['is_deleted'] === 1 || !$service->canEdit($e, $uid)) {
+                throw new HttpException(403, 'You cannot edit this expense.');
+            }
+            $back = "/expenses/$expenseId/edit";
+        } else {
+            $g = (string) ($input['group_id'] ?? '');
+            $back = '/expenses/create' . (ctype_digit($g) ? '?group=' . (int) $g : '');
+            if (ctype_digit($g)) {
+                (new GroupService())->requireMember((int) $g, $uid);
+            }
+        }
+        try {
+            $bill = (new BillScanner())->scan($uid, $this->request->file('bill') ?? []);
+        } catch (ValidationException $ex) {
+            \App\Core\Session::flashInput($input, $ex->errors);
+            \App\Core\Session::flash('danger', $ex->errors['bill'] ?? 'Could not read the bill.');
+            $this->redirect($back);
+        }
+        $input['split_method'] = 'itemized';
+        $input['items'] = array_map(fn($it) => $it + ['who' => []], $bill['items']);
+        if (trim((string) ($input['total_amount'] ?? '')) === '' && $bill['total'] !== null) {
+            $input['total_amount'] = $bill['total'];
+        }
+        if (trim((string) ($input['description'] ?? '')) === '' && $bill['merchant'] !== '') {
+            $input['description'] = mb_substr($bill['merchant'], 0, 120);
+        }
+        \App\Core\Session::flashInput($input, []);
+        $n = count($bill['items']);
+        \App\Core\Session::flash('success', "Read $n item" . ($n === 1 ? '' : 's') . ' from the bill. Check them against the bill, tick who had each, then save.');
+        $this->redirect($back);
+    }
+
     /** Serve a receipt only to someone allowed to see its expense. */
     public function receipt(int $id): void
     {
@@ -166,10 +214,12 @@ final class ExpenseController extends Controller
             'members'    => $group ? array_values(array_filter((new GroupModel())->members((int) $group['group_id']),
                                 fn($m) => $m['status'] === 'active')) : [],
             'splits'     => $e ? array_column($model->splits((int) $e['expense_id']), null, 'user_id') : [],
+            'items'      => $e && $e['split_method'] === 'itemized' ? $model->items((int) $e['expense_id']) : [],
             'tags'       => $e ? implode(', ', $model->tags((int) $e['expense_id'])) : '',
             'groups'     => array_filter((new GroupModel())->forUser($uid), fn($g) => (int) $g['is_archived'] === 0),
             'categories' => (new CategoryModel())->allActive(),
             'methods'    => SplitCalculator::METHODS,
+            'scanOn'     => BillScanner::enabled(),
             'uid'        => $uid,
             'scripts'    => ['js/expense-form.js'],
         ]);

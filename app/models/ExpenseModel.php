@@ -38,6 +38,57 @@ final class ExpenseModel extends Model
         $this->run('DELETE FROM expense_splits WHERE expense_id = ?', [$expenseId]);
     }
 
+    // --- itemized bills (Phase 6) ----------------------------------------
+    /** Delete bill lines; their item shares go with them (ON DELETE CASCADE). */
+    public function deleteItems(int $expenseId): void
+    {
+        $this->run('DELETE FROM expense_items WHERE expense_id = ?', [$expenseId]);
+    }
+
+    public function addItem(int $expenseId, int $lineNo, string $name, string $qty, string $amount): int
+    {
+        return $this->insert('INSERT INTO expense_items (expense_id, line_no, name, quantity, amount) VALUES (?, ?, ?, ?, ?)',
+            [$expenseId, $lineNo, $name, $qty, $amount]);
+    }
+
+    public function addItemShare(int $itemId, int $expenseId, int $userId, string $amount): void
+    {
+        $this->run('INSERT INTO expense_item_shares (item_id, expense_id, user_id, share_amount) VALUES (?, ?, ?, ?)',
+            [$itemId, $expenseId, $userId, $amount]);
+    }
+
+    /** Bill lines with who shares each: [{item_id, line_no, name, quantity, amount, users: [uid => amount]}]. */
+    public function items(int $expenseId): array
+    {
+        $items = [];
+        foreach ($this->all('SELECT item_id, line_no, name, quantity, amount FROM expense_items
+                              WHERE expense_id = ? ORDER BY line_no', [$expenseId]) as $r) {
+            $items[(int) $r['item_id']] = $r + ['users' => []];
+        }
+        if ($items !== []) {
+            foreach ($this->all('SELECT sh.item_id, sh.user_id, sh.share_amount FROM expense_item_shares sh
+                                  WHERE sh.expense_id = ?', [$expenseId]) as $r) {
+                $items[(int) $r['item_id']]['users'][(int) $r['user_id']] = $r['share_amount'];
+            }
+        }
+        return array_values($items);
+    }
+
+    /** Per person: items subtotal, tax/discount part, total (view v_expense_item_allocation). */
+    public function itemAllocation(int $expenseId): array
+    {
+        return $this->all('SELECT user_id, full_name, items_subtotal, extras_share, share_amount, item_count
+                             FROM v_expense_item_allocation WHERE expense_id = ? ORDER BY full_name', [$expenseId]);
+    }
+
+    /** Σ item amounts − Σ item shares for this expense; must be 0.00. */
+    public function itemGap(int $expenseId): string
+    {
+        return (string) $this->value('SELECT COALESCE((SELECT SUM(amount) FROM expense_items WHERE expense_id = ?), 0)
+                                           - COALESCE((SELECT SUM(share_amount) FROM expense_item_shares WHERE expense_id = ?), 0)',
+            [$expenseId, $expenseId]);
+    }
+
     public function splitGap(int $expenseId): string
     {
         return (string) $this->value('SELECT fn_expense_split_gap(?)', [$expenseId]);

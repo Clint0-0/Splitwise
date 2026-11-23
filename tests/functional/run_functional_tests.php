@@ -80,6 +80,13 @@ final class Browser
         return str_contains($this->body, $text);
     }
 
+    /** Value of an input on the current page, by name ('' if absent). */
+    public function field(string $name): string
+    {
+        return preg_match('/name="' . preg_quote($name, '/') . '"[^>]*\svalue="([^"]*)"/', $this->body, $m)
+            ? html_entity_decode($m[1], ENT_QUOTES) : '';
+    }
+
     /** Value of a response header of the last request ('' if absent). */
     public function header(string $name): string
     {
@@ -366,6 +373,122 @@ $aarav->post("/expenses/$eX/restore");
 check('E25', 'Group admin restores a deleted expense', (int) $val('SELECT is_deleted FROM expenses WHERE expense_id=?', [$eX]) === 0);
 $aarav->get("/expenses/$eX");
 $aarav->post("/expenses/$eX/delete");
+
+// ======================================================================= itemized bills (Phase 6)
+$bill = ['group_id' => $gid, 'description' => 'Itemized dinner', 'total_amount' => '704', 'category_id' => '2',
+    'expense_date' => $today, 'paid_by' => '2', 'split_method' => 'itemized', 'participants' => [2],
+    'items' => [
+        ['name' => 'Paneer tikka', 'qty' => '1', 'amount' => '300', 'who' => ['2', '3']],
+        ['name' => 'Biryani', 'qty' => '', 'amount' => '250', 'who' => ['3']],
+        ['name' => 'Lassi', 'qty' => '3', 'amount' => '90', 'who' => ['2', '3', (string) $tid]],
+        ['name' => '', 'qty' => '', 'amount' => '', 'who' => []],   // blank row from the form: ignored
+    ]];
+$aarav->get("/expenses/create?group=$gid");
+$aarav->post('/expenses', $bill);
+$eI = (int) $val("SELECT expense_id FROM expenses WHERE description='Itemized dinner'");
+check('IT1', 'Itemized bill: shared + solo items, ₹64 tax spread by subtotal -> 198 / 473 / 33 (participants from items, not checkboxes)',
+    $eI > 0 && $val("SELECT GROUP_CONCAT(share_amount ORDER BY FIELD(user_id, 2, 3, $tid)) FROM expense_splits WHERE expense_id=?", [$eI]) === '198.00,473.00,33.00'
+    && (int) $val('SELECT COUNT(*) FROM expense_items WHERE expense_id=?', [$eI]) === 3
+    && (int) $val('SELECT COUNT(*) FROM expense_item_shares WHERE expense_id=?', [$eI]) === 6
+    && $val("SELECT quantity FROM expense_items WHERE expense_id=? AND name='Biryani'", [$eI]) === '1.00');
+$aarav->get("/expenses/$eI");
+check('IT2', 'Expense page lists the bill items, who had each, and the shared tax',
+    str_contains($tx = text($aarav->body), 'Bill items') && str_contains($tx, 'Paneer tikka') && str_contains($tx, 'Tax / service charge') && str_contains($tx, '₹64.00'));
+$aarav->get("/expenses/$eI/edit");
+check('IT3', 'Edit form is pre-filled with the saved items and "By item" selected',
+    $aarav->field('items[2][name]') === 'Lassi' && preg_match('/id="m_itemized"[^>]*checked/', $aarav->body) === 1);
+$aarav->get("/expenses/create?group=$gid");
+$bad = $bill; $bad['description'] = 'Itemized bad'; $bad['items'][1]['who'] = [];
+$aarav->post('/expenses', $bad)->follow();
+check('IT4', 'Item nobody ticked: shown on that row, nothing saved, typed rows kept',
+    $aarav->has('Tick who had this item.') && $aarav->field('items[1][name]') === 'Biryani'
+    && (int) $val("SELECT COUNT(*) FROM expenses WHERE description='Itemized bad'") === 0);
+$bad = $bill; $bad['description'] = 'Itemized outsider'; $bad['items'][0]['who'] = ['2', '9'];
+$aarav->post('/expenses', $bad)->follow();
+check('IT5', 'Item shared with a non-member is rejected',
+    $aarav->has('Every participant must be an active group member') && (int) $val("SELECT COUNT(*) FROM expenses WHERE description='Itemized outsider'") === 0);
+$bad = $bill; $bad['description'] = 'Itemized huge discount'; $bad['total_amount'] = '0.5'; $bad['items'] = [['name' => 'A', 'qty' => '', 'amount' => '100', 'who' => ['2']]];
+$aarav->post('/expenses', $bad);
+check('IT6', 'Bill total far below the items (big discount) still splits without negatives',
+    (int) $val("SELECT COUNT(*) FROM expense_splits s JOIN expenses e USING (expense_id) WHERE e.description='Itemized huge discount' AND s.share_amount = 0.50") === 1);
+$aarav->get("/expenses/$eI/edit");
+$aarav->post("/expenses/$eI", ['description' => 'Itemized dinner', 'total_amount' => '704', 'category_id' => '2', 'expense_date' => $today,
+    'paid_by' => '2', 'split_method' => 'equal', 'participants' => [2, 3], 'version' => $aarav->field('version')]);
+check('IT7', 'Switching an itemized bill to "Equally" removes its items and item shares',
+    $val('SELECT split_method FROM expenses WHERE expense_id=?', [$eI]) === 'equal'
+    && (int) $val('SELECT COUNT(*) FROM expense_items WHERE expense_id=?', [$eI]) === 0
+    && (int) $val('SELECT COUNT(*) FROM expense_item_shares WHERE expense_id=?', [$eI]) === 0
+    && $val('SELECT GROUP_CONCAT(share_amount) FROM expense_splits WHERE expense_id=?', [$eI]) === '352.00,352.00');
+$aarav->get('/expenses/create');
+$aarav->post('/expenses', ['group_id' => '', 'description' => 'Personal itemized', 'total_amount' => '50', 'category_id' => '2',
+    'expense_date' => $today, 'split_method' => 'itemized', 'items' => [['name' => 'X', 'qty' => '', 'amount' => '50', 'who' => ['3']]]]);
+check('IT8', 'Personal expense ignores "By item" (stays equal, only the owner, no items saved)',
+    $val("SELECT split_method FROM expenses WHERE description='Personal itemized'") === 'equal'
+    && (int) $val("SELECT COUNT(*) FROM expense_items i JOIN expenses e USING (expense_id) WHERE e.description='Personal itemized'") === 0);
+
+// ======================================================================= Pay with UPI (Phase 6)
+$aarav->get('/profile');
+$aarav->post('/profile', ['full_name' => 'Aarav Sharma', 'email' => 'aarav@splitwiseplus.test', 'phone' => '9820011111', 'upi_id' => '  Aarav.K@OKICICI ']);
+check('U1', 'Profile saves the UPI ID (trimmed, lower-case)', $val('SELECT upi_id FROM users WHERE user_id=2') === 'aarav.k@okicici');
+$aarav->post('/profile', ['full_name' => 'Aarav Sharma', 'email' => 'aarav@splitwiseplus.test', 'phone' => '9820011111', 'upi_id' => 'aarav at icici'])->follow();
+check('U2', 'Malformed UPI ID rejected with a message, old one kept',
+    $aarav->has('Enter a UPI ID like') && $val('SELECT upi_id FROM users WHERE user_id=2') === 'aarav.k@okicici');
+$t->get("/groups/$gid/settle?payer=$tid&payee=2&amount=150.5");
+check('U3', 'Payer sees "Pay with UPI" with the exact upi://pay link (payee, amount, INR, group note)',
+    $t->has('href="upi://pay?pa=aarav.k@okicici&amp;pn=Aarav%20Sharma&amp;am=150.50&amp;cu=INR&amp;tn=')
+    && preg_match('/id="upiPay"[^>]*\shidden/', $t->body) === 0);
+$t->get("/groups/$gid/settle?payer=2&payee=$tid&amount=150");
+check('U4', 'Panel hidden when you are not the one paying', preg_match('/id="upiPay"[^>]*\shidden/', $t->body) === 1);
+$t->get("/groups/$gid");
+$sneha2 = login($BASE, 'sneha');
+$sneha2->get("/groups/$gid/settle");
+check('U5', 'UPI ID not shown on other pages, and non-members cannot open the settle page (403)',
+    !$t->has('okicici') && $sneha2->status === 403);
+$aarav->post('/profile', ['full_name' => 'Aarav Sharma', 'email' => 'aarav@splitwiseplus.test', 'phone' => '9820011111', 'upi_id' => '']);
+check('U6', 'Clearing the field removes the UPI ID (NULL)', $val('SELECT upi_id FROM users WHERE user_id=2') === null);
+
+// ======================================================================= bill scan (Phase 6, SCAN_PROVIDER=mock)
+$billPng = tempnam(sys_get_temp_dir(), 'bill');
+file_put_contents($billPng, base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=='));
+$aarav->get("/expenses/create?group=$gid");
+preg_match_all('/<button[^>]*type="submit"[^>]*>/', explode('id="expenseForm"', $aarav->body, 2)[1] ?? '', $sb);
+check('SN1', 'Expense form offers "Scan the bill" with the privacy note; Enter still saves (first submit button is not "Read items")',
+    $aarav->has('Scan the bill') && $aarav->has('is not saved') && isset($sb[0][0]) && !str_contains($sb[0][0], 'formaction'));
+$before = (int) $val('SELECT COUNT(*) FROM expenses');
+$aarav->post('/expenses/scan', ['group_id' => $gid, 'description' => '', 'total_amount' => '', 'category_id' => '2',
+    'expense_date' => $today, 'paid_by' => '2', 'split_method' => 'equal'], true, ['bill' => [$billPng, 'image/png', 'bill.png']]);
+$loc = $aarav->location;
+$aarav->follow();
+check('SN2', 'Scan returns to the same form with the bill lines, total and shop name filled in, "By item" chosen, nothing saved',
+    str_ends_with($loc, "/expenses/create?group=$gid") && $aarav->field('items[0][name]') === 'Paneer butter masala'
+    && $aarav->field('items[3][amount]') === '160.00' && $aarav->field('items[1][qty]') === '4'
+    && $aarav->field('total_amount') === '903.00' && $aarav->field('description') === 'Demo Dhaba'
+    && preg_match('/id="m_itemized"[^>]*checked/', $aarav->body) === 1 && $aarav->has('Read 4 items from the bill')
+    && (int) $val('SELECT COUNT(*) FROM expenses') === $before);
+$aarav->post('/expenses/scan', ['group_id' => $gid, 'description' => 'Lunch at work', 'total_amount' => '950', 'category_id' => '2',
+    'expense_date' => $today, 'paid_by' => '2'], true, ['bill' => [$billPng, 'image/png', 'bill.png']])->follow();
+check('SN3', 'What you already typed (description, total) is kept, not overwritten by the scan',
+    $aarav->field('description') === 'Lunch at work' && $aarav->field('total_amount') === '950');
+$txt = tempnam(sys_get_temp_dir(), 'txt');
+file_put_contents($txt, "%PDF-1.4 not an image");
+$aarav->post('/expenses/scan', ['group_id' => $gid, 'description' => 'Kept'], true, ['bill' => [$txt, 'image/png', 'bill.png']])->follow();
+check('SN4', 'Non-image (MIME from content) refused with a message; typed fields kept', $aarav->has('must be a JPG, PNG or WebP') && $aarav->field('description') === 'Kept');
+$aarav->post('/expenses/scan', ['group_id' => $gid])->follow();
+check('SN5', 'No photo chosen -> clear message', $aarav->has('Choose a photo of the bill first'));
+$sneha3 = login($BASE, 'sneha');
+$sneha3->get('/expenses/create');
+$sneha3->post("/expenses/scan?expense=$e1", [], true, ['bill' => [$billPng, 'image/png', 'bill.png']]);
+check('SN6', "Cannot scan into someone else's group expense (403)", $sneha3->status === 403);
+$aarav->get("/expenses/create?group=$gid");
+$aarav->post('/expenses/scan', ['group_id' => $gid], 'bad-token', ['bill' => [$billPng, 'image/png', 'bill.png']]);
+check('SN7', 'Scan needs the CSRF token (419)', $aarav->status === 419);
+// daily limit is 4 in tests/functional/run.sh: SN2 + SN3 used 2 (SN4/SN5 failed before counting)
+$aarav->get("/expenses/create?group=$gid");
+for ($k = 0; $k < 3; $k++) {
+    $aarav->post('/expenses/scan', ['group_id' => $gid], true, ['bill' => [$billPng, 'image/png', 'bill.png']])->follow();
+}
+check('SN8', 'Per-user daily scan limit enforced (counted in MySQL app_kv)', $aarav->has('used today&#039;s 4 bill scans')
+    && (int) $val("SELECT MAX(CAST(kv_value AS UNSIGNED)) FROM app_kv WHERE kv_key LIKE 'scan:u:2:%'") === 5);
 
 // ======================================================================= receipts
 $png = tempnam(sys_get_temp_dir(), 'png');

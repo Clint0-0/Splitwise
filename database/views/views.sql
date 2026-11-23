@@ -224,3 +224,20 @@ SELECT e.expense_id, e.group_id, e.description, e.total_amount,
    AND e.total_amount > (SELECT AVG(e3.total_amount)
                            FROM expenses e3
                           WHERE e3.group_id = e.group_id AND e3.is_deleted = 0);
+
+-- 12. Itemized bills (Phase 6): per person, items vs tax/discount ------
+-- items_subtotal = Σ of their item parts; extras_share = what the bill's
+-- tax / service charge (+) or discount (−) added to that. share_amount is
+-- the binding obligation already stored in expense_splits.
+CREATE OR REPLACE VIEW v_expense_item_allocation AS
+SELECT s.expense_id, s.user_id, u.full_name,
+       COALESCE(SUM(sh.share_amount), 0.00)                  AS items_subtotal,
+       s.share_amount - COALESCE(SUM(sh.share_amount), 0.00) AS extras_share,
+       s.share_amount,
+       COUNT(sh.item_id)                                     AS item_count
+  FROM expense_splits s
+  JOIN expenses e ON e.expense_id = s.expense_id AND e.split_method = 'itemized'
+  JOIN users u    ON u.user_id = s.user_id
+  LEFT JOIN expense_item_shares sh
+         ON sh.expense_id = s.expense_id AND sh.user_id = s.user_id
+ GROUP BY s.expense_id, s.user_id, u.full_name, s.share_amount;

@@ -65,6 +65,17 @@ final class GroupModel extends Model
                             ORDER BY gm.status = 'active' DESC, gm.role = 'admin' DESC, u.full_name", [$groupId]);
     }
 
+    /** UPI IDs of the group's ACTIVE members who set one (user_id => upi_id). Only for co-members. */
+    public function upiIds(int $groupId): array
+    {
+        $out = [];
+        foreach ($this->all("SELECT u.user_id, u.upi_id FROM group_members gm JOIN users u ON u.user_id = gm.user_id
+                              WHERE gm.group_id = ? AND gm.status = 'active' AND u.upi_id IS NOT NULL", [$groupId]) as $r) {
+            $out[(int) $r['user_id']] = $r['upi_id'];
+        }
+        return $out;
+    }
+
     public function activeMemberIds(int $groupId): array
     {
         return array_map('intval', array_column($this->all(

@@ -114,6 +114,89 @@ for ($i = 0; $i < 3000; $i++) {
 }
 check('Property: 3000 random splits always sum exactly to the total, never negative', $ok);
 
+// ---------------------------------------------------------------- itemized bills (Phase 6)
+// Restaurant: Paneer ₹300 (1,2), Biryani ₹250 (2), Lassi ₹90 (1,2,3); bill ₹704 incl. 10% tax (₹64)
+$r = $calc->itemized(70400, 1, [
+    ['amount' => 30000, 'users' => [1, 2]], ['amount' => 25000, 'users' => [2]], ['amount' => 9000, 'users' => [1, 2, 3]]]);
+check('Itemized: subtotals 180 / 430 / 30 from shared and solo items', rupees($r['subtotals']) === [1 => '180.00', 2 => '430.00', 3 => '30.00']);
+check('Itemized: ₹64 tax shared by subtotal -> 198 / 473 / 33', rupees($r['shares']) === [1 => '198.00', 2 => '473.00', 3 => '33.00'], json_encode(rupees($r['shares'])));
+check('Itemized: per-item parts kept (Lassi 30/30/30)', rupees($r['items'][2]) === [1 => '30.00', 2 => '30.00', 3 => '30.00']);
+$r = $calc->itemized(9000, 2, [['amount' => 10000, 'users' => [1, 2, 3]]]);
+check('Itemized: ₹10 discount on ₹100 item, payer gets the odd paisa -> 30/30/30', rupees($r['shares']) === [1 => '30.00', 2 => '30.00', 3 => '30.00'] && $r['extra'] === -1000);
+$r = $calc->itemized(1000, 2, [['amount' => 1000, 'users' => [1, 2, 3]]]);
+check('Itemized: ₹10 between 3, odd paisa to payer first (333/334/333)', $r['shares'] === [1 => 333, 2 => 334, 3 => 333]);
+check('Itemized: no items rejected', throwsValidation(fn() => $calc->itemized(1000, 1, []), 'at least one item'));
+check('Itemized: item with nobody ticked rejected', throwsValidation(fn() => $calc->itemized(1000, 1, [['amount' => 1000, 'users' => []]]), 'Tick who'));
+check('Itemized: more than 50 items rejected', throwsValidation(fn() => $calc->itemized(100000, 1,
+    array_fill(0, 51, ['amount' => 100, 'users' => [1]])), 'at most 50'));
+check('Itemized: calculate() refuses the itemized method', (function () use ($calc) {
+    try { $calc->calculate('itemized', 1000, 1, [1 => '']); return false; } catch (LogicException) { return true; } })());
+$ok = true;
+for ($i = 0; $i < 3000; $i++) {
+    $items = [];
+    $sum = 0;
+    for ($k = 0, $n = mt_rand(1, 12); $k < $n; $k++) {
+        $a = mt_rand(1, 500000);
+        $sum += $a;
+        $items[] = ['amount' => $a, 'users' => array_values(array_unique(array_map(fn() => mt_rand(1, 8), range(1, mt_rand(1, 5)))))];
+    }
+    $total = max(1, $sum + mt_rand(-$sum + 1, intdiv($sum, 3)));   // discount up to almost everything, or tax up to 33%
+    $res = $calc->itemized($total, mt_rand(1, 8), $items);
+    $itemsOk = true;
+    foreach ($items as $k => $it) { $itemsOk = $itemsOk && array_sum($res['items'][$k]) === $it['amount']; }
+    if (array_sum($res['shares']) !== $total || min($res['shares']) < 0 || !$itemsOk) { $ok = false; break; }
+}
+check('Property: 3000 random itemized bills (tax and discounts) sum exactly, items exact, never negative', $ok);
+
+// ---------------------------------------------------------------- UPI links (Phase 6)
+use App\Services\UpiLink;
+check('UPI: link has payee, 2-decimal amount, INR and a cleaned note',
+    UpiLink::build('aarav.k@okicici', 'Aarav Sharma', 123450, 'SplitWise+ Goa  Trip')
+    === 'upi://pay?pa=aarav.k@okicici&pn=Aarav%20Sharma&am=1234.50&cu=INR&tn=SplitWise%20Goa%20Trip');
+check('UPI: no link for a malformed ID, zero or negative amount',
+    UpiLink::build('no-at-sign', 'X', 100, '') === null && UpiLink::build('a.b@ybl', 'X', 0, '') === null
+    && UpiLink::build('a.b@ybl', 'X', -5, '') === null);
+check('UPI: & and = in names cannot inject extra parameters', !str_contains(
+    (string) UpiLink::build('ab@ybl', 'Tom&am=1', 100, 'x&pa=evil@ybl'), '&am=1&') 
+    && substr_count((string) UpiLink::build('ab@ybl', 'Tom&am=1', 100, 'x&pa=evil@ybl'), 'pa=') === 1);
+
+// ---------------------------------------------------------------- bill scanner (Phase 6)
+use App\Services\BillScanner;
+$envSet = function (array $vars): void { foreach ($vars as $k => $v) { putenv($v === null ? $k : "$k=$v"); } };
+$envSet(['SCAN_PROVIDER' => 'mock', 'APP_ENV' => 'production']);
+check('Scan: mock provider is refused in production', BillScanner::provider() === 'off');
+$envSet(['APP_ENV' => 'local', 'SCAN_PROVIDER' => 'anthropic', 'SCAN_API_KEY' => '']);
+check('Scan: anthropic without an API key stays off', BillScanner::provider() === 'off');
+$envSet(['SCAN_PROVIDER' => 'nonsense']);
+check('Scan: unknown provider = off', !BillScanner::enabled());
+$scanner = new BillScanner();
+$n = $scanner->normalise("Sure!\n{\"merchant\":\"A\\u0007B\",\"items\":[{\"name\":\"Tea\",\"qty\":1.5,\"amount\":20.005},"
+    . "{\"name\":\"  \",\"amount\":5},{\"name\":\"Neg\",\"amount\":-3},{\"name\":\"Str\",\"amount\":\"12.3\"},{\"name\":\"" . str_repeat('x', 200) . "\",\"amount\":1}],\"total\":\"x\"}\nThanks");
+check('Scan: reply cleaned (JSON found in prose, blank/negative lines dropped, names clamped, amounts 2-dp, bad total -> null)',
+    count($n['items']) === 3 && $n['items'][0] === ['name' => 'Tea', 'qty' => '1.5', 'amount' => '20.01']
+    && $n['items'][1]['amount'] === '12.30' && mb_strlen($n['items'][2]['name']) === 80 && $n['total'] === null && $n['merchant'] === 'A B');
+check('Scan: no readable items -> friendly error', throwsValidation(fn() => $scanner->normalise('{"items":[]}'), "Couldn't read any items")
+    && throwsValidation(fn() => $scanner->normalise('I cannot help'), "Couldn't read any items"));
+check('Scan: at most 50 lines kept', count($scanner->normalise(json_encode(['items' => array_fill(0, 80, ['name' => 'i', 'amount' => 1])]))['items']) === 50);
+// real HTTP request/response shape against a local fake API (no network)
+$port = 18000 + mt_rand(0, 999);
+$srv = proc_open([PHP_BINARY, '-S', "127.0.0.1:$port", __DIR__ . '/fixtures/fake_anthropic.php'], [1 => ['file', '/dev/null', 'w'], 2 => ['file', '/dev/null', 'w']], $pp);
+usleep(400000);
+$png = base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==');
+$envSet(['SCAN_PROVIDER' => 'anthropic', 'SCAN_API_KEY' => 'test-key-123', 'SCAN_API_URL' => "http://127.0.0.1:$port/v1/messages"]);
+$res = null;
+try { $res = $scanner->read($png, 'image/png'); } catch (Throwable $e) { $res = $e->getMessage(); }
+check('Scan: Messages API request (key header, version, image block) + reply parsed', is_array($res)
+    && $res['merchant'] === 'Cafe Test' && count($res['items']) === 2 && $res['items'][1]['amount'] === '90.50' && $res['total'] === '284.03',
+    is_string($res) ? $res : '');
+$envSet(['SCAN_API_KEY' => 'wrong-key']);
+check('Scan: API error -> friendly message, no crash', throwsValidation(fn() => $scanner->read($png, 'image/png'), "Couldn't read the bill right now"));
+check('Scan: SCAN_API_URL test override is guarded by !is_production() (static check, no real API call)', (function () {
+    $src = file_get_contents(__DIR__ . '/../../app/services/BillScanner.php');
+    return str_contains($src, "!is_production() && (\$u = (string) Env::get('SCAN_API_URL'"); })());
+proc_terminate($srv);
+$envSet(['SCAN_PROVIDER' => null, 'SCAN_API_KEY' => null, 'SCAN_API_URL' => null, 'APP_ENV' => null]);
+
 // ---------------------------------------------------------------- debt simplifier
 check('Simplify: cycle A->B->C->A (all nets 0) -> no transfers', $simp->simplify([1 => 0, 2 => 0, 3 => 0]) === []);
 check('Simplify: chain A owes B 500, B owes C 500 -> A pays C 500',

@@ -125,7 +125,7 @@ $suite('Database (schema, triggers, procedures, privileges)', [$PHP, "$ROOT/test
 step('Start the app on PHP\'s built-in server as splitwise_app');
 $mustImport(); $cleanStorage();
 $appEnv = array_merge(getenv(), ['DB_HOST' => $HOST, 'DB_PORT' => $PORT, 'DB_USER' => 'splitwise_app', 'DB_PASSWORD' => $APPPASS,
-    'DB_NAME' => 'splitwise_plus', 'APP_DEBUG' => 'false']);
+    'DB_NAME' => 'splitwise_plus', 'APP_DEBUG' => 'false', 'SCAN_PROVIDER' => 'mock', 'SCAN_DAILY_LIMIT' => '4']);
 $log = sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'splitwise-server.log';
 $server = proc_open([$PHP, '-d', 'upload_max_filesize=6M', '-d', 'post_max_size=8M', '-S', "127.0.0.1:$APPPORT",
     '-t', "$ROOT/public", "$ROOT/public/router.php"], [0 => ['pipe', 'r'], 1 => ['file', $log, 'w'], 2 => ['file', $log, 'a']], $pipes, null, $appEnv);

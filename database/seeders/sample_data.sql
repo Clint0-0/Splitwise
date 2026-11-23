@@ -29,6 +29,11 @@ INSERT INTO users (user_id, username, email, password_hash, full_name, phone, ro
  (8, 'vikram', 'vikram@splitwiseplus.test', @hash, 'Vikram Rao',    '9820077777', 'user', '2026-08-25 16:45:00'),
  (9, 'meera',  'meera@splitwiseplus.test',  @hash, 'Meera Joshi',   NULL,         'user', '2026-08-26 10:20:00');
 
+-- Demo UPI IDs (Phase 6) on the reserved-looking handle @example, which no UPI app
+-- uses, so a demo "Pay with UPI" can never send money to a real person.
+UPDATE users SET upi_id = 'aarav.sharma@example' WHERE user_id = 2;
+UPDATE users SET upi_id = 'priya.nair@example'   WHERE user_id = 3;
+
 -- Categories (hierarchy: parent rows first) ------------------------------
 INSERT INTO categories (category_id, name, parent_category_id, icon, color) VALUES
  (1,  'Food & Dining', NULL, 'bi-cup-hot',        '#E4572E'),

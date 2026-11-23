@@ -544,3 +544,20 @@ Method: fresh clone from GitHub (all suites), every page at 1366 / 1024 / 768 / 
 
 Re-run after fixes: unit 53/53 · database 76/76 · functional **120/120** · scenarios 23/23 · deployment 30/30 · Exp 10 18/18 · Exp 11 dry run 11/11 · Exp 12 31/31 · axe 0 violations · browser sweep 0 issues (only the intended 404 pages).
 Known, not changed: admin tables (users/groups/activity) need sideways scrolling on phones — inside a labelled scroll region, admin work is desktop-first.
+
+## Phase 6 — itemized bills, Pay with UPI, bill scanning (2026-11-24, branch `feature/phase-6`)
+| Suite | Before | After | New checks |
+|---|---|---|---|
+| Unit | 53 | 75 | itemized maths (tax, discount, odd paisa, limits, 3,000-bill property test), UPI link building/injection, scanner reply cleaning, provider flags, Messages API request/response against a local fake API |
+| Database | 76 | 86 | I1–I9 (composite FKs, CHECKs, UNIQUE line, cascade, allocation view, UPI CHECK), A10 (app user may write items) |
+| Functional | 120 | 142 | IT1–IT8 itemized flow, U1–U6 UPI, SN1–SN8 bill scan (mock) |
+| Scenarios / deployment / Exp 10 / Exp 11 / Exp 12 | 23 / 30 / 18 / 11 / 31 | same | H1 now expects 18 tables |
+
+Also checked by hand in Chrome (desktop 1280 and phone 390 px): no horizontal overflow, no console errors; JS item preview = PHP on 3,000 random bills; rendered QR decodes (OpenCV) to the exact `upi://pay` link; axe 0 violations on every screen plus the itemized expense, itemized edit and UPI settle pages; migration on a v1.0 database gives a schema identical to a fresh import.
+
+| # | Bug found while building | Fix |
+|---|---|---|
+| 64 | Enter in any expense field would submit to "Read items" (first submit button in the form) | hidden default "save" button placed first (SN1 checks it) |
+| 65 | UPI validation was first added to the sign-up method instead of the profile update (sign-up crashed) | moved; H8–H10 + U1/U2 cover both |
+
+Not tested: the real Anthropic API (no key here), real UPI apps on phones (deep links behave differently per app; the QR is the fallback), deployment.

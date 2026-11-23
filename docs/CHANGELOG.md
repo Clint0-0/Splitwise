@@ -1,5 +1,20 @@
 # CHANGELOG — SplitWise+
 
+## [0.8.0] — Phase 6: itemized bills, Pay with UPI, bill scanning (2026-11-24, branch `feature/phase-6`)
+The DBMS submission version is tagged `v1.0-submission` (= `main` @ b92fb91).
+### Added
+- **Split by item** (`split_method = 'itemized'`): bill lines in `expense_items`, who had each in `expense_item_shares`.
+  Shared lines split equally; tax / service charge / discount (total − Σ lines) spread by each person's item subtotal; largest remainder, payer first. Composite FKs: an item share must belong to an item of the same expense **and** to a participant (`expense_splits`). View `v_expense_item_allocation`. Live preview in the form (matches PHP on 3,000 random bills).
+- **Pay with UPI**: `users.upi_id` (CHECK on the format), Profile field, `upi://pay` button + QR code on "Record a payment" when you pay someone with a UPI ID. No payment gateway; the receiver still confirms. QR library `qrcode-generator` 1.4.4 (MIT) vendored.
+- **Bill scanning** behind `SCAN_PROVIDER` (off | mock | anthropic): "Read items" fills the item rows, total and shop name from a photo; never saves; photo not stored; per-user daily limit in `app_kv`; mock refused in production; API key only from the environment.
+- Migration `database/migrations/2026_11_phase6_itemized_upi.sql` for existing databases (non-destructive; verified to give the same schema as a fresh import).
+- Demo UPI IDs for aarav/priya on the unused handle `@example`.
+### Changed
+- 16 → 18 tables, 11 → 12 views; `verify_install.sql`, `app_user.sql`, `build_hosted.php` updated.
+- Tests: unit 53 → 75, database 76 → 86, functional 120 → 142 (IT1–IT8, U1–U6, SN1–SN8); deployment check H1 counts 18 tables.
+### Fixed (found while building)
+- Pressing Enter in the expense form would have run "Read items" (first submit button); a hidden default "save" button now comes first.
+
 ## [0.7.4] — Full-project audit fixes (2026-11-19)
 ### Fixed
 - Front-end libraries (Bootstrap, icons, Chart.js, fonts) are now in the repo — fresh clones were unstyled.

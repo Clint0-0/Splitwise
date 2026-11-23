@@ -82,15 +82,17 @@ final class AuthService
         $name  = trim((string) ($in['full_name'] ?? ''));
         $email = mb_strtolower(trim((string) ($in['email'] ?? '')));
         $phone = trim((string) ($in['phone'] ?? ''));
+        $upi   = mb_strtolower(trim((string) ($in['upi_id'] ?? '')));
         $v = (new Validator())
             ->required('full_name', $name, 'Full name')->maxLen('full_name', $name, 100, 'Full name')
             ->required('email', $email, 'Email')->email('email', $email)
-            ->regex('phone', $phone, '/^\+?[0-9]{10,14}$/', 'Phone: 10–14 digits.');
+            ->regex('phone', $phone, '/^\+?[0-9]{10,14}$/', 'Phone: 10–14 digits.')
+            ->regex('upi_id', $upi, \App\Services\UpiLink::ID_PATTERN, 'Enter a UPI ID like name@okhdfcbank.');
         if (!$v->fails() && $this->users->exists('email', $email, $userId)) {
             $v->add('email', 'Another account uses this email.');
         }
         $v->throw();
-        $this->users->updateProfile($userId, $name, $email, $phone ?: null, !empty($in['notify_email']));
+        $this->users->updateProfile($userId, $name, $email, $phone ?: null, !empty($in['notify_email']), $upi !== '' ? $upi : null);
     }
 
     public function changePassword(int $userId, array $in): void

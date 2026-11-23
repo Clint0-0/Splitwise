@@ -67,8 +67,8 @@ $db->exec('SET @app_user_id = 1');
 // ---------------------------------------------------------------- structure
 $cnt = fn(string $type) => (int) val($db,
     "SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA='splitwise_plus' AND TABLE_TYPE=?", [$type]);
-record('S1', '16 base tables exist (14 business + app_sessions, app_kv)', $cnt('BASE TABLE') === 16);
-record('S2', '11 views exist', $cnt('VIEW') === 11);
+record('S1', '18 base tables exist (16 business + app_sessions, app_kv)', $cnt('BASE TABLE') === 18);
+record('S2', '12 views exist', $cnt('VIEW') === 12);
 record('S3', '11 triggers covering all 6 timing/event pairs',
     (int) val($db, "SELECT COUNT(*) FROM information_schema.TRIGGERS WHERE TRIGGER_SCHEMA='splitwise_plus'") === 11
  && (int) val($db, "SELECT COUNT(DISTINCT ACTION_TIMING, EVENT_MANIPULATION) FROM information_schema.TRIGGERS WHERE TRIGGER_SCHEMA='splitwise_plus'") === 6);
@@ -321,6 +321,13 @@ if ($appPass !== false && $appPass !== '') {
             exec_($d, "DELETE FROM app_sessions WHERE session_id='t1'");
             exec_($d, "DELETE FROM app_kv WHERE kv_key='t:k'");
             return true; }));
+        record('A10', 'App user can write itemized bill lines and item shares', inTx($app, function (PDO $d) {
+            exec_($d, "INSERT INTO expense_items (expense_id,line_no,name,amount) VALUES (1,1,'Line',10.00)");
+            $i = (int) $d->lastInsertId();
+            $u = (int) val($d, 'SELECT user_id FROM expense_splits WHERE expense_id=1 LIMIT 1');
+            exec_($d, 'INSERT INTO expense_item_shares (item_id,expense_id,user_id,share_amount) VALUES (?,1,?,10.00)', [$i, $u]);
+            exec_($d, 'DELETE FROM expense_items WHERE item_id=?', [$i]);
+            return true; }));
         record('A9', 'App user can store receipt bytes (receipts.content LONGBLOB)', inTx($app, function (PDO $d) {
             exec_($d, "INSERT INTO receipts (expense_id,file_path,original_name,mime_type,file_size,content,uploaded_by)
                        VALUES (1,'t.png','t.png','image/png',3,'abc',2)");
@@ -331,6 +338,54 @@ if ($appPass !== false && $appPass !== '') {
 } else {
     echo "(skipping A-tests: APP_DB_PASS not set)\n";
 }
+
+// ---------------------------------------------------------------- itemized bills + UPI (Phase 6)
+// A ₹100 itemized bill in Goa (group 1), paid by Aarav (2), shared by Aarav + Priya (3).
+$itemBill = function (PDO $d): array {
+    exec_($d, "INSERT INTO expenses (group_id,paid_by,created_by,category_id,description,total_amount,split_method,expense_date)
+               VALUES (1,2,2,1,'Itemized test',100.00,'itemized','2026-11-10')");
+    $e = (int) $d->lastInsertId();
+    exec_($d, 'INSERT INTO expense_splits (expense_id,user_id,share_amount) VALUES (?,2,60.00),(?,3,40.00)', [$e, $e]);
+    exec_($d, "INSERT INTO expense_items (expense_id,line_no,name,amount) VALUES (?,1,'Dosa',90.00)", [$e]);
+    $i = (int) $d->lastInsertId();
+    return [$e, $i];
+};
+record('I1', "split_method accepts 'itemized'", inTx($db, function (PDO $d) use ($itemBill) {
+    [$e] = $itemBill($d);
+    return val($d, 'SELECT split_method FROM expenses WHERE expense_id=?', [$e]) === 'itemized'; }));
+expectError($db, 'I2', 'Item share for someone not in the split is refused (composite FK to expense_splits)',
+    function (PDO $d) use ($itemBill) { [$e, $i] = $itemBill($d);
+        exec_($d, 'INSERT INTO expense_item_shares (item_id,expense_id,user_id,share_amount) VALUES (?,?,4,10.00)', [$i, $e]); },
+    'fk_item_shares_split');
+expectError($db, 'I3', 'Item share cannot point at an item of another expense (composite FK to expense_items)',
+    function (PDO $d) use ($itemBill) { [$e, $i] = $itemBill($d);
+        exec_($d, 'INSERT INTO expense_item_shares (item_id,expense_id,user_id,share_amount) VALUES (?,1,2,10.00)', [$i]); },
+    'fk_item_shares_item');
+expectError($db, 'I4', 'Item amount must be > 0 (CHECK)',
+    function (PDO $d) use ($itemBill) { [$e] = $itemBill($d);
+        exec_($d, "INSERT INTO expense_items (expense_id,line_no,name,amount) VALUES (?,2,'Free water',0)", [$e]); },
+    'chk_expense_items_amount');
+expectError($db, 'I5', 'Two items cannot share a line number (UNIQUE expense_id, line_no)',
+    function (PDO $d) use ($itemBill) { [$e] = $itemBill($d);
+        exec_($d, "INSERT INTO expense_items (expense_id,line_no,name,amount) VALUES (?,1,'Chai',10)", [$e]); },
+    'uq_expense_items_line');
+record('I6', 'v_expense_item_allocation: items subtotal + tax share = binding share', inTx($db, function (PDO $d) use ($itemBill) {
+    [$e, $i] = $itemBill($d);   // Dosa ₹90: Aarav 54, Priya 36; tax ₹10 -> 6 / 4
+    exec_($d, 'INSERT INTO expense_item_shares (item_id,expense_id,user_id,share_amount) VALUES (?,?,2,54.00),(?,?,3,36.00)', [$i, $e, $i, $e]);
+    $r = rows($d, 'SELECT user_id, items_subtotal, extras_share, share_amount FROM v_expense_item_allocation WHERE expense_id=? ORDER BY user_id', [$e]);
+    return count($r) === 2 && $r[0]['items_subtotal'] === '54.00' && $r[0]['extras_share'] === '6.00'
+        && $r[1]['items_subtotal'] === '36.00' && $r[1]['extras_share'] === '4.00'; }));
+record('I7', 'Deleting the expense removes its items and item shares (ON DELETE CASCADE)', inTx($db, function (PDO $d) use ($itemBill) {
+    [$e, $i] = $itemBill($d);
+    exec_($d, 'INSERT INTO expense_item_shares (item_id,expense_id,user_id,share_amount) VALUES (?,?,2,90.00)', [$i, $e]);
+    exec_($d, 'DELETE FROM expenses WHERE expense_id=?', [$e]);
+    return (int) val($d, 'SELECT COUNT(*) FROM expense_items WHERE expense_id=?', [$e]) === 0
+        && (int) val($d, 'SELECT COUNT(*) FROM expense_item_shares WHERE expense_id=?', [$e]) === 0; }));
+record('I8', 'users.upi_id accepts a normal UPI address', inTx($db, function (PDO $d) {
+    exec_($d, "UPDATE users SET upi_id='aarav.k@okicici' WHERE user_id=2");
+    return val($d, 'SELECT upi_id FROM users WHERE user_id=2') === 'aarav.k@okicici'; }));
+expectError($db, 'I9', 'users.upi_id rejects a malformed address (CHECK)',
+    function (PDO $d) { exec_($d, "UPDATE users SET upi_id='pay me@@bank' WHERE user_id=2"); }, 'chk_users_upi_id');
 
 // ---------------------------------------------------------------- committing flows (last)
 $db->exec("CALL sp_respond_settlement(3, 2, 'confirm')");

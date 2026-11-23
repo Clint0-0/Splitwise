@@ -20,7 +20,7 @@
   const hints = {
     equal: ['Share', 'Split equally'], percentage: ['Percent (%)', 'e.g. 50'],
     exact: ['Amount (₹)', 'e.g. 250.00'], shares: ['Shares', 'e.g. 1'],
-    adjustment: ['Adjustment (₹, + or −)', 'e.g. +150'],
+    adjustment: ['Adjustment (₹, + or −)', 'e.g. +150'], itemized: ['Share', ''],
   };
 
   // "12.5" -> 1250 (hundredths); null if invalid
@@ -50,8 +50,101 @@
 
   function method() { return (form.querySelector('[name=split_method]:checked') || {}).value || 'equal'; }
 
+  // ---- itemized bill (Phase 6). Mirrors SplitCalculator::itemized(). ----
+  const itemBox = document.getElementById('itemBox');
+  const equalBox = document.getElementById('equalBox');
+  const itemList = document.getElementById('itemRows');
+  const addItem = document.getElementById('addItem');
+  const itemStatus = document.getElementById('itemStatus');
+  const preview = document.getElementById('itemPreview');
+
+  function itemized(totalP, payerId, items) {
+    const sub = {}, out = {};
+    let sumItems = 0;
+    items.forEach((it) => {
+      const part = allocate(it.amount, Object.fromEntries(it.users.map((u) => [u, 1])), payerId);
+      Object.keys(part).forEach((u) => { sub[u] = (sub[u] || 0) + part[u]; });
+      sumItems += it.amount;
+    });
+    const extra = totalP - sumItems;
+    Object.keys(sub).forEach((u) => { out[u] = sub[u]; });
+    if (extra !== 0) {
+      const spread = allocate(Math.abs(extra), Object.fromEntries(Object.keys(sub).map((u) => [u, sub[u]])), payerId);
+      if (spread) Object.keys(spread).forEach((u) => { out[u] += extra > 0 ? spread[u] : -spread[u]; });
+    }
+    return { shares: out, sub, extra, sumItems };
+  }
+
+  function updateItems() {
+    if (!itemList) return;
+    const rows = [...itemList.querySelectorAll('.item-row')];
+    const items = [];
+    let bad = '';
+    rows.forEach((r, k) => {
+      const name = r.querySelector('[name$="[name]"]').value.trim();
+      const amtRaw = r.querySelector('[name$="[amount]"]').value;
+      if (name === '' && amtRaw.trim() === '') return;
+      const amount = hundredths(amtRaw, false);
+      const users = [...r.querySelectorAll('input[type=checkbox]:checked')].map((c) => parseInt(c.value, 10));
+      if (!name) bad = bad || 'Item ' + (k + 1) + ' needs a name.';
+      else if (!amount) bad = bad || 'Item ' + (k + 1) + ' needs an amount.';
+      else if (!users.length) bad = bad || 'Tick who had item ' + (k + 1) + '.';
+      else items.push({ amount, users });
+    });
+    preview.querySelectorAll('tbody tr').forEach((tr) => { tr.querySelectorAll('.num').forEach((c) => { c.textContent = '–'; }); tr.hidden = false; });
+    const t = hundredths(total.value, false);
+    const fail = (msg) => { itemStatus.textContent = msg; itemStatus.className = 'split-status text-owes'; };
+    if (bad) return fail(bad);
+    if (!items.length) { itemStatus.textContent = 'Add the bill items and tick who had each.'; itemStatus.className = 'split-status text-muted'; return; }
+    if (!t) { itemStatus.textContent = 'Enter the bill total above (including tax).'; itemStatus.className = 'split-status text-muted'; return; }
+    const payerId = payer ? parseInt(payer.value, 10) : 0;
+    const r = itemized(t, payerId, items);
+    if (r.extra <= -r.sumItems) return fail('The discount is larger than the items.');
+    preview.querySelectorAll('tbody tr').forEach((tr) => {
+      const u = tr.dataset.user;
+      if (!(u in r.shares)) { tr.hidden = true; return; }
+      tr.querySelector('.p-items').textContent = rupees(r.sub[u]);
+      tr.querySelector('.p-extra').textContent = rupees(r.shares[u] - r.sub[u]);
+      tr.querySelector('.p-total').textContent = rupees(r.shares[u]);
+    });
+    const extraTxt = r.extra === 0 ? 'no tax or discount' : (r.extra > 0 ? rupees(r.extra) + ' tax / charges shared' : rupees(-r.extra) + ' discount shared');
+    itemStatus.textContent = 'Items ' + rupees(r.sumItems) + ', ' + extraTxt + '. Adds up to ' + rupees(t) + ' ✓';
+    itemStatus.className = 'split-status text-gets';
+  }
+
+  if (addItem && itemList) {
+    addItem.hidden = false;
+    addItem.addEventListener('click', () => {
+      const rows = itemList.querySelectorAll('.item-row');
+      if (rows.length >= 50) return;
+      const last = rows[rows.length - 1];
+      const from = last.dataset.index;
+      const to = String(Math.max(...[...rows].map((r) => parseInt(r.dataset.index, 10))) + 1);
+      const clone = last.cloneNode(true);
+      clone.dataset.index = to;
+      clone.querySelectorAll('[name],[id],[for]').forEach((el) => {
+        ['name', 'id', 'for'].forEach((a) => {
+          const v = el.getAttribute(a);
+          if (v) el.setAttribute(a, v.replace('items[' + from + ']', 'items[' + to + ']').replace('it_' + from + '_', 'it_' + to + '_'));
+        });
+      });
+      clone.querySelectorAll('input:not([type=checkbox])').forEach((i) => { i.value = ''; i.classList.remove('is-invalid'); });
+      clone.querySelectorAll('input[type=checkbox]').forEach((c) => { c.checked = false; });
+      clone.querySelectorAll('.invalid-feedback').forEach((x) => x.remove());
+      const leg = clone.querySelector('legend');
+      if (leg) leg.textContent = 'Who had item ' + (rows.length + 1);
+      itemList.appendChild(clone);
+      clone.querySelector('input').focus();
+    });
+  }
+
   function update() {
     const m = method();
+    if (itemBox && equalBox) {
+      itemBox.hidden = m !== 'itemized';
+      equalBox.hidden = m === 'itemized';
+      if (m === 'itemized') { updateItems(); return; }
+    }
     head.textContent = hints[m][0];
     const rows = [...table.querySelectorAll('tbody tr')];
     const active = rows.filter((r) => r.querySelector('input[type=checkbox]').checked);

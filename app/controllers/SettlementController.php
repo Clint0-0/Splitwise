@@ -53,6 +53,8 @@ final class SettlementController extends Controller
                                 ? $this->request->queryStr('amount') : '',
             ],
             'token'       => uuid4(),   // idempotency key: a double-submit cannot record twice
+            'upi'         => (new GroupModel())->upiIds($id),
+            'scripts'     => ['vendor/qrcode-generator/qrcode.js', 'js/upi-pay.js'],
         ]);
     }
 

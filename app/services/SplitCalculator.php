@@ -25,7 +25,10 @@ use App\Helpers\Money;
  */
 final class SplitCalculator
 {
-    public const METHODS = ['equal', 'percentage', 'exact', 'shares', 'adjustment'];
+    public const METHODS = ['equal', 'percentage', 'exact', 'shares', 'adjustment', 'itemized'];
+
+    /** Most bill lines one itemized expense may have (expense_items.line_no 1..50). */
+    public const MAX_ITEMS = 50;
 
     /**
      * @param array<int,string> $inputs participant user_id => raw input ('' for equal)
@@ -33,6 +36,9 @@ final class SplitCalculator
      */
     public function calculate(string $method, int $totalPaise, int $payerId, array $inputs): array
     {
+        if ($method === 'itemized') {
+            throw new \LogicException('Use itemized() for itemized bills.');
+        }
         if (!in_array($method, self::METHODS, true)) {
             throw ValidationException::single('split_method', 'Choose a valid split method.');
         }
@@ -120,6 +126,71 @@ final class SplitCalculator
         }
         ksort($shares);
         return ['shares' => $shares, 'inputs' => $stored];
+    }
+
+    /**
+     * Itemized bill (Phase 6). Each line is shared EQUALLY by the people ticked on
+     * it (largest remainder, payer first). Whatever the lines do not explain,
+     * extra = total − Σ lines, is tax / service charge (> 0) or a discount (< 0);
+     * it is spread in proportion to each person's item subtotal, again by largest
+     * remainder. Σ shares == total and every share >= 0, always.
+     *
+     * @param array<int,array{amount:int, users:list<int>}> $items line totals in paise (keys kept)
+     * @return array{shares: array<int,int>, items: array<int,array<int,int>>, subtotals: array<int,int>, extra: int}
+     */
+    public function itemized(int $totalPaise, int $payerId, array $items): array
+    {
+        if ($totalPaise <= 0) {
+            throw ValidationException::single('total_amount', 'Amount must be greater than zero.');
+        }
+        if ($items === []) {
+            throw ValidationException::single('items', 'Add at least one item from the bill.');
+        }
+        if (count($items) > self::MAX_ITEMS) {
+            throw ValidationException::single('items', 'A bill can have at most ' . self::MAX_ITEMS . ' items.');
+        }
+        $itemShares = [];
+        $sub = [];
+        $sumItems = 0;
+        foreach ($items as $i => $it) {
+            $users = array_values(array_unique(array_map('intval', $it['users'])));
+            if ($it['amount'] <= 0) {
+                throw ValidationException::single("item_$i", 'Each item needs an amount greater than zero.');
+            }
+            if ($users === []) {
+                throw ValidationException::single("item_$i", 'Tick who had this item.');
+            }
+            $part = $this->allocate($it['amount'], array_fill_keys($users, 1), $payerId);
+            ksort($part);
+            $itemShares[$i] = $part;
+            foreach ($part as $uid => $p) {
+                $sub[$uid] = ($sub[$uid] ?? 0) + $p;
+            }
+            $sumItems += $it['amount'];
+        }
+
+        $extra = $totalPaise - $sumItems;
+        if ($extra <= -$sumItems) {   // i.e. total <= 0, already rejected; kept as a guard
+            throw ValidationException::single('total_amount', 'The discount is larger than the items.');
+        }
+        $shares = $sub;
+        if ($extra !== 0) {
+            $spread = $this->allocate(abs($extra), $sub, $payerId);
+            foreach ($spread as $uid => $p) {
+                $shares[$uid] += $extra > 0 ? $p : -$p;
+            }
+        }
+        foreach ($shares as $uid => $p) {
+            if ($p < 0) {   // impossible while |discount| < Σ items; defence in depth
+                throw new \LogicException('Itemized share went negative.');
+            }
+        }
+        if (array_sum($shares) !== $totalPaise) {
+            throw new \LogicException('Itemized split does not add up to the total.');
+        }
+        ksort($shares);
+        ksort($sub);
+        return ['shares' => $shares, 'items' => $itemShares, 'subtotals' => $sub, 'extra' => $extra];
     }
 
     /**

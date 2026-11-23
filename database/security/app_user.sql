@@ -35,6 +35,9 @@ GRANT INSERT, UPDATE, DELETE ON splitwise_plus.group_members     TO 'splitwise_a
 GRANT INSERT, UPDATE, DELETE ON splitwise_plus.group_invitations TO 'splitwise_app'@'localhost', 'splitwise_app'@'127.0.0.1';
 GRANT INSERT, UPDATE, DELETE ON splitwise_plus.expenses          TO 'splitwise_app'@'localhost', 'splitwise_app'@'127.0.0.1';
 GRANT INSERT, UPDATE, DELETE ON splitwise_plus.expense_splits    TO 'splitwise_app'@'localhost', 'splitwise_app'@'127.0.0.1';
+-- itemized bills — Phase 6
+GRANT INSERT, UPDATE, DELETE ON splitwise_plus.expense_items       TO 'splitwise_app'@'localhost', 'splitwise_app'@'127.0.0.1';
+GRANT INSERT, UPDATE, DELETE ON splitwise_plus.expense_item_shares TO 'splitwise_app'@'localhost', 'splitwise_app'@'127.0.0.1';
 GRANT INSERT, UPDATE, DELETE ON splitwise_plus.budgets           TO 'splitwise_app'@'localhost', 'splitwise_app'@'127.0.0.1';
 GRANT INSERT, UPDATE, DELETE ON splitwise_plus.notifications     TO 'splitwise_app'@'localhost', 'splitwise_app'@'127.0.0.1';
 GRANT INSERT, UPDATE, DELETE ON splitwise_plus.receipts          TO 'splitwise_app'@'localhost', 'splitwise_app'@'127.0.0.1';

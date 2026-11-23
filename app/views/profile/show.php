@@ -21,6 +21,13 @@
           <input class="form-control<?= is_invalid($errors, 'phone') ?>" id="phone" name="phone" value="<?= e(old($old, 'phone', $user['phone'] ?? '')) ?>">
           <?= field_error($errors, 'phone') ?>
         </div>
+        <div class="mb-3">
+          <label class="form-label" for="upi_id">UPI ID <span class="text-muted fw-normal">(optional)</span></label>
+          <input class="form-control<?= is_invalid($errors, 'upi_id') ?>" id="upi_id" name="upi_id" maxlength="100" autocomplete="off" spellcheck="false"
+                 value="<?= e(old($old, 'upi_id', $user['upi_id'] ?? '')) ?>" placeholder="yourname@okhdfcbank" aria-describedby="upi-help">
+          <div id="upi-help" class="form-text">Lets people in your groups pay you with one tap in GPay, PhonePe or Paytm. Only shown to them, on the “Record a payment” page.</div>
+          <?= field_error($errors, 'upi_id') ?>
+        </div>
         <div class="form-check mb-3">
           <input class="form-check-input" type="checkbox" id="notify_email" name="notify_email" value="1" <?= (int) $user['notify_email'] === 1 ? 'checked' : '' ?>>
           <label class="form-check-label" for="notify_email">Email me a copy of my notifications <span class="text-muted">(mock e-mail: written to the server log, nothing is really sent)</span></label>

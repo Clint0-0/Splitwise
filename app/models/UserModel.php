@@ -6,7 +6,7 @@ namespace App\Models;
 final class UserModel extends Model
 {
     private const PUBLIC_COLS = 'user_id, username, email, full_name, phone, avatar_path, role, is_active,
-                                 notify_email, last_login_at, created_at';
+                                 notify_email, upi_id, last_login_at, created_at';
 
     public function find(int $id): ?array
     {
@@ -38,10 +38,10 @@ final class UserModel extends Model
                               VALUES (?, ?, ?, ?, ?)', [$username, $email, $hash, $fullName, $phone]);
     }
 
-    public function updateProfile(int $id, string $fullName, string $email, ?string $phone, bool $notifyEmail): void
+    public function updateProfile(int $id, string $fullName, string $email, ?string $phone, bool $notifyEmail, ?string $upiId = null): void
     {
-        $this->run('UPDATE users SET full_name = ?, email = ?, phone = ?, notify_email = ? WHERE user_id = ?',
-            [$fullName, $email, $phone, $notifyEmail ? 1 : 0, $id]);
+        $this->run('UPDATE users SET full_name = ?, email = ?, phone = ?, notify_email = ?, upi_id = ? WHERE user_id = ?',
+            [$fullName, $email, $phone, $notifyEmail ? 1 : 0, $upiId, $id]);
     }
 
     public function passwordHash(int $id): ?string

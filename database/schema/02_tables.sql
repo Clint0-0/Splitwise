@@ -19,6 +19,7 @@ CREATE TABLE users (
   role           ENUM('user','admin') NOT NULL DEFAULT 'user',
   is_active      TINYINT(1)    NOT NULL DEFAULT 1,
   notify_email   TINYINT(1)    NOT NULL DEFAULT 1,
+  upi_id         VARCHAR(100)  NULL,            -- UPI address for "Pay via UPI" links (Phase 6)
   last_login_at  DATETIME      NULL,
   created_at     DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at     DATETIME      NULL ON UPDATE CURRENT_TIMESTAMP,
@@ -27,7 +28,9 @@ CREATE TABLE users (
   CONSTRAINT uq_users_email UNIQUE (email),
   CONSTRAINT chk_users_username_len CHECK (CHAR_LENGTH(username) >= 3),
   CONSTRAINT chk_users_email_format CHECK (email LIKE '%_@_%._%'),
-  CONSTRAINT chk_users_is_active CHECK (is_active IN (0,1))
+  CONSTRAINT chk_users_is_active CHECK (is_active IN (0,1)),
+  CONSTRAINT chk_users_upi_id CHECK (upi_id IS NULL
+    OR REGEXP_LIKE(upi_id, '^[A-Za-z0-9._-]{2,64}@[A-Za-z][A-Za-z0-9]{1,63}$', 'c'))
 ) ENGINE=InnoDB;
 
 -- 2. expense_groups ("groups" is reserved in MySQL 8) -----------------
@@ -116,7 +119,7 @@ CREATE TABLE expenses (
   category_id   SMALLINT UNSIGNED NOT NULL,
   description   VARCHAR(120)  NOT NULL,
   total_amount  DECIMAL(12,2) NOT NULL,
-  split_method  ENUM('equal','percentage','exact','shares','adjustment') NOT NULL DEFAULT 'equal',
+  split_method  ENUM('equal','percentage','exact','shares','adjustment','itemized') NOT NULL DEFAULT 'equal',
   expense_date  DATE          NOT NULL,
   notes         VARCHAR(500)  NULL,
   is_deleted    TINYINT(1)    NOT NULL DEFAULT 0,
@@ -160,6 +163,46 @@ CREATE TABLE expense_splits (
   CONSTRAINT chk_expense_splits_amount CHECK (share_amount >= 0),
   CONSTRAINT chk_expense_splits_pct CHECK (share_percentage IS NULL OR share_percentage BETWEEN 0 AND 100),
   CONSTRAINT chk_expense_splits_units CHECK (share_units IS NULL OR share_units > 0)
+) ENGINE=InnoDB;
+
+-- 7a. expense_items (Phase 6: bill lines of an 'itemized' expense) -----
+-- amount = line total in rupees. total_amount − Σ amount = tax / service charge
+-- (positive) or discount (negative); it is shared in proportion to each
+-- person's items, so it is derived, never stored.
+CREATE TABLE expense_items (
+  item_id     INT UNSIGNED     NOT NULL AUTO_INCREMENT,
+  expense_id  INT UNSIGNED     NOT NULL,
+  line_no     TINYINT UNSIGNED NOT NULL,
+  name        VARCHAR(80)      NOT NULL,
+  quantity    DECIMAL(7,2)     NOT NULL DEFAULT 1.00,
+  amount      DECIMAL(12,2)    NOT NULL,
+  CONSTRAINT pk_expense_items PRIMARY KEY (item_id),
+  CONSTRAINT uq_expense_items_line UNIQUE (expense_id, line_no),
+  CONSTRAINT uq_expense_items_item_expense UNIQUE (item_id, expense_id),  -- target of the composite FK below
+  CONSTRAINT fk_expense_items_expense FOREIGN KEY (expense_id)
+    REFERENCES expenses (expense_id) ON DELETE CASCADE,
+  CONSTRAINT chk_expense_items_line CHECK (line_no BETWEEN 1 AND 50),
+  CONSTRAINT chk_expense_items_name CHECK (CHAR_LENGTH(TRIM(name)) > 0),
+  CONSTRAINT chk_expense_items_qty CHECK (quantity > 0),
+  CONSTRAINT chk_expense_items_amount CHECK (amount > 0)
+) ENGINE=InnoDB;
+
+-- 7b. expense_item_shares (expense_items M:N users) --------------------
+-- Composite FKs make two rules structural instead of trusting PHP:
+--   (item_id, expense_id)  -> the item really belongs to this expense
+--   (expense_id, user_id)  -> whoever shares an item is a participant of the
+--                             expense (has an expense_splits row)
+CREATE TABLE expense_item_shares (
+  item_id       INT UNSIGNED  NOT NULL,
+  expense_id    INT UNSIGNED  NOT NULL,
+  user_id       INT UNSIGNED  NOT NULL,
+  share_amount  DECIMAL(12,2) NOT NULL,     -- this person's part of the line (before tax/discount)
+  CONSTRAINT pk_expense_item_shares PRIMARY KEY (item_id, user_id),
+  CONSTRAINT fk_item_shares_item FOREIGN KEY (item_id, expense_id)
+    REFERENCES expense_items (item_id, expense_id) ON DELETE CASCADE,
+  CONSTRAINT fk_item_shares_split FOREIGN KEY (expense_id, user_id)
+    REFERENCES expense_splits (expense_id, user_id) ON DELETE CASCADE,
+  CONSTRAINT chk_item_shares_amount CHECK (share_amount >= 0)
 ) ENGINE=InnoDB;
 
 -- 8. settlements ------------------------------------------------------

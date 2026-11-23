@@ -18,6 +18,7 @@ PAGES = [  # (name, user, path)
     ('expenses', 'priya', '/expenses'),
     ('balances', 'priya', '/balances'),
     ('settle', 'sneha', '/groups/1/settle'),
+    ('settle-upi', 'sneha', '/groups/1/settle?payer=5&payee=2&amount=7133.33'),
     ('settlements', 'aarav', '/settlements'),
     ('budgets', 'aarav', '/budgets'),
     ('budget-form', 'aarav', '/budgets/create'),
