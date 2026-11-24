@@ -587,4 +587,12 @@ Also: JS item preview = PHP on 3,000 random **weighted** bills; browser runs of 
 | 73 | `$data['date'] ?? null && …` (?? binds looser than &&) would warn on every valid scan date | explicit `!empty(...) &&` + unit test |
 | 74 | Password-reset expiry compared in different time zones by a test helper | the app stores and compares PHP-local times consistently; test compares against `created_at` |
 
+| 75 | `tests/run_all.php` (the Windows/XAMPP runner) built `splitwise_plus.sql` from its own file list without `seeders/reference_data.sql`: `--build` would give a database with **no categories**, and plain runs warned "out of date" | the list is now read from `database/build.sh`; output verified identical; full `run_all.php` run: all suites pass |
+| 76 | Changing your password on the Profile page left your other logins (e.g. a stolen session) active | other sessions of that user are deleted, the current one kept (P7) |
+| 77 | A discount typed as "-10" got "at most 2 decimals" (server) / "needs a non-zero amount" (preview) | clear "type it without a minus sign" message in both (IT14) |
+| 78 | Recording money you received showed "Pay the full amount" | "Use the full amount" for the receiver |
+| 79 | With PHP's curl extension off (possible on XAMPP), `SENTRY_DSN` would crash the error page and a scan would be a fatal error | both check for curl first; monitoring failures are swallowed |
+
+Bug round 3 checks: migrations v1.0 → part 1 → part 2 give exactly the fresh schema; malformed input on all new endpoints (arrays, huge values, bad tokens, bad ids) → no 500s; login/forgot/reset pages fit 390–1280 px. Totals: unit 90, DB 89, functional 173, scenarios 23, deployment 34, Exp 10/11/12 18/11/31, axe 0.
+
 Not tested (needs the owner): real deployment, real SMTP delivery, real scan API on real bills (`docs/OCR_PROVIDER_EVALUATION.md` plan), real UPI apps (`docs/UPI_DEVICE_TESTS.md`).

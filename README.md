@@ -2,7 +2,7 @@
 
 DBMS mini project (team of 3). Track shared expenses, split them six ways (including item by item from the bill), see who owes whom, settle up (with UPI pay links), simplify debts, manage budgets and analyse spending.
 
-**Status:** Phase 6 (production features) in progress on branch `feature/phase-6`: itemized bills, Pay with UPI, bill scanning (feature flag). The DBMS submission version is tag `v1.0-submission`. 374 automated tests + 11 SQL scripts pass, 0 accessibility violations. See `docs/IMPLEMENTATION_STATUS.md`.
+**Status:** Phase 6 (production features) in progress on branch `feature/phase-6`: itemized bills, Pay with UPI, bill scanning (feature flag). The DBMS submission version is tag `v1.0-submission`. 375 automated tests + 11 SQL scripts pass, 0 accessibility violations. See `docs/IMPLEMENTATION_STATUS.md`.
 
 ## Stack
 PHP 8.2+ (PDO), MySQL 8.0, Bootstrap 5.3, JavaScript, Chart.js 4, XAMPP (Apache + PHP). Fonts: Baloo 2 and Mukta (Ek Type, SIL Open Font License), stored locally.
@@ -82,7 +82,7 @@ One command, Windows or Linux (resets the database to the sample data at the end
 php tests/run_all.php --password=YOUR_ROOT_PASSWORD
 # Windows: C:\xampp\php\php.exe tests\run_all.php --mysql="C:\Program Files\MySQL\MySQL Server 8.0\bin\mysql.exe" --password=...
 ```
-It runs unit (90), every SQL script (11), database (89), functional (172) and money-scenario (23) tests. Linux-only shortcuts: `tests/database/run.sh`, `tests/functional/run.sh`, and `tests/deployment/run.sh` (34 deployment-readiness checks: production mode, hosted-style DB, shared sessions). Before the viva, each member runs `docs/TEAM_TEST_CHECKLIST.md`.
+It runs unit (90), every SQL script (11), database (89), functional (173) and money-scenario (23) tests. Linux-only shortcuts: `tests/database/run.sh`, `tests/functional/run.sh`, and `tests/deployment/run.sh` (34 deployment-readiness checks: production mode, hosted-style DB, shared sessions). Before the viva, each member runs `docs/TEAM_TEST_CHECKLIST.md`.
 
 ## Running the database tests
 ```bash

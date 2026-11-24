@@ -448,8 +448,8 @@ $aarav->post('/expenses', ['group_id' => $gid, 'description' => 'Itemized mismat
     'expense_date' => $today, 'paid_by' => '2', 'split_method' => 'itemized',
     'items' => [['name' => 'Dal', 'qty' => '', 'amount' => '640', 'who' => ['2']]],
     'charges' => [['kind' => 'tax', 'label' => 'GST', 'amount' => '64'], ['kind' => 'discount', 'label' => '', 'amount' => '-5']]])->follow();
-check('IT14', 'A discount typed with a minus sign is refused (discounts are typed positive), nothing saved',
-    $aarav->has('at most 2 decimals')
+check('IT14', 'A discount typed with a minus sign gets a clear message (discounts are typed positive), nothing saved',
+    $aarav->has('Type the discount without a minus sign')
     && (int) $val("SELECT COUNT(*) FROM expenses WHERE description='Itemized mismatch'") === 0);
 $aarav->post('/expenses', ['group_id' => $gid, 'description' => 'Itemized mismatch', 'total_amount' => '700', 'category_id' => '2',
     'expense_date' => $today, 'paid_by' => '2', 'split_method' => 'itemized',
@@ -787,8 +787,16 @@ check('P2', 'Profile update saved', $val('SELECT CONCAT(full_name, "|", phone) F
 $t->get('/profile');
 $t->post('/profile/password', ['current_password' => 'wrong', 'password' => 'NewSecret456', 'password_confirm' => 'NewSecret456'])->follow();
 check('P3', 'Password change needs the current password', $t->has('Current password is incorrect'));
+$tOther = new Browser($BASE);                                  // the same account on another device
+$tOther->get('/login');
+$tOther->post('/login', ['login' => 'tester', 'password' => 'Secret123']);
+$tOther->get('/dashboard');
+$otherWasIn = $tOther->status === 200;
 $t->post('/profile/password', ['current_password' => 'Secret123', 'password' => 'NewSecret456', 'password_confirm' => 'NewSecret456']);
 check('P4', 'Password changed (new hash verifies)', password_verify('NewSecret456', (string) $val("SELECT password_hash FROM users WHERE user_id=?", [$tid])));
+$tOther->get('/dashboard');
+$t->get('/dashboard');
+check('P7', 'Changing the password logs out the other devices but keeps this one', $otherWasIn && $tOther->status === 303 && $t->status === 200);
 
 $aarav->get("/groups/$gid");
 $aarav->post("/groups/$gid/archive", ['archive' => '1']);

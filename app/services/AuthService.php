@@ -106,6 +106,9 @@ final class AuthService
         $v->throw();
         $this->users->setPassword($userId, password_hash((string) $in['password'], PASSWORD_DEFAULT));
         Session::regenerate();
+        // end this user's OTHER sessions (another device, or a stolen session); keep the current one
+        \App\Core\Database::pdo()->prepare('DELETE FROM app_sessions WHERE user_id = ? AND session_id <> ?')
+            ->execute([$userId, session_id()]);
     }
 
     private function validatePassword(Validator $v, string $pass, string $confirm): void

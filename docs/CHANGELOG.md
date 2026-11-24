@@ -1,5 +1,10 @@
 # CHANGELOG — SplitWise+
 
+## [0.9.1] — bug fixes (2026-11-24)
+### Fixed
+- `tests/run_all.php --build` left out the categories (reference data); the file list now comes from `database/build.sh`.
+- Password change ends your other sessions. Clear message for a negative discount. Receiver wording on the settle page. No crash without the curl extension.
+
 ## [0.9.0] — Phase 6 brief (revised strategy) implemented (2026-11-24)
 ### Added
 - Item-wise bills: **units per person per item** (quantity / unequal shares; typing units ticks the person) and **charge lines** (tax / GST, service charge, discount, other/round-off) that must reconcile exactly with the total; `expense_charges`, `expense_item_shares.share_units`.

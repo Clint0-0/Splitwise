@@ -365,6 +365,12 @@ final class ExpenseService
                 continue;
             }
             $raw = str_replace('+', '', trim((string) $r['amount']));
+            if ($kind !== 'other' && str_starts_with($raw, '-')) {
+                $v->add("charge_$i", $kind === 'discount'
+                    ? 'Type the discount without a minus sign; it is subtracted automatically.'
+                    : 'Tax and service charge cannot be negative (use Discount or Other).');
+                continue;
+            }
             $amt = $v->try(fn() => Money::parse($raw, "charge_$i", false, $kind === 'other'));
             if ($amt === null) {
                 continue;

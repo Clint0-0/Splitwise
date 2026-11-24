@@ -120,6 +120,7 @@
       const kind = row.querySelector('select').value;
       const v = hundredths(amtRaw, kind === 'other');
       if (!kind) badCharge = badCharge || 'Choose the type of charge ' + (k + 1) + '.';
+      else if (kind !== 'other' && amtRaw.startsWith('-')) badCharge = badCharge || 'Charge ' + (k + 1) + ': type it without a minus sign' + (kind === 'discount' ? ' (discounts are subtracted automatically).' : '.');
       else if (v === null || v === 0) badCharge = badCharge || 'Charge ' + (k + 1) + ' needs a non-zero amount.';
       else { anyCharge = true; chargeSum += kind === 'discount' ? -Math.abs(v) : v; }
     });

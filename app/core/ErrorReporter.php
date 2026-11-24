@@ -31,8 +31,11 @@ final class ErrorReporter
         ];
         error_log(json_encode($event, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
         $dsn = (string) Env::get('SENTRY_DSN', '');
-        if ($dsn !== '') {
-            self::sentry($dsn, $t, $event);
+        if ($dsn !== '' && function_exists('curl_init')) {   // never let monitoring itself crash the error page
+            try {
+                self::sentry($dsn, $t, $event);
+            } catch (\Throwable) {
+            }
         }
         return $ref;
     }

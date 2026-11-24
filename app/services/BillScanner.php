@@ -165,6 +165,10 @@ final class BillScanner
     /** One Messages API call. The key is sent only as a header and never logged. */
     private function askAnthropic(string $bytes, string $mime): string
     {
+        if (!function_exists('curl_init')) {   // e.g. XAMPP with extension=curl commented out in php.ini
+            error_log('bill scan: the PHP curl extension is not enabled');
+            throw ValidationException::single('bill', "Couldn't read the bill right now. Enter the items by hand, or try again.");
+        }
         $body = json_encode([
             'model'      => Env::get('SCAN_MODEL', self::DEFAULT_MODEL) ?: self::DEFAULT_MODEL,
             'max_tokens' => 2000,

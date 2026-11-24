@@ -49,7 +49,7 @@ $upiHref  = $payerSel === $uid && $payeeSel !== $uid && isset($upi[$payeeSel])
           <?php if ($maxPayable !== '0.00' && (int) $prefill['payee_id'] > 0): ?>
             <div class="form-text" id="fullAmount" data-payer="<?= (int) $prefill['payer_id'] ?>" data-payee="<?= (int) $prefill['payee_id'] ?>" data-max="<?= e($maxPayable) ?>">
               Outstanding: <strong><?= e(inr($maxPayable)) ?></strong> (after pending payments).
-              <a href="<?= e(url("/groups/$gid/settle?" . http_build_query(['payer' => $prefill['payer_id'], 'payee' => $prefill['payee_id'], 'amount' => $maxPayable]))) ?>" id="useFull">Pay the full amount</a> or type less for a part payment.
+              <a href="<?= e(url("/groups/$gid/settle?" . http_build_query(['payer' => $prefill['payer_id'], 'payee' => $prefill['payee_id'], 'amount' => $maxPayable]))) ?>" id="useFull"><?= (int) $prefill['payer_id'] === $uid ? 'Pay the full amount' : 'Use the full amount' ?></a> or type less for a part payment.
             </div>
           <?php endif; ?>
         </div>
