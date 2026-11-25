@@ -1,7 +1,7 @@
 # IMPLEMENTATION_STATUS.md — SplitWise+
 
-**Current phase:** DBMS Experiments 10–12 (after Phase 5.5) · **State:** implemented and tested locally on branch `feature/dbms-experiments-10-12`; Experiment 11 cloud run pending the team's Atlas account. Phase 5.5 real deployment still blocked (needs Vercel + MySQL provider accounts). Phase 6 not started.
-**Last updated:** 2026-11-18
+**Current phase:** Phase 6 (itemized bills, bill scanning, UPI, production readiness) on `main` · **State:** implemented; all suites pass on the owner's Windows PC (XAMPP PHP 8.2 + MySQL 8.0.46) and the manual check passed; DBMS Experiments 10–12 done (Exp 11 run on Atlas by the team). Earlier submission snapshot kept as tag `v1.0-submission`. Not yet done: hosted deployment (needs accounts), real-phone UPI tests, scan accuracy over 30–50 bills. Phase 6 sign-off: pending the owner's approval.
+**Last updated:** 2026-11-25
 
 ## Repository
 `https://github.com/Clint0-0/Splitwise` was empty on 2026-11-08. Phase 1 + 2 work is committed locally on branch `develop` (see CHANGELOG). Pushing needs write access (see the Phase 2 review message).
