@@ -39,3 +39,8 @@ Keep the implemented **Claude vision provider** as the first candidate: lowest i
 - [Amazon Textract pricing](https://aws.amazon.com/textract/pricing/)
 - [Google Document AI pricing](https://cloud.google.com/document-ai/pricing)
 - [Azure Document Intelligence pricing](https://azure.microsoft.com/pricing/details/ai-document-intelligence/)
+
+
+## Update 2026-11-25: Groq added
+
+`SCAN_PROVIDER=groq` is implemented (owner's choice). It uses Groq's OpenAI-compatible chat completions endpoint with a vision model (default `qwen/qwen3.8-27b`, changeable with `SCAN_MODEL` because Groq renames models) and JSON mode. Each image counts as about 2,048 input tokens on that model; check Groq's pricing page for the current per-token price and set `SCAN_COST_PAISE` to match. The same measurement plan above applies: run 30–50 real bills and record line accuracy before relying on it.

@@ -63,7 +63,7 @@
           <?php foreach ($groups as $g): ?>
             <li class="d-flex justify-content-between align-items-center gap-3 py-2 border-bottom">
               <a class="fw-bold text-decoration-none" href="<?= e(url('/groups/' . (int) $g['group_id'])) ?>"><?= e($g['name']) ?></a>
-              <?php $net = $g['net_balance']; require __DIR__ . '/../partials/balance.php'; ?>
+              <?php $net = $g['net_balance']; $open = $g['open_debts'] ?? 0; require __DIR__ . '/../partials/balance.php'; ?>
             </li>
           <?php endforeach; ?>
         </ul>

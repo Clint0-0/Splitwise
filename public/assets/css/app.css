@@ -441,4 +441,7 @@ legend.form-label { font-size: 1rem; font-family: var(--font-body); }
 }
 .item-uncertain{border-color:var(--marigold,#F4B400);box-shadow:0 0 0 2px rgba(244,180,0,.25)}
 .uncertain-note{font-size:.85rem;margin:0 0 .4rem;color:#7a5a00}
+.item-pick-wrap{margin-bottom:.5rem}
+.item-pick-wrap .form-label{margin-bottom:.15rem}
+.item-pick{max-width:100%}
 .scan-review{background:#fff8e1;border:1px solid var(--marigold,#F4B400);border-radius:.5rem;padding:.6rem .75rem .6rem 2.2rem}

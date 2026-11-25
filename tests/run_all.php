@@ -17,6 +17,13 @@ declare(strict_types=1);
 $opt = getopt('', ['mysql:', 'user:', 'password:', 'host:', 'port:', 'app-pass:', 'app-port:', 'build']);
 $ROOT    = dirname(__DIR__);
 $MYSQL   = $opt['mysql'] ?? 'mysql';
+// Windows: the MySQL installer does not add mysql.exe to PATH, and XAMPP's own client is
+// MariaDB (cannot log in to MySQL 8.0's caching_sha2_password accounts): use the 8.x one
+if (!isset($opt['mysql']) && PHP_OS_FAMILY === 'Windows') {
+    foreach (glob('C:/Program Files/MySQL/MySQL Server 8*/bin/mysql.exe') ?: [] as $exe) {
+        $MYSQL = str_replace('/', '\\', $exe);
+    }
+}
 $USER    = $opt['user'] ?? 'root';
 $PASS    = $opt['password'] ?? '';
 $HOST    = $opt['host'] ?? '127.0.0.1';

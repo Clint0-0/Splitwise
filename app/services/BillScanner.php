@@ -19,6 +19,10 @@ use App\Helpers\Money;
  *   off        (default) feature hidden
  *   anthropic  sends the photo to the Anthropic Messages API (vision); needs SCAN_API_KEY,
  *              optional SCAN_MODEL. The photo is not stored by SplitWise+.
+ *   groq       sends the photo to Groq's OpenAI-compatible chat completions API with a
+ *              vision model; needs SCAN_API_KEY (a gsk_... key), optional SCAN_MODEL
+ *              (default qwen/qwen3.8-27b: check console.groq.com/docs/vision for current IDs).
+ *              Groq limits base64 images to about 4 MB, so larger photos are shrunk first (GD).
  *   mock       returns a fixed sample bill, for local demos and the test suite only
  *              (refused when APP_ENV=production)
  * SCAN_DAILY_LIMIT    scans per user per day (default 20), counted in app_kv.
@@ -32,6 +36,11 @@ final class BillScanner
     private const MIME = ['image/jpeg', 'image/png', 'image/webp'];
     private const API_URL = 'https://api.anthropic.com/v1/messages';
     private const DEFAULT_MODEL = 'claude-sonnet-5-5';
+    private const GROQ_URL = 'https://api.groq.com/openai/v1/chat/completions';
+    private const GROQ_MODEL = 'qwen/qwen3.8-27b';
+    /** Raw photo size that stays under Groq's ~4 MB base64 request limit (base64 adds 1/3). */
+    private const GROQ_MAX_RAW = 2_900_000;
+    private const PROVIDERS = ['anthropic', 'groq', 'mock'];
 
     public static function provider(): string
     {
@@ -39,10 +48,10 @@ final class BillScanner
         if ($p === 'mock' && is_production()) {
             return 'off';
         }
-        if ($p === 'anthropic' && trim((string) Env::get('SCAN_API_KEY', '')) === '') {
+        if (in_array($p, ['anthropic', 'groq'], true) && trim((string) Env::get('SCAN_API_KEY', '')) === '') {
             return 'off';
         }
-        return in_array($p, ['anthropic', 'mock'], true) ? $p : 'off';
+        return in_array($p, self::PROVIDERS, true) ? $p : 'off';
     }
 
     public static function enabled(): bool
@@ -53,7 +62,11 @@ final class BillScanner
     /** Who receives the photo, for the privacy note next to the button. */
     public static function processorName(): string
     {
-        return self::provider() === 'anthropic' ? "Anthropic's AI service" : 'a demo reader on this server (nothing leaves it)';
+        return match (self::provider()) {
+            'anthropic' => "Anthropic's AI service",
+            'groq'      => "Groq's AI service",
+            default     => 'a demo reader on this server (nothing leaves it)',
+        };
     }
 
     /**
@@ -109,7 +122,11 @@ final class BillScanner
     /** Ask the configured provider about already-checked image bytes, then clean the answer. */
     public function read(string $bytes, string $mime): array
     {
-        $raw = self::provider() === 'mock' ? $this->mockReply() : $this->askAnthropic($bytes, $mime);
+        $raw = match (self::provider()) {
+            'mock'  => $this->mockReply(),
+            'groq'  => $this->askGroq($bytes, $mime),
+            default => $this->askAnthropic($bytes, $mime),
+        };
         return $this->normalise($raw);
     }
 
@@ -165,10 +182,6 @@ final class BillScanner
     /** One Messages API call. The key is sent only as a header and never logged. */
     private function askAnthropic(string $bytes, string $mime): string
     {
-        if (!function_exists('curl_init')) {   // e.g. XAMPP with extension=curl commented out in php.ini
-            error_log('bill scan: the PHP curl extension is not enabled');
-            throw ValidationException::single('bill', "Couldn't read the bill right now. Enter the items by hand, or try again.");
-        }
         $body = json_encode([
             'model'      => Env::get('SCAN_MODEL', self::DEFAULT_MODEL) ?: self::DEFAULT_MODEL,
             'max_tokens' => 2000,
@@ -181,8 +194,32 @@ final class BillScanner
             ]],
         ], JSON_THROW_ON_ERROR);
 
+        $data = $this->post(self::API_URL, $body, [
+            'anthropic-version: 2023-06-01',
+            'x-api-key: ' . trim((string) Env::get('SCAN_API_KEY', '')),
+        ]);
+        $text = '';
+        foreach ((array) ($data['content'] ?? []) as $block) {
+            if (($block['type'] ?? '') === 'text') {
+                $text .= (string) $block['text'];
+            }
+        }
+        return $text;
+    }
+
+    /**
+     * One JSON POST to the provider; returns the decoded reply. The key travels only in a
+     * header and is never logged; on failure only the HTTP status is logged (the body
+     * could echo request details).
+     */
+    private function post(string $realUrl, string $body, array $headers): array
+    {
+        if (!function_exists('curl_init')) {   // e.g. XAMPP with extension=curl commented out in php.ini
+            error_log('bill scan: the PHP curl extension is not enabled');
+            throw ValidationException::single('bill', "Couldn't read the bill right now. Enter the items by hand, or try again.");
+        }
         // SCAN_API_URL lets the test suite point at a local fake API; ignored in production
-        $url = !is_production() && ($u = (string) Env::get('SCAN_API_URL', '')) !== '' ? $u : self::API_URL;
+        $url = !is_production() && ($u = (string) Env::get('SCAN_API_URL', '')) !== '' ? $u : $realUrl;
         // Windows/XAMPP counts max_execution_time (default 30 s) in wall-clock time, so a
         // slow API reply would kill the request with a fatal error: allow the curl timeout
         @set_time_limit(75);
@@ -193,30 +230,76 @@ final class BillScanner
             CURLOPT_RETURNTRANSFER => true,
             CURLOPT_CONNECTTIMEOUT => 10,
             CURLOPT_TIMEOUT        => 45,
-            CURLOPT_HTTPHEADER     => [
-                'content-type: application/json',
-                'anthropic-version: 2023-06-01',
-                'x-api-key: ' . trim((string) Env::get('SCAN_API_KEY', '')),
-            ],
+            CURLOPT_HTTPHEADER     => array_merge(['content-type: application/json'], $headers),
         ]);
         $res = curl_exec($ch);
         $status = (int) curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
         $err = curl_error($ch);
         curl_close($ch);
-
         if ($res === false || $status !== 200) {
-            // log the status only: the response body could echo request details
             error_log(sprintf('bill scan failed: HTTP %d %s', $status, $err));
-            throw ValidationException::single('bill', "Couldn't read the bill right now. Enter the items by hand, or try again.");
+            $msg = $status === 429
+                ? 'The bill reader is busy (rate limit). Wait a minute and try again, or enter the items by hand.'
+                : "Couldn't read the bill right now. Enter the items by hand, or try again.";
+            throw ValidationException::single('bill', $msg);
         }
         $data = json_decode((string) $res, true);
-        $text = '';
-        foreach ((array) ($data['content'] ?? []) as $block) {
-            if (($block['type'] ?? '') === 'text') {
-                $text .= (string) $block['text'];
+        return is_array($data) ? $data : [];
+    }
+
+    /** One Groq chat-completions call (OpenAI format) with the photo as a base64 data URL. */
+    private function askGroq(string $bytes, string $mime): string
+    {
+        [$bytes, $mime] = $this->shrinkForGroq($bytes, $mime);
+        $body = json_encode([
+            'model'           => Env::get('SCAN_MODEL', self::GROQ_MODEL) ?: self::GROQ_MODEL,
+            'temperature'     => 0,
+            'max_completion_tokens' => 2000,
+            'response_format' => ['type' => 'json_object'],
+            'messages'        => [[
+                'role'    => 'user',
+                'content' => [
+                    ['type' => 'text', 'text' => $this->prompt()],
+                    ['type' => 'image_url', 'image_url' => ['url' => 'data:' . $mime . ';base64,' . base64_encode($bytes)]],
+                ],
+            ]],
+        ], JSON_THROW_ON_ERROR);
+        $data = $this->post(self::GROQ_URL, $body, ['authorization: Bearer ' . trim((string) Env::get('SCAN_API_KEY', ''))]);
+        $text = (string) ($data['choices'][0]['message']['content'] ?? '');
+        // reasoning models may put their thinking in <think>...</think> before the answer
+        return (string) preg_replace('~<think>.*?</think>~s', '', $text);
+    }
+
+    /**
+     * Groq refuses base64 images over ~4 MB. Re-encode a large photo as a JPEG no wider/taller
+     * than 2000 px (plenty for reading a bill). Needs PHP's GD extension; without it a large
+     * photo gets a friendly "use a smaller photo" message instead of a failed API call.
+     * @return array{0:string,1:string}
+     */
+    private function shrinkForGroq(string $bytes, string $mime): array
+    {
+        if (strlen($bytes) <= self::GROQ_MAX_RAW) {
+            return [$bytes, $mime];
+        }
+        $img = function_exists('imagecreatefromstring') ? @imagecreatefromstring($bytes) : false;
+        if ($img === false) {
+            throw ValidationException::single('bill', 'That photo is too large for the bill reader (maximum about 3 MB). Use a smaller photo.');
+        }
+        [$w, $h] = [imagesx($img), imagesy($img)];
+        $scale = min(1.0, 2000 / max($w, $h));
+        $small = imagescale($img, max(1, (int) round($w * $scale)), max(1, (int) round($h * $scale)));
+        imagedestroy($img);
+        foreach ([85, 70, 55] as $q) {
+            ob_start();
+            imagejpeg($small, null, $q);
+            $out = (string) ob_get_clean();
+            if (strlen($out) <= self::GROQ_MAX_RAW) {
+                imagedestroy($small);
+                return [$out, 'image/jpeg'];
             }
         }
-        return $text;
+        imagedestroy($small);
+        throw ValidationException::single('bill', 'That photo is too large for the bill reader (maximum about 3 MB). Use a smaller photo.');
     }
 
     private function mockReply(): string

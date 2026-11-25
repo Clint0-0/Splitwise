@@ -110,7 +110,7 @@ $upiHref  = $payerSel === $uid && $payeeSel !== $uid && isset($upi[$payeeSel])
     <section class="panel" aria-labelledby="bal-h">
       <h2 id="bal-h">Balances</h2>
       <?php foreach ($active as $m): ?>
-        <div class="d-flex justify-content-between py-1"><span><?= e($m['full_name']) ?></span><?php $net = $m['net_balance']; require __DIR__ . '/../partials/balance.php'; ?></div>
+        <div class="d-flex justify-content-between py-1"><span><?= e($m['full_name']) ?></span><?php $net = $m['net_balance']; $open = $m['open_debts'] ?? 0; require __DIR__ . '/../partials/balance.php'; ?></div>
       <?php endforeach; ?>
     </section>
   </div>

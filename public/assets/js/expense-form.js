@@ -144,6 +144,58 @@
     itemStatus.className = 'split-status text-gets';
   }
 
+  // ---- "Pick from bill": copy a scanned line into this row (the person still checks it) ----
+  function setUncertain(row, on) {
+    row.classList.toggle('item-uncertain', on);
+    let note = row.querySelector('.uncertain-note');
+    let flag = row.querySelector('input[name$="[uncertain]"]');
+    if (!on) { if (note) note.remove(); if (flag) flag.remove(); return; }
+    if (!note) {
+      note = document.createElement('p');
+      note.className = 'uncertain-note';
+      note.innerHTML = '<i class="bi bi-exclamation-triangle" aria-hidden="true"></i> ';
+      note.appendChild(document.createTextNode('Hard to read on the photo: check this line.'));
+      row.prepend(note);
+    }
+    if (!flag) {
+      flag = document.createElement('input');
+      flag.type = 'hidden';
+      flag.name = 'items[' + row.dataset.index + '][uncertain]';
+      flag.value = '1';
+      row.appendChild(flag);
+    }
+  }
+  function markUsedLines() {
+    if (!itemList) return;
+    const used = new Set([...itemList.querySelectorAll('select[data-pick]')].map((s) => s.value).filter(Boolean));
+    itemList.querySelectorAll('select[data-pick]').forEach((sel) => {
+      [...sel.options].forEach((o) => {
+        if (!o.value) return;
+        const base = o.dataset.label || (o.dataset.label = o.textContent);
+        o.textContent = used.has(o.value) && sel.value !== o.value ? base + ' (used)' : base;
+      });
+    });
+  }
+  if (itemList) {
+    itemList.addEventListener('change', (ev) => {
+      const sel = ev.target.closest('select[data-pick]');
+      if (!sel) return;
+      const row = sel.closest('.item-row');
+      const o = sel.selectedOptions[0];
+      const idx = row.dataset.index;
+      const set = (f, v) => { const el = row.querySelector('[name="items[' + idx + '][' + f + ']"]'); if (el) { el.value = v; el.classList.remove('is-invalid'); } };
+      if (o && o.value) {
+        set('name', o.dataset.name); set('qty', o.dataset.qty || '1'); set('amount', o.dataset.amount);
+        setUncertain(row, o.dataset.uncertain === '1');
+        const first = row.querySelector('.item-who input[type=checkbox]');
+        if (first) first.focus();   // next step: tick who had it
+      }
+      markUsedLines();
+      updateItems();
+    });
+    markUsedLines();
+  }
+
   if (addItem && itemList) {
     addItem.hidden = false;
     addItem.addEventListener('click', () => {
@@ -162,6 +214,8 @@
       });
       clone.querySelectorAll('input:not([type=checkbox])').forEach((i) => { i.value = ''; i.classList.remove('is-invalid'); });
       clone.querySelectorAll('input[type=checkbox]').forEach((c) => { c.checked = false; });
+      clone.querySelectorAll('select[data-pick]').forEach((sel) => { sel.selectedIndex = 0; });
+      setUncertain(clone, false);
       clone.querySelectorAll('.invalid-feedback').forEach((x) => x.remove());
       const det = clone.querySelector('details'); if (det) det.open = false;
       const leg = clone.querySelector('legend');

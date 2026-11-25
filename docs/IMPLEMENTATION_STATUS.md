@@ -97,7 +97,9 @@ Phase 2 acceptance criteria: tables create ✓ · FKs work ✓ · constraints re
 - ✅ 6.3 Bill scanning behind `SCAN_PROVIDER` (mock + Anthropic vision provider; request/response checked against a local fake API). **Not run against the real API** (no key in this environment).
 - ✅ Revised brief (2026-11-24): units per person per item, charge lines, server-computed UPI amount + copy-ID + mark-as-sent wording, scan date/charges/uncertainty/warnings/review tick/monthly cap/admin cost panel, password reset, SMTP, error monitoring, sample-free build + first-admin CLI, backup + restore test, hosting and OCR evaluations, end-to-end test.
 - ⛔ Staging/production deployment, real SMTP, real scan API, real-phone UPI tests (`docs/UPI_DEVICE_TESTS.md`), real-bill OCR measurement: need the owner's accounts/devices.
-- ⏸ Tag `v1.0-submission` (b92fb91) exists only locally in the build environment: the remote refused the tag push; waiting for the owner's approval/push.
+- ✅ Tag `v1.0-submission` → `b92fb91` pushed to GitHub by the owner (verified with `git ls-remote`).
+- ✅ Groq vision provider for bill scanning, **Pick from bill** in each item row, receipt photo used for the scan when no separate bill photo is chosen (0.9.2). Real-bill accuracy with a real Groq key: still to be measured by the owner.
+- ✅ Balances: a group where you owe one person and are owed the same by another now shows "evens out · N open debts" instead of "settled up".
 - Tests: unit 90, DB 89, functional 173 (incl. E2E1–E2E5), deployment 34, scenarios 23, deployment 30; axe 0 violations incl. itemized and UPI pages.
 
 ## Notes for Phase 5 (testing) — kept for reference

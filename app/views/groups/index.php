@@ -33,7 +33,7 @@
         <?php if ($g['role'] === 'admin'): ?><span class="pill pill-admin">you are admin</span><?php endif; ?>
         <?php if ($archived): ?><span class="pill pill-warn">archived</span><?php endif; ?>
       </div>
-      <div class="group-balance"><?php $net = $g['net_balance']; require __DIR__ . '/../partials/balance.php'; ?></div>
+      <div class="group-balance"><?php $net = $g['net_balance']; $open = $g['open_debts'] ?? 0; require __DIR__ . '/../partials/balance.php'; ?></div>
     </article>
   <?php endforeach; ?>
 </div>

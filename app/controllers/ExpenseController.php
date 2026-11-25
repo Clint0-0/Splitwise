@@ -169,7 +169,13 @@ final class ExpenseController extends Controller
             }
         }
         try {
-            $bill = (new BillScanner())->scan($uid, $this->request->file('bill') ?? []);
+            // the bill photo field, or else the receipt attached to this expense (if it is a photo)
+            $photo = $this->request->file('bill');
+            $receipt = $this->request->file('receipt');
+            if ($photo === null && $receipt !== null && str_starts_with((string) ($receipt['type'] ?? ''), 'image/')) {
+                $photo = $receipt;
+            }
+            $bill = (new BillScanner())->scan($uid, $photo ?? []);
         } catch (ValidationException $ex) {
             \App\Core\Session::flashInput($input, $ex->errors);
             \App\Core\Session::flash('danger', $ex->errors['bill'] ?? 'Could not read the bill.');
@@ -179,6 +185,9 @@ final class ExpenseController extends Controller
         // lines only: WHO had each item is always left for the person to tick
         $input['items'] = array_map(fn($it) => ['name' => $it['name'], 'qty' => $it['qty'], 'amount' => $it['amount'],
             'who' => [], 'units' => [], 'uncertain' => $it['uncertain'] ? '1' : ''], $bill['items']);
+        // every line stays available as a "Pick from bill" choice in each item row
+        $input['bill_lines'] = array_map(fn($it) => ['name' => $it['name'], 'qty' => $it['qty'], 'amount' => $it['amount'],
+            'uncertain' => $it['uncertain'] ? '1' : ''], $bill['items']);
         $input['charges'] = array_map(fn($c) => ['kind' => $c['kind'], 'label' => $c['label'], 'amount' => $c['amount']], $bill['charges']);
         $input['scanned'] = '1';           // the save then needs the "I checked it" tick
         unset($input['scan_reviewed']);

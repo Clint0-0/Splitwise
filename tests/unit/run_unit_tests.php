@@ -217,6 +217,37 @@ check('Scan: SCAN_API_URL test override is guarded by !is_production() (static c
     $src = file_get_contents(__DIR__ . '/../../app/services/BillScanner.php');
     return str_contains($src, "!is_production() && (\$u = (string) Env::get('SCAN_API_URL'"); })());
 proc_terminate($srv);
+// Groq provider (OpenAI-compatible chat completions) against a local fake
+$envSet(['SCAN_PROVIDER' => 'groq', 'SCAN_API_KEY' => '']);
+check('Scan: groq without an API key stays off', BillScanner::provider() === 'off');
+$envSet(['SCAN_API_KEY' => 'gsk_test_key']);
+check('Scan: groq with a key is on and names Groq in the privacy note', BillScanner::provider() === 'groq' && str_contains(BillScanner::processorName(), 'Groq'));
+$port = 17000 + mt_rand(0, 999);
+$srv = proc_open([PHP_BINARY, '-S', "127.0.0.1:$port", __DIR__ . '/fixtures/fake_groq.php'], [1 => ['file', $NULLDEV, 'w'], 2 => ['file', $NULLDEV, 'w']], $pp);
+usleep(400000);
+$envSet(['SCAN_API_URL' => "http://127.0.0.1:$port/openai/v1/chat/completions"]);
+$res = null;
+try { $res = $scanner->read($png, 'image/png'); } catch (Throwable $e) { $res = $e->getMessage(); }
+check('Scan: Groq request (Bearer key, json_object, data-URL image) + <think> stripped + reply parsed', is_array($res)
+    && $res['merchant'] === 'Groq Cafe' && count($res['items']) === 2 && $res['items'][1]['amount'] === '45.50'
+    && $res['charges'][0]['amount'] === '5.28' && $res['total'] === '110.78' && $res['warnings'] === [], is_string($res) ? $res : '');
+if (function_exists('imagecreatetruecolor')) {
+    // a ~4.5 MB noisy PNG must be shrunk under Groq's base64 limit (the fake refuses > 4 MB base64)
+    $im = imagecreatetruecolor(1500, 1100);
+    for ($y = 0; $y < 1100; $y++) { for ($x = 0; $x < 1500; $x++) { imagesetpixel($im, $x, $y, mt_rand(0, 0xFFFFFF)); } }
+    ob_start(); imagepng($im, null, 0); $big = (string) ob_get_clean(); imagedestroy($im);
+    $res = null;
+    try { $res = $scanner->read($big, 'image/png'); } catch (Throwable $e) { $res = $e->getMessage(); }
+    check('Scan: Groq: a ' . round(strlen($big) / 1e6, 1) . ' MB photo is shrunk to JPEG under the 4 MB base64 limit', is_array($res) && strlen($big) > 2_900_000,
+        is_string($res) ? $res : '');
+} else {
+    check('Scan: Groq: large-photo shrink (skipped: GD not installed)', true);
+}
+$envSet(['SCAN_API_KEY' => 'gsk_busy']);
+check('Scan: Groq rate limit (429) -> "busy, wait a minute" message', throwsValidation(fn() => $scanner->read($png, 'image/png'), 'rate limit'));
+$envSet(['SCAN_API_KEY' => 'gsk_wrong']);
+check('Scan: Groq bad key -> friendly message, no crash', throwsValidation(fn() => $scanner->read($png, 'image/png'), "Couldn't read the bill right now"));
+proc_terminate($srv);
 $envSet(['SCAN_PROVIDER' => null, 'SCAN_API_KEY' => null, 'SCAN_API_URL' => null, 'APP_ENV' => null]);
 
 // ---------------------------------------------------------------- mail + error monitoring (Phase 6)

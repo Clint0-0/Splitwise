@@ -86,7 +86,7 @@ $kinds = ['trip' => 'Trip', 'home' => 'Home', 'family' => 'Family', 'friends' =>
             <td class="who"><span class="fw-semibold"><?= e($m['full_name']) ?></span><?= (int) $m['user_id'] === $uid ? ' (you)' : '' ?>
               <?= $m['role'] === 'admin' ? ' <span class="pill pill-admin">admin</span>' : '' ?>
               <div class="small text-muted">paid <?= e(inr($m['total_paid'])) ?> · share <?= e(inr($m['total_owed'])) ?></div></td>
-            <td class="num small"><?php $net = $m['net_balance']; require __DIR__ . '/../partials/balance.php'; ?></td>
+            <td class="num small"><?php $net = $m['net_balance']; $open = $m['open_debts'] ?? 0; require __DIR__ . '/../partials/balance.php'; ?></td>
             <?php if ($isAdmin && !$archived): ?>
             <td class="text-end">
               <?php if ((int) $m['user_id'] !== $uid): ?>

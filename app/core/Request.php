@@ -80,6 +80,8 @@ final class Request
                 $out[$k] = self::items($v);
             } elseif ($k === 'charges' && is_array($v)) {
                 $out[$k] = self::charges($v);
+            } elseif ($k === 'bill_lines' && is_array($v)) {
+                $out[$k] = self::billLines($v);
             } elseif (is_array($v)) {
                 $out[$k] = in_array($k, self::ARRAY_FIELDS, true) ? array_filter($v, 'is_string') : '';
             } else {
@@ -128,6 +130,29 @@ final class Request
             }
             $str = static fn(string $f): string => isset($row[$f]) && is_string($row[$f]) ? $row[$f] : '';
             $out[$k] = ['kind' => $str('kind'), 'label' => $str('label'), 'amount' => $str('amount')];
+        }
+        return $out;
+    }
+
+    /**
+     * Lines read from a scanned bill, carried in hidden fields so each item row can offer
+     * "Pick from bill". Display only: a picked line is copied into the item fields, which
+     * are validated on save like typed ones. At most 50 lines; strings clamped.
+     * @return list<array{name:string, qty:string, amount:string, uncertain:string}>
+     */
+    private static function billLines(array $rows): array
+    {
+        $out = [];
+        foreach (array_slice(array_values($rows), 0, 50) as $row) {
+            if (!is_array($row)) {
+                continue;
+            }
+            $str = static fn(string $f, int $max): string => isset($row[$f]) && is_string($row[$f]) ? mb_substr($row[$f], 0, $max) : '';
+            $line = ['name' => $str('name', 80), 'qty' => $str('qty', 12), 'amount' => $str('amount', 20),
+                     'uncertain' => $str('uncertain', 1) === '1' ? '1' : ''];
+            if ($line['name'] !== '' && preg_match('/^\d{1,12}(\.\d{1,2})?$/', $line['amount'])) {
+                $out[] = $line;
+            }
         }
         return $out;
     }

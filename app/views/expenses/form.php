@@ -33,6 +33,10 @@ if (isset($old['items']) && is_array($old['items'])) {
         // only uneven units are shown; 1 is the default
         'units' => array_map(fn($u) => rtrim(rtrim((string) $u, '0'), '.'), array_filter($it['units'] ?? [], fn($u) => (float) $u !== 1.0))], $items ?? []);
 }
+// lines read from a scanned bill: offered as "Pick from bill" in every item row
+$billLines = isset($old['bill_lines']) && is_array($old['bill_lines']) ? array_values(array_filter($old['bill_lines'], 'is_array')) : [];
+$billLabel = fn(array $l): string => $l['name'] . ' · ' . ($l['qty'] !== '' && $l['qty'] !== '1' ? $l['qty'] . ' × ' : '') . inr($l['amount'])
+    . ($l['uncertain'] === '1' ? ' (hard to read)' : '');
 // charge rows: old input > saved > blank (3 rows)
 $kinds = App\Services\ExpenseService::CHARGE_KINDS;
 if (isset($old['charges']) && is_array($old['charges'])) {
@@ -176,10 +180,20 @@ while (count($itemRows) < max(4, count(array_filter($itemRows, fn($r) => $r['nam
           <button class="btn btn-quiet" type="submit" formnovalidate
                   formaction="<?= e(url('/expenses/scan' . ($editing ? '?expense=' . (int) $e['expense_id'] : ''))) ?>">Read items</button>
         </div>
-        <div id="bill-help" class="form-text">The photo is sent to <?= e(App\Services\BillScanner::processorName()) ?> to read the lines and is not saved.
+        <div id="bill-help" class="form-text">No photo here? The receipt you attach below is read instead, if it is a photo.
+          You then pick each line from the bill in the item rows. The photo is sent to <?= e(App\Services\BillScanner::processorName()) ?> to read the lines and is not saved.
           Scans can be wrong: always check the items and the total against the bill.</div>
         <?= field_error($errors, 'bill') ?>
       </div>
+      <?php endif; ?>
+      <?php if ($billLines): ?>
+        <div class="bill-lines" id="billLines">
+          <?php foreach ($billLines as $bi => $l): ?>
+            <?php foreach (['name', 'qty', 'amount', 'uncertain'] as $f): ?><input type="hidden" name="bill_lines[<?= $bi ?>][<?= $f ?>]" value="<?= e($l[$f]) ?>"><?php endforeach; ?>
+          <?php endforeach; ?>
+          <p class="note mb-2"><i class="bi bi-receipt" aria-hidden="true"></i> <?= count($billLines) ?> line<?= count($billLines) === 1 ? '' : 's' ?> read from the bill.
+            Use <strong>Pick from bill</strong> in any row to choose a line instead of typing it.</p>
+        </div>
       <?php endif; ?>
       <?= field_error($errors, 'items') ?>
       <ol class="item-rows" id="itemRows">
@@ -187,6 +201,21 @@ while (count($itemRows) < max(4, count(array_filter($itemRows, fn($r) => $r['nam
         <li class="item-row<?= !empty($r['uncertain']) ? ' item-uncertain' : '' ?>" data-index="<?= $i ?>">
           <?php if (!empty($r['uncertain'])): ?><p class="uncertain-note"><i class="bi bi-exclamation-triangle" aria-hidden="true"></i> Hard to read on the photo: check this line.</p>
             <input type="hidden" name="items[<?= $i ?>][uncertain]" value="1"><?php endif; ?>
+          <?php if ($billLines): ?>
+          <div class="item-pick-wrap">
+            <label class="form-label small" for="it_<?= $i ?>_pick">Pick from bill</label>
+            <?php // which line this row shows now: the same-numbered line if it matches, else the first that does
+              $same = fn($l) => $l['name'] === $r['name'] && $l['amount'] === $r['amount'];
+              $sel = isset($billLines[$i]) && $same($billLines[$i]) ? $i : (array_key_first(array_filter($billLines, $same)) ?? -1); ?>
+            <select class="form-select form-select-sm item-pick" id="it_<?= $i ?>_pick" data-pick>
+              <option value="">Choose a bill line…</option>
+              <?php foreach ($billLines as $bi => $l): $match = $bi === $sel; ?>
+                <option value="<?= $bi ?>" data-name="<?= e($l['name']) ?>" data-qty="<?= e($l['qty']) ?>" data-amount="<?= e($l['amount']) ?>"
+                        data-uncertain="<?= e($l['uncertain']) ?>" <?= $match ? 'selected' : '' ?>><?= e($billLabel($l)) ?></option>
+              <?php endforeach; ?>
+            </select>
+          </div>
+          <?php endif; ?>
           <div class="item-fields">
             <div class="item-name">
               <label class="form-label small" for="it_<?= $i ?>_name">Item</label>

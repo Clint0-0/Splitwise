@@ -39,7 +39,10 @@ final class GroupModel extends Model
                                   (SELECT COUNT(*) FROM group_members x
                                     WHERE x.group_id = g.group_id AND x.status = 'active') AS member_count,
                                   (SELECT COALESCE(SUM(e.total_amount), 0) FROM expenses e
-                                    WHERE e.group_id = g.group_id AND e.is_deleted = 0) AS total_spent
+                                    WHERE e.group_id = g.group_id AND e.is_deleted = 0) AS total_spent,
+                                  (SELECT COUNT(*) FROM v_pairwise_debts p
+                                    WHERE p.group_id = g.group_id AND gm.user_id IN (p.user_a, p.user_b)
+                                      AND p.outstanding <> 0) AS open_debts
                              FROM group_members gm
                              JOIN expense_groups g ON g.group_id = gm.group_id
                              LEFT JOIN v_group_member_balances b ON b.group_id = gm.group_id AND b.user_id = gm.user_id
@@ -57,7 +60,10 @@ final class GroupModel extends Model
     {
         return $this->all("SELECT gm.user_id, gm.role, gm.status, gm.joined_at, gm.left_at,
                                   u.full_name, u.username,
-                                  b.total_paid, b.total_owed, b.settled_paid, b.settled_received, b.net_balance
+                                  b.total_paid, b.total_owed, b.settled_paid, b.settled_received, b.net_balance,
+                                  (SELECT COUNT(*) FROM v_pairwise_debts p
+                                    WHERE p.group_id = gm.group_id AND gm.user_id IN (p.user_a, p.user_b)
+                                      AND p.outstanding <> 0) AS open_debts
                              FROM group_members gm
                              JOIN users u ON u.user_id = gm.user_id
                              JOIN v_group_member_balances b ON b.group_id = gm.group_id AND b.user_id = gm.user_id

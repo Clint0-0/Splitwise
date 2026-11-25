@@ -1,5 +1,16 @@
 # CHANGELOG — SplitWise+
 
+## [0.9.2] — Groq scanning, pick from bill, "evens out" (2026-11-25)
+### Added
+- `SCAN_PROVIDER=groq`: Groq's OpenAI-compatible chat completions with a vision model (default `qwen/qwen3.8-27b`, `SCAN_MODEL` to change), JSON mode, `<think>` blocks stripped, photos over ~2.9 MB shrunk to JPEG (GD) to stay under Groq's 4 MB base64 limit, rate-limit (429) message.
+- **Pick from bill**: after a scan every item row has a list of the lines read from the photo; choosing one fills name, qty and line total (and the "hard to read" flag); lines already used are marked. The lines are carried in hidden fields, so they survive a validation error; they are only display data — the item fields are validated on save as before.
+- Scan reads the attached **receipt** photo when no separate bill photo was chosen.
+- `tests/run_all.php` finds `C:\Program Files\MySQL\MySQL Server 8.x\bin\mysql.exe` by itself on Windows.
+### Fixed
+- Balances / dashboard / groups showed **"settled up"** for a group where your net is ₹0 but you still owe one member and are owed by another (Person by person listed the debt). Now: "evens out · N open debts".
+- "Add another item" copied the "hard to read" warning from the row it cloned.
+- Tests: unit 96, functional 179.
+
 ## [0.9.1] — bug fixes (2026-11-24)
 ### Fixed
 - `tests/run_all.php --build` left out the categories (reference data); the file list now comes from `database/build.sh`.

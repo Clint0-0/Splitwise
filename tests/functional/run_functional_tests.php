@@ -550,6 +550,11 @@ check('SN2', 'Scan returns to the same form with the bill lines, total and shop 
     && $aarav->field('total_amount') === '903.00' && $aarav->field('description') === 'Demo Dhaba'
     && preg_match('/id="m_itemized"[^>]*checked/', $aarav->body) === 1 && $aarav->has('Read 4 items from the bill')
     && (int) $val('SELECT COUNT(*) FROM expenses') === $before);
+check('SN14', 'After a scan every item row offers "Pick from bill" with all 4 lines (row 1 shows line 1), and the lines ride along as hidden fields',
+    substr_count($aarav->body, 'data-pick>') >= 4 && substr_count($aarav->body, 'name="bill_lines[') === 16
+    && $aarav->has('Butter naan · 4 × ₹200.00') && $aarav->has('Jeera rice · ₹180.00 (hard to read)')
+    && preg_match('/id="it_0_pick".*?<option value="0"[^>]*selected/s', $aarav->body) === 1
+    && $aarav->has('4 lines read from the bill'));
 $aarav->post('/expenses/scan', ['group_id' => $gid, 'description' => 'Lunch at work', 'total_amount' => '950', 'category_id' => '2',
     'expense_date' => $today, 'paid_by' => '2'], true, ['bill' => [$billPng, 'image/png', 'bill.png']])->follow();
 check('SN3', 'What you already typed (description, total) is kept, not overwritten by the scan',
@@ -576,6 +581,15 @@ $aarav->post('/expenses', $scanSave + ['scan_reviewed' => '1']);
 check('SN12', 'After the review tick it saves through the normal path: items, both charges, splits = ₹903',
     $val("SELECT SUM(s.share_amount) FROM expense_splits s JOIN expenses e USING (expense_id) WHERE e.description='Scanned dinner'") === '903.00'
     && (int) $val("SELECT COUNT(*) FROM expense_charges c JOIN expenses e USING (expense_id) WHERE e.description='Scanned dinner'") === 2);
+$aarav->get("/expenses/create?group=$gid");
+$aarav->post('/expenses', ['group_id' => $gid, 'description' => '', 'total_amount' => '50', 'category_id' => '2', 'expense_date' => $today,
+    'paid_by' => '2', 'split_method' => 'itemized', 'scanned' => '1',
+    'items' => [['name' => 'Tea', 'qty' => '1', 'amount' => '50', 'who' => ['2']]],
+    'bill_lines' => [['name' => 'Tea', 'qty' => '1', 'amount' => '50.00'], ['name' => '<script>alert(1)</script>', 'qty' => '1', 'amount' => '10.00'],
+                     ['name' => 'Bad', 'qty' => '1', 'amount' => 'abc'], 'junk', ['name' => ['x'], 'amount' => '5.00']]])->follow();
+check('SN16', 'Pick-from-bill lines survive a validation error; bad lines dropped, names HTML-escaped, nothing saved',
+    $aarav->has('2 lines read from the bill') && $aarav->has('&lt;script&gt;alert(1)&lt;/script&gt; · ₹10.00') && !$aarav->has('<script>alert(1)')
+    && !$aarav->has('Bad · ') && (int) $val("SELECT COUNT(*) FROM expenses WHERE total_amount = 50.00 AND description = ''") === 0);
 $txt = tempnam(sys_get_temp_dir(), 'txt');
 file_put_contents($txt, "%PDF-1.4 not an image");
 $aarav->post('/expenses/scan', ['group_id' => $gid, 'description' => 'Kept'], true, ['bill' => [$txt, 'image/png', 'bill.png']])->follow();
@@ -595,6 +609,10 @@ for ($k = 0; $k < 1; $k++) {
     $aarav->post('/expenses/scan', ['group_id' => $gid], true, ['bill' => [$billPng, 'image/png', 'bill.png']])->follow();
 }
 $priyaS = login($BASE, 'priya');
+$priyaS->get("/expenses/create?group=$gid");
+$priyaS->post('/expenses/scan', ['group_id' => $gid, 'description' => '', 'total_amount' => ''], true, ['receipt' => [$billPng, 'image/png', 'receipt.png']])->follow();
+check('SN15', 'No bill photo but a receipt photo attached -> the receipt is read and its lines offered to pick',
+    $priyaS->field('items[0][name]') === 'Paneer butter masala' && $priyaS->has('Pick from bill') && $priyaS->has('Choose the receipt file again'));
 $db->exec("UPDATE app_kv SET kv_value = '1000' WHERE kv_key LIKE 'scan:month:%' AND kv_key NOT LIKE '%:failed'");
 $priyaS->get("/expenses/create?group=$gid");
 $priyaS->post('/expenses/scan', ['group_id' => $gid], true, ['bill' => [$billPng, 'image/png', 'bill.png']])->follow();
@@ -1096,6 +1114,30 @@ check('E2E5', 'Priya confirms receipt -> confirmed; the debt is cleared (nothing
     $val('SELECT status FROM settlements WHERE settlement_id = ?', [$sE]) === 'confirmed'
     && (float) $net($tid) === round((float) $after[$tid] + (float) $owed, 2)
     && !$t->has('Outstanding:') && $val('SELECT SUM(net_balance) FROM v_group_member_balances WHERE group_id = ?', [$gid]) === '0.00');
+
+// ======================================================================= balances: net 0 is not always settled
+$db->exec("INSERT INTO expense_groups (name, group_type, created_by) VALUES ('Evens Out Test', 'friends', 2)");
+$gEv = (int) $db->lastInsertId();
+$db->exec("INSERT INTO group_members (group_id, user_id, role) VALUES ($gEv, 2, 'admin'), ($gEv, 3, 'member'), ($gEv, 4, 'member')");
+foreach ([[2, 'Priya only', '3'], [3, 'Rohan only', '4']] as [$payer, $desc, $who]) {
+    $st = $db->prepare("CALL sp_add_equal_expense(?, ?, ?, 2, ?, 100.00, ?, ?, @x)");
+    $st->execute([$gEv, $payer, $payer, $desc, $today, $who]);
+    $st->closeCursor();
+}
+$pB = login($BASE, 'priya');
+$pB->get('/balances');
+$rowEv = preg_match('~Evens Out Test</a>(.*?)</li>~s', $pB->body, $mm) ? $mm[1] : '';
+check('BL1', 'Owes Aarav ₹100 and is owed ₹100 by Rohan in one group (net 0): group shows "evens out · 2 open debts", not "settled up"',
+    $val('SELECT net_balance FROM v_group_member_balances WHERE group_id = ? AND user_id = 3', [$gEv]) === '0.00'
+    && str_contains($rowEv, 'evens out') && str_contains($rowEv, '2 open debts') && !str_contains($rowEv, 'settled up'));
+$pB->get("/groups/$gEv");
+check('BL2', 'Group page member list says "evens out" for her too; a member with no open debts would still say "settled up"',
+    $pB->has('evens out') && $pB->status === 200);
+$db->exec("DELETE s FROM expense_splits s JOIN expenses e USING (expense_id) WHERE e.group_id = $gEv");
+$db->exec("DELETE FROM expenses WHERE group_id = $gEv");
+$pB->get('/balances');
+$rowEv = preg_match('~Evens Out Test</a>(.*?)</li>~s', $pB->body, $mm) ? $mm[1] : '';
+check('BL3', 'With no open debts the same group shows "settled up"', str_contains($rowEv, 'settled up') && !str_contains($rowEv, 'evens out'));
 
 // ======================================================================= misc
 $aarav->get('/does-not-exist');
