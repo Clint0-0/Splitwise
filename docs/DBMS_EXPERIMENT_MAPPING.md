@@ -16,8 +16,8 @@ Renamed from `SQL_EXPERIMENT_MAPPING.md` (its Experiments 1–9 content is kept 
 | 7 | Subqueries | `queries/05_subqueries.sql` (Q35–Q43) | same | correct sub-results | Implemented · Executed locally |
 | 8 | Triggers | `database/triggers/` | DB tests T1–T17 | each trigger fires / rejects | Implemented · Executed locally |
 | 9 | Views | `database/views/` | DB tests + `demo_views.sql` | views return data; updatability as documented | Implemented · Executed locally |
-| 10 | MySQL DDL + foreign keys | `experiments/10_mysql_ddl_fk/` (sandboxes `splitwise_lab_exp10`, `splitwise_lab_exp10_fkdemo`) | `php tests/experiments/test_exp10.php` (18 checks) | 13 expected errors in order; RESTRICT/CASCADE/SET NULL end states; manual's examples + PROGRAM as printed; `splitwise_plus` unchanged | Implemented · **Executed locally** (18/18) |
-| 11 | MongoDB Atlas + Compass | `experiments/11_mongodb_atlas_compass/` | `node tests/experiments/exp11_dry_run.js` (11 checks, in-memory stand-in); cloud steps in `ATLAS_SETUP.md` | 3 docs with `_id`; `$gt` → 2; Rahul cgpa 9; Amit deleted, 2 left | Implemented · Executed locally (dry run only) · **Executed on cloud: Blocked — needs your Atlas account** |
+| 10 | MySQL DDL + foreign keys | `experiments/10_mysql_ddl_fk/` (sandboxes `splitwise_lab_exp10`, `splitwise_lab_exp10_fkdemo`) | `php tests/experiments/test_exp10.php` (18 checks) | 13 expected errors in order; RESTRICT/CASCADE/SET NULL end states; manual's examples + PROGRAM as printed; `splitwise_plus` unchanged | Implemented · **Executed locally** (18/18) · Run by the team in Workbench on `classicmodels` (lab record 19-11-2026; see notes) |
+| 11 | MongoDB Atlas + Compass | `experiments/11_mongodb_atlas_compass/` | `node tests/experiments/exp11_dry_run.js` (11 checks, in-memory stand-in); cloud steps in `ATLAS_SETUP.md` | 3 docs with `_id`; `$gt` → 2; Rahul cgpa 9; Amit deleted, 2 left | Implemented · Executed locally (dry run) · **Executed on Atlas + Compass by the team (lab record dated 20-11-2026, screenshots)** |
 | 12 | Candidate Management System | `experiments/12_candidate_management/` (DB `splitwise_candidate_lab`) | `bash experiments/12_candidate_management/tests/run.sh` (31 checks, throw-away test DB) | full CRUD through the web UI; constraints enforced | Implemented · **Executed locally** (31/31) |
 
 Experiments 1–9 use only real SplitWise+ tables (no demo-only tables). Experiments 10 and 12 run in their **own** databases and Experiment 11 on MongoDB, so nothing in them changes the production schema or `database/splitwise_plus.sql`.
@@ -197,6 +197,8 @@ Plus: `CREATE VIEW`, `CREATE OR REPLACE VIEW`, `SHOW TABLES`, `SHOW FULL TABLES 
 
 **Test procedure:** `php tests/experiments/test_exp10.php` (runs `run.sh --yes`, then 18 checks). **Expected:** errors exactly `1451 1451 1451 1452 1830 1451 3819 1452 3730 1136 1452 1451 3730`; group 2 members 3 → 0; created_by 4 → 40; deleted_by 5 → NULL; warehouse 1 deleted → allocation 101 NULL, inventoryDetails 4 → 2, 2 products keep a dangling warehouseID (no FK, as in the manual); fkdemo: CASCADE 1 → 100 and watches deleted, SET NULL leaves all 4 products NULL; `splitwise_plus` fingerprint identical. **Actual:** 18/18 passed (2026-11-18). **Evidence:** checklist in the experiment README.
 
+**Team's lab record (Expt_No.10, 19-11-2026, MySQL Workbench, `classicmodels`):** all six PROGRAM statements shown with result grids. Two gaps to fix before the viva: (1) the last grid still shows a `capacity` column although `DROP COLUMN capacity` ran earlier (the manual's 4-value `INSERT` only works if run before the drop: error 1136 otherwise, as `08_warehouse_inventory_program.sql` shows); (2) the SET NULL result is not shown: add `SELECT * FROM employeeWarehouse;` → allocation 101 has `warehouseID` NULL.
+
 ## Experiment 11 — Cloud database with MongoDB Atlas and MongoDB Compass
 **Aim:** create a MongoDB database and collection on Atlas, connect with Compass, perform CRUD on student records.
 **Files:** `experiments/11_mongodb_atlas_compass/` — `ATLAS_SETUP.md`, `sample_students.json`, `mongodb_crud_commands.js`, `compass_filters.json`, `POST_LAB_QUESTIONS.md`, `screenshots/`.
@@ -208,7 +210,7 @@ Plus: `CREATE VIEW`, `CREATE OR REPLACE VIEW`, `SHOW TABLES`, `SHOW FULL TABLES 
 | Update | `updateOne({ rollNo: 101 }, { $set: { cgpa: 9.0 } })` | matched 1, modified 1 |
 | Delete | `deleteOne({ rollNo: 103 })` | deleted 1; 2 left |
 
-**Test procedure:** local — `node tests/experiments/exp11_dry_run.js` runs the unchanged CRUD script against an in-memory stand-in (sequence and counts, JSON consistency, no credentials in the folder); cloud — follow `ATLAS_SETUP.md`. **Actual:** dry run 11/11 passed. **Atlas project, cluster, user, network access, `CollegeDB.Students`, Compass CRUD: Not executed — blocked on your Atlas account.** No MongoDB code or connection was added to SplitWise+.
+**Test procedure:** local — `node tests/experiments/exp11_dry_run.js` runs the unchanged CRUD script against an in-memory stand-in (sequence and counts, JSON consistency, no credentials in the folder); cloud — follow `ATLAS_SETUP.md`. **Actual:** dry run 11/11 passed. **Executed on the cloud by the team (lab record Experiment_No_11, 20-11-2026):** free `StudentCluster` on Atlas, Compass connected, `CollegeDB.Students` created, Rahul/Priya/Amit inserted with generated ObjectIds, filters `{}` / name / `$gt`, Rahul's cgpa updated to 9, Amit deleted (2 left). Matches the expected results above. No MongoDB code or connection was added to SplitWise+.
 
 ## Experiment 12 — Candidate Management System (SQL + front end)
 **Aim:** design and develop a Candidate Management System with ER modelling, normalization to 3NF and SQL CRUD through a front end (MySQL, PHP, HTML, CSS).
