@@ -1,6 +1,6 @@
 # CHANGELOG — SplitWise+
 
-## [0.10.1] — hosted on Railway (2026-11-26)
+## [0.10.1] — hosted on Railway; Phase 6 approved (2026-11-26)
 ### Added
 - Live at https://splitwise-production-fe83c389.up.railway.app (Docker image from `main`, Railway MySQL 8.0.46 over the private network, demo data with a non-public demo password). Owner's end-to-end check passed.
 - Image now includes GD (big phone photos are shrunk before bill scanning). Railway steps and notes in `DEPLOYMENT.md` §9a.

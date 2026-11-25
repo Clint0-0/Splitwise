@@ -1,6 +1,6 @@
 # IMPLEMENTATION_STATUS.md — SplitWise+
 
-**Current phase:** Phase 6 (itemized bills, bill scanning, UPI, production readiness) on `main` · **State:** implemented; all suites pass on the owner's Windows PC (XAMPP PHP 8.2 + MySQL 8.0.46) and the manual check passed; DBMS Experiments 10–12 done (Exp 11 run on Atlas by the team). Earlier submission snapshot kept as tag `v1.0-submission`. Hosted on Railway (app container + MySQL 8.0.46, demo data) at https://splitwise-production-fe83c389.up.railway.app — `/readyz` ready and the owner's end-to-end check passed on 2026-11-26. Not yet done: e-mail delivery (Railway Hobby blocks SMTP), automated hosted backups, real-phone UPI tests, scan accuracy over 30–50 bills. Phase 6 sign-off: pending the owner's approval.
+**Current phase:** Phase 6 (itemized bills, bill scanning, UPI, production readiness) on `main` · **State:** implemented; all suites pass on the owner's Windows PC (XAMPP PHP 8.2 + MySQL 8.0.46) and the manual check passed; DBMS Experiments 10–12 done (Exp 11 run on Atlas by the team). Earlier submission snapshot kept as tag `v1.0-submission`. Hosted on Railway (app container + MySQL 8.0.46, demo data) at https://splitwise-production-fe83c389.up.railway.app — `/readyz` ready and the owner's end-to-end check passed on 2026-11-26. Not yet done: e-mail delivery (Railway Hobby blocks SMTP), automated hosted backups, real-phone UPI tests, scan accuracy over 30–50 bills. **Phase 6 approved by the owner on 2026-11-26.**
 **Last updated:** 2026-11-26
 
 ## Repository
@@ -91,7 +91,7 @@ Phase 2 acceptance criteria: tables create ✓ · FKs work ✓ · constraints re
 | 12 | `experiments/12_candidate_management/` — requirements, ER, 3NF, schema, PHP/PDO CRUD app | ✓ executed locally, 31/31, axe 0, real screenshots |
 | — | Lab manuals (`Experiment_No_10/11/12_NEP.docx`) received 2026-11-18 and reconciled: Exp 10 gained the manual's own examples, exact PROGRAM statements and post-lab answers; Exp 11 and 12 already matched | ✓ |
 
-## Phase 6 — Production features (branch `feature/phase-6`, base tag `v1.0-submission`)
+## Phase 6 — Production features (approved 2026-11-26; merged to `main`, base tag `v1.0-submission`)
 - ✅ 6.1 Split by item (schema, calculator, form + live preview, expense page, migration, tests).
 - ✅ 6.2 Pay with UPI (profile field, deep link + QR, receiver confirms; no gateway).
 - ✅ 6.3 Bill scanning behind `SCAN_PROVIDER` (mock + Anthropic vision provider; request/response checked against a local fake API). **Not run against the real API** (no key in this environment).
