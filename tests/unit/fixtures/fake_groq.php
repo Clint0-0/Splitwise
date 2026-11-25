@@ -13,7 +13,7 @@ $ok = ($_SERVER['REQUEST_METHOD'] === 'POST')
     && ($h['authorization'] ?? '') === 'Bearer gsk_test_key'
     && str_starts_with($h['content-type'] ?? '', 'application/json')
     && is_string($body['model'] ?? null)
-    && ($body['response_format']['type'] ?? '') === 'json_object'
+    && (($body['model'] ?? '') === 'plain-only' ? !isset($body['response_format']) : ($body['response_format']['type'] ?? '') === 'json_object')
     && ($parts[0]['type'] ?? '') === 'text'
     && $b64 !== '' && base64_decode($b64, true) !== false
     && strlen($b64) <= 4 * 1024 * 1024;   // Groq's base64 image limit
@@ -21,6 +21,16 @@ header('Content-Type: application/json');
 if (($h['authorization'] ?? '') === 'Bearer gsk_busy') {
     http_response_code(429);
     echo '{"error":{"message":"Rate limit reached","type":"tokens"}}';
+    return;
+}
+if (($body['model'] ?? '') === 'plain-only' && isset($body['response_format'])) {
+    http_response_code(400);
+    echo '{"error":{"message":"response_format json_object is not supported for this model","type":"invalid_request_error"}}';
+    return;
+}
+if (($h['authorization'] ?? '') === 'Bearer gsk_wrong') {
+    http_response_code(401);
+    echo '{"error":{"message":"Invalid API Key gsk_wrong","type":"invalid_request_error","code":"invalid_api_key"}}';
     return;
 }
 if (!$ok) {

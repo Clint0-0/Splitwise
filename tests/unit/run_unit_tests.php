@@ -250,8 +250,26 @@ check('Scan: Groq: a 100-megapixel image is refused with a message, no memory bl
     throwsValidation(fn() => $scanner->read($bomb, 'image/png'), 'too large for the bill reader'));
 $envSet(['SCAN_API_KEY' => 'gsk_busy']);
 check('Scan: Groq rate limit (429) -> "busy, wait a minute" message', throwsValidation(fn() => $scanner->read($png, 'image/png'), 'rate limit'));
-$envSet(['SCAN_API_KEY' => 'gsk_wrong']);
+$envSet(['SCAN_API_KEY' => 'gsk_test_key', 'SCAN_MODEL' => 'plain-only']);
+$res = null;
+try { $res = $scanner->read($png, 'image/png'); } catch (Throwable $e) { $res = $e->getMessage(); }
+check('Scan: Groq refuses JSON mode (400) -> one retry without it succeeds', is_array($res) && $res['merchant'] === 'Groq Cafe', is_string($res) ? $res : '');
+$envSet(['SCAN_MODEL' => null, 'SCAN_API_KEY' => 'gsk_wrong', 'APP_DEBUG' => 'false']);
 check('Scan: Groq bad key -> friendly message, no crash', throwsValidation(fn() => $scanner->read($png, 'image/png'), "Couldn't read the bill right now"));
+$envSet(['APP_DEBUG' => 'true']);
+$m = '';
+try { $scanner->read($png, 'image/png'); } catch (ValidationException $e) { $m = implode(' ', $e->errors); }
+check('Scan: with APP_DEBUG locally the message says why ("API key rejected") and never shows the key', str_contains($m, 'API key rejected') && !str_contains($m, 'gsk_wrong'), $m);
+$envSet(['APP_ENV' => 'production']);
+$m = '';
+try { $scanner->read($png, 'image/png'); } catch (ValidationException $e) { $m = implode(' ', $e->errors); }
+$envSet(['APP_ENV' => 'local', 'APP_DEBUG' => null]);
+check('Scan: in production no developer details on screen', $m !== '' && !str_contains($m, 'Details'), $m);
+check('Scan: failure reasons in plain words (SSL CA, no curl, 404 model, unreachable)',
+    str_contains(BillScanner::failureReason(0, [], 'SSL certificate problem: unable to get local issuer certificate'), 'curl.cainfo')
+    && str_contains(BillScanner::failureReason(-1, [], ''), 'extension=curl')
+    && str_contains(BillScanner::failureReason(404, ['error' => ['message' => 'model x does not exist']], ''), 'SCAN_MODEL')
+    && str_contains(BillScanner::failureReason(0, [], 'Could not resolve host'), 'Could not reach'));
 proc_terminate($srv);
 $envSet(['SCAN_PROVIDER' => null, 'SCAN_API_KEY' => null, 'SCAN_API_URL' => null, 'APP_ENV' => null]);
 

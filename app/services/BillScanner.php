@@ -208,15 +208,14 @@ final class BillScanner
     }
 
     /**
-     * One JSON POST to the provider; returns the decoded reply. The key travels only in a
-     * header and is never logged; on failure only the HTTP status is logged (the body
-     * could echo request details).
+     * One JSON POST to the provider. Returns [HTTP status (0 = no answer), decoded reply,
+     * curl error]. The key travels only in a header and is never logged.
+     * @return array{0:int,1:array,2:string}
      */
-    private function post(string $realUrl, string $body, array $headers): array
+    private function request(string $realUrl, string $body, array $headers): array
     {
         if (!function_exists('curl_init')) {   // e.g. XAMPP with extension=curl commented out in php.ini
-            error_log('bill scan: the PHP curl extension is not enabled');
-            throw ValidationException::single('bill', "Couldn't read the bill right now. Enter the items by hand, or try again.");
+            return [-1, [], 'curl extension missing'];
         }
         // SCAN_API_URL lets the test suite point at a local fake API; ignored in production
         $url = !is_production() && ($u = (string) Env::get('SCAN_API_URL', '')) !== '' ? $u : $realUrl;
@@ -224,34 +223,103 @@ final class BillScanner
         // slow API reply would kill the request with a fatal error: allow the curl timeout
         @set_time_limit(75);
         $ch = curl_init($url);
-        curl_setopt_array($ch, [
+        $opts = [
             CURLOPT_POST           => true,
             CURLOPT_POSTFIELDS     => $body,
             CURLOPT_RETURNTRANSFER => true,
             CURLOPT_CONNECTTIMEOUT => 10,
-            CURLOPT_TIMEOUT        => 45,
+            CURLOPT_TIMEOUT        => 60,
             CURLOPT_HTTPHEADER     => array_merge(['content-type: application/json'], $headers),
-        ]);
+        ];
+        if (($ca = self::caBundle()) !== null) {
+            $opts[CURLOPT_CAINFO] = $ca;   // certificate checks stay ON; we only tell curl where the CA list is
+        }
+        curl_setopt_array($ch, $opts);
         $res = curl_exec($ch);
         $status = (int) curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
         $err = curl_error($ch);
         curl_close($ch);
-        if ($res === false || $status !== 200) {
-            error_log(sprintf('bill scan failed: HTTP %d %s', $status, $err));
-            $msg = $status === 429
-                ? 'The bill reader is busy (rate limit). Wait a minute and try again, or enter the items by hand.'
-                : "Couldn't read the bill right now. Enter the items by hand, or try again.";
-            throw ValidationException::single('bill', $msg);
+        $data = is_string($res) ? json_decode($res, true) : null;
+        return [$res === false ? 0 : $status, is_array($data) ? $data : [], $err];
+    }
+
+    /**
+     * CA certificate list for HTTPS. PHP on Windows (XAMPP) usually has none configured, so
+     * every HTTPS call fails with "SSL certificate problem: unable to get local issuer
+     * certificate". Order: SCAN_CA_BUNDLE, php.ini curl.cainfo / openssl.cafile (curl uses
+     * them itself), then the CA files XAMPP ships with. Never disables verification.
+     */
+    public static function caBundle(): ?string
+    {
+        $env = trim((string) Env::get('SCAN_CA_BUNDLE', ''));
+        if ($env !== '') {
+            return is_readable($env) ? $env : null;
         }
-        $data = json_decode((string) $res, true);
-        return is_array($data) ? $data : [];
+        if ((string) ini_get('curl.cainfo') !== '' || (string) ini_get('openssl.cafile') !== '') {
+            return null;
+        }
+        if (PHP_OS_FAMILY !== 'Windows') {
+            return null;   // Linux / Docker / macOS: the system CA store is used
+        }
+        $php = dirname(PHP_BINARY);
+        foreach ([$php . '\\extras\\ssl\\cacert.pem', dirname($php) . '\\apache\\bin\\curl-ca-bundle.crt',
+                  'C:\\xampp\\php\\extras\\ssl\\cacert.pem', 'C:\\xampp\\apache\\bin\\curl-ca-bundle.crt'] as $f) {
+            if (is_readable($f)) {
+                return $f;
+            }
+        }
+        return null;
+    }
+
+    /** Plain-words reason for a failed call: logged always, shown on screen only with APP_DEBUG locally. */
+    public static function failureReason(int $status, array $data, string $err): string
+    {
+        $api = $data['error']['message'] ?? $data['error']['type'] ?? '';
+        $api = is_string($api) ? mb_substr(preg_replace('/\s+/', ' ', $api), 0, 200) : '';
+        $api = (string) preg_replace('/\b(gsk_|sk-ant-)[A-Za-z0-9_\-]+/', '[key]', $api);   // never echo a key
+        return match (true) {
+            $status === -1 => 'PHP curl extension is off: in php.ini remove the ; before extension=curl and restart Apache',
+            $status === 0 && stripos($err, 'SSL certificate') !== false
+                => 'PHP cannot check HTTPS certificates (' . $err . '). Set curl.cainfo in php.ini to a cacert.pem file, or SCAN_CA_BUNDLE in .env',
+            $status === 0 => 'Could not reach the API: ' . ($err !== '' ? $err : 'no answer') . ' (internet, firewall or proxy?)',
+            $status === 401 => 'API key rejected (check SCAN_API_KEY: whole key, no quotes or spaces)' . ($api !== '' ? ": $api" : ''),
+            $status === 403 => 'API refused access (key not allowed, or the service is not available from here)' . ($api !== '' ? ": $api" : ''),
+            $status === 404 => 'Model or address not found (check SCAN_MODEL)' . ($api !== '' ? ": $api" : ''),
+            $status === 413 => 'Photo too large for the API' . ($api !== '' ? ": $api" : ''),
+            $status === 429 => 'Rate limit reached' . ($api !== '' ? ": $api" : ''),
+            $status >= 500 => "The AI service had an error (HTTP $status); try again later",
+            default => "HTTP $status" . ($api !== '' ? ": $api" : ''),
+        };
+    }
+
+    /** POST and return the decoded reply, or throw a friendly message (plus the reason when debugging locally). */
+    private function post(string $realUrl, string $body, array $headers): array
+    {
+        [$status, $data, $err] = $this->request($realUrl, $body, $headers);
+        if ($status !== 200) {
+            $this->fail($status, $data, $err);
+        }
+        return $data;
+    }
+
+    private function fail(int $status, array $data, string $err): never
+    {
+        $reason = self::failureReason($status, $data, $err);
+        error_log('bill scan failed: ' . $reason);
+        $msg = $status === 429
+            ? 'The bill reader is busy (rate limit). Wait a minute and try again, or enter the items by hand.'
+            : "Couldn't read the bill right now. Enter the items by hand, or try again.";
+        if (!is_production() && Env::get('APP_DEBUG', 'false') === 'true') {
+            $msg .= ' (Details for the developer: ' . $reason . '.)';
+        }
+        throw ValidationException::single('bill', $msg);
     }
 
     /** One Groq chat-completions call (OpenAI format) with the photo as a base64 data URL. */
     private function askGroq(string $bytes, string $mime): string
     {
         [$bytes, $mime] = $this->shrinkForGroq($bytes, $mime);
-        $body = json_encode([
+        $payload = [
             'model'           => Env::get('SCAN_MODEL', self::GROQ_MODEL) ?: self::GROQ_MODEL,
             'temperature'     => 0,
             'max_completion_tokens' => 2000,
@@ -263,9 +331,26 @@ final class BillScanner
                     ['type' => 'image_url', 'image_url' => ['url' => 'data:' . $mime . ';base64,' . base64_encode($bytes)]],
                 ],
             ]],
-        ], JSON_THROW_ON_ERROR);
-        $data = $this->post(self::GROQ_URL, $body, ['authorization: Bearer ' . trim((string) Env::get('SCAN_API_KEY', ''))]);
-        $text = (string) ($data['choices'][0]['message']['content'] ?? '');
+        ];
+        $headers = ['authorization: Bearer ' . trim((string) Env::get('SCAN_API_KEY', ''))];
+        [$status, $data, $err] = $this->request(self::GROQ_URL, json_encode($payload, JSON_THROW_ON_ERROR), $headers);
+        if ($status === 400) {
+            // some models refuse JSON mode or a parameter: retry once with the plain request
+            // (the prompt already asks for JSON only, and normalise() finds it in any text)
+            error_log('bill scan: Groq refused the request (' . self::failureReason($status, $data, $err) . '), retrying without JSON mode');
+            unset($payload['response_format'], $payload['temperature']);
+            $payload['max_tokens'] = $payload['max_completion_tokens'];
+            unset($payload['max_completion_tokens']);
+            [$status, $data, $err] = $this->request(self::GROQ_URL, json_encode($payload, JSON_THROW_ON_ERROR), $headers);
+        }
+        if ($status !== 200) {
+            $this->fail($status, $data, $err);
+        }
+        $msg = $data['choices'][0]['message'] ?? [];
+        $text = (string) ($msg['content'] ?? '');
+        if (trim($text) === '' && is_string($msg['reasoning'] ?? null)) {
+            $text = $msg['reasoning'];   // a reasoning model that put everything in the reasoning field
+        }
         // reasoning models may put their thinking in <think>...</think> before the answer
         return (string) preg_replace('~<think>.*?</think>~s', '', $text);
     }

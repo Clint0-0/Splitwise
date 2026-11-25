@@ -549,8 +549,7 @@ Known, not changed: admin tables (users/groups/activity) need sideways scrolling
 | Suite | Before | After | New checks |
 |---|---|---|---|
 | Unit | 53 | 75 | itemized maths (tax, discount, odd paisa, limits, 3,000-bill property test), UPI link building/injection, scanner reply cleaning, provider flags, Messages API request/response against a local fake API |
-| Database | 76 | 86 | I1–I9 (composite FKs, CHECKs, UNIQUE line, cascade, allocation view, UPI CHECK), A10 (app user may write items) |
-| Functional | 120 | 142 | IT1–IT8 itemized flow, U1–U6 UPI, SN1–SN8 bill scan (mock) |
+| Database | 76 | Functional | 120 | 142 | IT1–IT8 itemized flow, U1–U6 UPI, SN1–SN8 bill scan (mock) |
 | Scenarios / deployment / Exp 10 / Exp 11 / Exp 12 | 23 / 30 / 18 / 11 / 31 | same | H1 now expects 18 tables |
 
 Also checked by hand in Chrome (desktop 1280 and phone 390 px): no horizontal overflow, no console errors; JS item preview = PHP on 3,000 random bills; rendered QR decodes (OpenCV) to the exact `upi://pay` link; axe 0 violations on every screen plus the itemized expense, itemized edit and UPI settle pages; migration on a v1.0 database gives a schema identical to a fresh import.
@@ -598,6 +597,9 @@ Also: JS item preview = PHP on 3,000 random **weighted** bills; browser runs of 
 | 83 | `open_debts` ran a correlated subquery over `v_pairwise_debts` for every group row (the view is re-aggregated each time) | one derived table, joined once |
 | 84 | Shrinking a photo for Groq decoded it at full size: a 100-megapixel image (or a crafted header) could exhaust PHP memory | size read from the header first, > 40 MP refused with a message (unit test) |
 | 85 | Transparent PNG shrunk to JPEG turned black; editing a picked row kept the select pointing at the old bill line | white background; select cleared when the row no longer matches |
+| 86 | I1–I9 (composite FKs, CHECKs, UNIQUE line, cascade, allocation view, UPI CHECK), A10 (app user may write items) |
+
+| 86 | Owner report: real Groq scan on XAMPP → only "Couldn't read the bill right now", no way to see why | CA list auto-detected on Windows (verification kept on), 400 → retry without JSON mode, exact reason in the log and (local debug) on screen, `tools/scan_check.php` self-test; unit 101 |
 
 Bug round 3 checks: migrations v1.0 → part 1 → part 2 give exactly the fresh schema; malformed input on all new endpoints (arrays, huge values, bad tokens, bad ids) → no 500s; login/forgot/reset pages fit 390–1280 px. Totals: unit 90, DB 89, functional 173, scenarios 23, deployment 34, Exp 10/11/12 18/11/31, axe 0.
 

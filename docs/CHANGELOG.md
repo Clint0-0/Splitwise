@@ -1,5 +1,13 @@
 # CHANGELOG — SplitWise+
 
+## [0.9.3] — scan failures explained (2026-11-25)
+### Fixed
+- Owner report: real Groq scan on XAMPP showed only "Couldn't read the bill right now". Likely causes on Windows are handled: PHP there usually has **no CA certificate list**, so HTTPS fails; the scanner now uses `SCAN_CA_BUNDLE`, else php.ini `curl.cainfo`/`openssl.cafile`, else the CA files XAMPP ships (`php\extras\ssl\cacert.pem`, `apache\bin\curl-ca-bundle.crt`). Certificate checking stays on.
+- If Groq refuses the request (400, e.g. JSON mode not supported by the chosen model), one retry without JSON mode; content read from the `reasoning` field if `content` is empty; timeout 60 s.
+### Added
+- Exact failure reason (no curl, certificate problem, unreachable, key rejected, model not found, rate limit…) written to the PHP error log, and shown on screen when `APP_ENV=local` and `APP_DEBUG=true`. Keys are never shown.
+- `tools/scan_check.php`: checks curl/openssl/gd, the key's shape (never the key), the CA file, then sends one small test bill and prints what was read or why it failed.
+
 ## [0.9.2] — Groq scanning, pick from bill, "evens out" (2026-11-25)
 ### Added
 - `SCAN_PROVIDER=groq`: Groq's OpenAI-compatible chat completions with a vision model (default `qwen/qwen3.8-27b`, `SCAN_MODEL` to change), JSON mode, `<think>` blocks stripped, photos over ~2.9 MB shrunk to JPEG (GD) to stay under Groq's 4 MB base64 limit, rate-limit (429) message.
