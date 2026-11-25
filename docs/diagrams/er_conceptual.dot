@@ -16,6 +16,9 @@ graph conceptual {
   node [shape=box, peripheries=2, fillcolor="#FCE9D6"];
   SPLIT [label="EXPENSE SPLIT\n(associative)"];
   MEMBERSHIP [label="MEMBERSHIP\n(associative)"];
+  ITEM [label="EXPENSE ITEM\n(weak)"];
+  ITEMSHARE [label="ITEM SHARE\n(associative)"];
+  CHARGE [label="EXPENSE CHARGE\n(weak)"];
 
   // Relationships
   node [shape=diamond, style=filled, fillcolor="#FFF6CC", peripheries=1];
@@ -25,7 +28,7 @@ graph conceptual {
   r_payer [label="pays\n(payer)"]; r_payee [label="receives\n(payee)"]; r_scope [label="settles\nwithin"];
   r_ownu [label="owns"]; r_owng [label="owns"]; r_limit [label="limits"];
   r_notify [label="receives"]; r_proof [label="proved\nby"]; r_tag [label="tagged"];
-  r_parent [label="parent\nof"]; r_inv [label="issues"]; r_invu [label="invited"];
+  r_parent [label="parent\nof"]; r_lines [label="itemized\ninto"]; r_extra [label="adds\ncharge"]; r_had [label="shared\nby"]; r_itemof [label="consumed\nin"]; r_inv [label="issues"]; r_invu [label="invited"];
 
   // Key attributes
   node [shape=ellipse, style=filled, fillcolor="white"];
@@ -67,4 +70,10 @@ graph conceptual {
   CATEGORY -- r_limit [label="0..1"]; r_limit -- BUDGET [label="N"];
 
   USER -- r_notify [label="1"]; r_notify -- NOTIFICATION [label="N", penwidth=2.5];
+
+  // Phase 6: itemized bills (lines, who had each line, tax/service/discount)
+  EXPENSE -- r_lines [label="1"]; r_lines -- ITEM [label="N", penwidth=2.5];
+  EXPENSE -- r_extra [label="1"]; r_extra -- CHARGE [label="N", penwidth=2.5];
+  ITEM -- r_had [label="1"]; r_had -- ITEMSHARE [label="N", penwidth=2.5];
+  SPLIT -- r_itemof [label="1"]; r_itemof -- ITEMSHARE [label="N"];
 }
