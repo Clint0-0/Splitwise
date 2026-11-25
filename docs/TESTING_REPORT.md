@@ -575,8 +575,6 @@ Not tested: the real Anthropic API (no key here), real UPI apps on phones (deep 
 |---|---|---|---|
 | Unit | 76 | 90 | uneven/fractional units, zero units, weighted 3,000-bill property test; scan charges/date/warnings; SMTP session against a local fake server; production refuses plain SMTP and keeps reset links out of logs; error-log scrubbing; Sentry envelope against a local fake endpoint |
 | Database | 86 | 89 | I10 discount sign CHECK, I11 charges + cascade, I12 units CHECK; A10 now includes charges |
-| 87 | Owner's question exposed it: Priya owes Aarav 100 and Rohan 100, Rohan owes Aarav 100; Priya pays Aarav 200. Every net is 0 (nothing left to pay), but leftover pair debts form a cycle, so all three would show "evens out" forever | open debts counted only while the group has a non-zero net; fully netted groups show "settled up" (BL4–BL5) |
-| 88 | Settle page for a pair where the payer nets ₹0 in the group (debts even out) showed a blank form and only the procedure's error on submit | explanation + link to suggested payments (BL6) |
 | Functional | 146 | 172 | IT10–IT15 units + charges; U9–U13 server amount, part payment, copy ID, mark-as-sent, single confirmation; SN10–SN13 scan date/charges/uncertain/review tick/monthly cap/admin panel; PR1–PR6 password reset; **E2E1–E2E5 full workflow** |
 | Deployment | 30 | 34 | B1 backup + verified restore, B2 restore test detects drift, B3 sample-free build + first-admin CLI, B4 production reset without APP_URL builds no link and logs no token |
 
@@ -602,6 +600,8 @@ Also: JS item preview = PHP on 3,000 random **weighted** bills; browser runs of 
 | 86 | I1–I9 (composite FKs, CHECKs, UNIQUE line, cascade, allocation view, UPI CHECK), A10 (app user may write items) |
 
 | 86 | Owner report: real Groq scan on XAMPP → only "Couldn't read the bill right now", no way to see why | CA list auto-detected on Windows (verification kept on), 400 → retry without JSON mode, exact reason in the log and (local debug) on screen, `tools/scan_check.php` self-test; unit 101 |
+| 87 | Owner's question exposed it: Priya owes Aarav 100 and Rohan 100, Rohan owes Aarav 100; Priya pays Aarav 200. Every net is 0 (nothing left to pay), but leftover pair debts form a cycle, so all three would show "evens out" forever | open debts counted only while the group has a non-zero net; fully netted groups show "settled up" (BL4–BL5) |
+| 88 | Settle page for a pair where the payer nets ₹0 in the group (debts even out) showed a blank form and only the procedure's error on submit | explanation + link to suggested payments (BL6) |
 
 Bug round 3 checks: migrations v1.0 → part 1 → part 2 give exactly the fresh schema; malformed input on all new endpoints (arrays, huge values, bad tokens, bad ids) → no 500s; login/forgot/reset pages fit 390–1280 px. Totals: unit 90, DB 89, functional 173, scenarios 23, deployment 34, Exp 10/11/12 18/11/31, axe 0.
 
