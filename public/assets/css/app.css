@@ -2,21 +2,21 @@
    SplitWise+ — "Hisaab" design system (see docs/DESIGN_SYSTEM.md)
    Layered on Bootstrap 5.3. Tokens first, then base, layout, components.
    ===================================================================== */
-@import url("../vendor/fonts/fonts.css");
+/* system fonts (theme "Slate + indigo", 2026-11-25); the vendored Mukta/Baloo files stay in vendor/fonts but are no longer loaded */
 
 :root {
   /* colour — from Indian rupee notes */
-  --ink: #211C3A;
-  --ink-2: #3A3455;
-  --muted: #5E5878;
-  --paper: #F5F3FA;
+  --ink: #0F172A;
+  --ink-2: #334155;
+  --muted: #5B6578;
+  --paper: #F8FAFC;
   --surface: #FFFFFF;
-  --lavender: #E6E0F5;
-  --lavender-2: #D5CCEE;
-  --line: #DCD6EA;
-  --violet: #4B3A9C;
-  --violet-hover: #3D2F83;
-  --violet-tint: #EEEAFB;
+  --lavender: #F1F5F9;
+  --lavender-2: #E2E8F0;
+  --line: #E2E8F0;
+  --violet: #4F46E5;
+  --violet-hover: #4338CA;
+  --violet-tint: #EEF2FF;
   --marigold: #F4B400;
   --marigold-hover: #DCA200;
   --marigold-tint: #FFF3CC;
@@ -25,18 +25,18 @@
   --gets-tint: #E3F4EC;
   --owes: #B42318;
   --owes-tint: #FCE9E7;
-  --series-1: #6352C8;   /* validated chart pair (dataviz validator) */
+  --series-1: #4F46E5;   /* validated chart pair (dataviz validator) */
   --series-2: #E8A100;
 
   /* type */
-  --font-body: "Mukta", "Segoe UI", system-ui, sans-serif;
-  --font-display: "Baloo 2", "Mukta", system-ui, sans-serif;
+  --font-body: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-display: var(--font-body);
 
   /* shape */
-  --r-panel: 12px;
+  --r-panel: 10px;
   --r-control: 8px;
   --rail: 232px;
-  --focus: 0 0 0 3px rgba(75, 58, 156, .45);
+  --focus: 0 0 0 3px rgba(79, 70, 229, .40);
 
   /* Bootstrap hooks */
   --bs-body-font-family: var(--font-body);
@@ -47,16 +47,16 @@
   --bs-border-color: var(--line);
   --bs-secondary-color: var(--muted);
   --bs-link-color: var(--violet);
-  --bs-link-color-rgb: 75, 58, 156;
+  --bs-link-color-rgb: 79, 70, 229;
   --bs-link-hover-color: var(--violet-hover);
-  --bs-link-hover-color-rgb: 61, 47, 131;
+  --bs-link-hover-color-rgb: 67, 56, 202;
   --bs-primary: var(--violet);
-  --bs-primary-rgb: 75, 58, 156;
+  --bs-primary-rgb: 79, 70, 229;
   --bs-success-rgb: 14, 122, 85;
   --bs-danger-rgb: 180, 35, 24;
   --bs-warning-rgb: 244, 180, 0;
   --bs-border-radius: var(--r-control);
-  --bs-focus-ring-color: rgba(75, 58, 156, .45);
+  --bs-focus-ring-color: rgba(79, 70, 229, .40);
 }
 
 /* ---------------------------------------------------------------- base */
@@ -445,3 +445,55 @@ legend.form-label { font-size: 1rem; font-family: var(--font-body); }
 .item-pick-wrap .form-label{margin-bottom:.15rem}
 .item-pick{max-width:100%}
 .scan-review{background:#fff8e1;border:1px solid var(--marigold,#F4B400);border-radius:.5rem;padding:.6rem .75rem .6rem 2.2rem}
+
+
+/* =====================================================================
+   Theme "Slate + indigo" (2026-11-25): calmer, more professional.
+   Neutral surfaces, one accent, system font, lighter weights, no yellow buttons.
+   ===================================================================== */
+h1, .h1 { font-size: 1.75rem; font-weight: 650; letter-spacing: -0.015em; }
+h2, .h2 { font-size: 1.1rem; font-weight: 600; }
+h3, .h3 { font-size: 1rem; font-weight: 600; }
+.money, .slip-amount, .summary dd, .stat-line dd, .row-date b { font-weight: 600; }
+.slip-amount { font-size: 1.1rem; }
+.summary dd { font-size: 1.35rem; }
+.hero-figure { font-weight: 700; font-size: clamp(2.2rem, 1.6rem + 2.4vw, 3.2rem); }
+.brand { font-weight: 700; font-size: 1.2rem; }
+.brand-mark { border-radius: 8px; width: 30px; height: 30px; font-size: 1rem; }
+
+/* shell: white rail with a hairline instead of a tinted block */
+.rail, .topbar, .offcanvas.rail-drawer { background: var(--surface); }
+.rail { border-right: 1px solid var(--line); }
+.topbar { border-bottom: 1px solid var(--line); }
+@media (min-width: 992px) { .app { background: none; } }
+.rail-nav a:hover { background: var(--lavender); }
+.rail-nav a[aria-current="page"] { background: var(--violet-tint); box-shadow: none; font-weight: 600; }
+.rail .avatar { background: var(--lavender); }
+
+/* secondary action: neutral outline instead of marigold */
+.btn-settle { --bs-btn-color: var(--ink); --bs-btn-bg: var(--surface); --bs-btn-border-color: #CBD5E1; --bs-btn-hover-color: var(--ink); --bs-btn-hover-bg: var(--lavender); --bs-btn-hover-border-color: #94A3B8; --bs-btn-active-bg: var(--lavender-2); --bs-btn-active-color: var(--ink); --bs-btn-active-border-color: #94A3B8; }
+.btn-quiet, .btn-outline-primary { --bs-btn-border-color: #CBD5E1; --bs-btn-hover-border-color: #94A3B8; }
+.form-control, .form-select { border-color: #CBD5E1; }
+
+/* slips: thin coloured edge, flatter */
+.slips { gap: 0; border: 1px solid var(--line); border-radius: var(--r-panel); background: var(--surface); overflow: hidden; }
+.slip { border: 0; border-radius: 0; border-top: 1px solid var(--line); padding: .65rem .9rem .65rem 1rem; }
+.slip:first-child { border-top: 0; }
+.slip::before { width: 3px; background: transparent; }
+.avatar { background: var(--lavender); color: var(--ink-2); font-weight: 600; }
+.group-card:hover { box-shadow: 0 1px 2px rgba(15, 23, 42, .06); border-color: #CBD5E1; }
+.dropdown-menu { box-shadow: 0 8px 24px rgba(15, 23, 42, .10); }
+.item-row, #upiQr { border-color: var(--line); }
+
+/* group page tabs */
+.group-tabs { border-bottom: 1px solid var(--line); gap: .25rem; margin: 1.5rem 0 1.25rem; flex-wrap: nowrap; overflow-x: auto; }
+.group-tabs .nav-link { border: 0; border-bottom: 2px solid transparent; border-radius: 0; color: var(--muted); font-weight: 500; padding: .6rem .9rem; white-space: nowrap; background: none; }
+.group-tabs .nav-link:hover { color: var(--ink); }
+.group-tabs .nav-link.active { color: var(--violet); border-bottom-color: var(--violet); font-weight: 600; }
+.group-tabs .count { display: inline-block; min-width: 1.4em; padding: 0 .4em; margin-left: .3rem; border-radius: 999px; background: var(--lavender); color: var(--ink-2); font-size: .75rem; line-height: 1.5; text-align: center; }
+.tab-section + .tab-section { margin-top: 1.75rem; }
+@media (max-width: 575.98px) {
+  .group-tabs { gap: 0; }
+  .group-tabs .nav-link { padding: .55rem .5rem; font-size: .9rem; }
+  .group-tabs .count { display: none; }
+}

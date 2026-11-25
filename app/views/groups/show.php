@@ -45,9 +45,36 @@ $kinds = ['trip' => 'Trip', 'home' => 'Home', 'family' => 'Family', 'friends' =>
 </dl>
 <?php endif; ?>
 
-<div class="grid-2">
-  <div class="stack">
-    <section class="section" aria-labelledby="sug-h">
+<?php
+// tabs: ?tab= chooses one (works without JavaScript); a member/invite error opens Members
+$tabs = ['expenses' => 'Expenses', 'balances' => 'Balances', 'payments' => 'Payments', 'members' => 'Members'];
+$tab = isset($_GET['tab']) && is_string($_GET['tab']) && isset($tabs[$_GET['tab']]) ? $_GET['tab'] : 'expenses';
+if (!empty($errors['invite']) || !empty($errors['member'])) { $tab = 'members'; }
+$counts = ['balances' => count($suggestions), 'payments' => count($settlements), 'members' => count($active)];
+?>
+<ul class="nav group-tabs" role="tablist">
+  <?php foreach ($tabs as $k => $label): ?>
+    <li class="nav-item" role="presentation">
+      <a class="nav-link<?= $tab === $k ? ' active' : '' ?>" id="tab-<?= $k ?>" href="<?= e(url("/groups/$gid?tab=$k")) ?>"
+         data-bs-toggle="tab" data-bs-target="#pane-<?= $k ?>" role="tab" aria-controls="pane-<?= $k ?>" aria-selected="<?= $tab === $k ? 'true' : 'false' ?>"><?= $label ?><?php if (!empty($counts[$k])): ?><span class="count"><?= (int) $counts[$k] ?></span><?php endif; ?></a>
+    </li>
+  <?php endforeach; ?>
+</ul>
+<div class="tab-content">
+  <div class="tab-pane<?= $tab === 'expenses' ? ' show active' : '' ?>" id="pane-expenses" role="tabpanel" aria-labelledby="tab-expenses" tabindex="0">
+    <section class="panel" aria-labelledby="exp-h">
+      <div class="panel-head"><h2 id="exp-h">Expenses</h2><a href="<?= e(url('/expenses?group=' . $gid)) ?>">See all</a></div>
+      <?php $showGroup = false; require __DIR__ . '/../partials/expense_rows.php'; ?>
+    </section>
+    <?php if ($budgets): ?>
+    <section class="panel" aria-labelledby="bud-h">
+      <h2 id="bud-h">Group budget</h2>
+      <?php foreach ($budgets as $b): require __DIR__ . '/../budgets/_bar.php'; endforeach; ?>
+    </section>
+    <?php endif; ?>
+  </div>
+  <div class="tab-pane<?= $tab === 'balances' ? ' show active' : '' ?>" id="pane-balances" role="tabpanel" aria-labelledby="tab-balances" tabindex="0">
+    <section class="section tab-section" aria-labelledby="sug-h">
       <h2 id="sug-h">Suggested settlements</h2>
       <p class="note mb-2">The fewest payments that settle everyone. Nothing is paid until someone records it.</p>
       <?php if (!$suggestions): ?>
@@ -69,12 +96,31 @@ $kinds = ['trip' => 'Trip', 'home' => 'Home', 'family' => 'Family', 'friends' =>
       </ul>
       <?php endif; ?>
     </section>
-
-    <section class="section" aria-labelledby="iou-h">
+    <section class="section tab-section" aria-labelledby="iou-h">
       <h2 id="iou-h">Who owes whom</h2>
       <?php $showGroupName = false; require __DIR__ . '/../partials/slips.php'; ?>
     </section>
-
+  </div>
+  <div class="tab-pane<?= $tab === 'payments' ? ' show active' : '' ?>" id="pane-payments" role="tabpanel" aria-labelledby="tab-payments" tabindex="0">
+    <section class="panel" aria-labelledby="set-h">
+      <h2 id="set-h">Payments</h2>
+      <?php if (!$settlements): ?>
+        <div class="empty"><i class="bi bi-cash-coin" aria-hidden="true"></i><p>No payments recorded yet.</p></div>
+      <?php else: ?>
+      <ul class="rows">
+        <?php foreach ($settlements as $s): [$day, $mon] = date_parts($s['settlement_date']); ?>
+          <li><div class="row-item">
+            <div class="row-date" aria-hidden="true"><b><?= e($day) ?></b><span><?= e($mon) ?></span></div>
+            <div class="row-main"><span class="fw-semibold"><?= e($s['payer_name']) ?> paid <?= e($s['payee_name']) ?></span>
+              <div class="row-sub"><?php require __DIR__ . '/../settlements/_status.php'; ?> <?= e(str_replace('_', ' ', $s['method'])) ?></div></div>
+            <div class="row-amounts"><span class="total"><?= e(inr($s['amount'])) ?></span></div>
+          </div></li>
+        <?php endforeach; ?>
+      </ul>
+      <?php endif; ?>
+    </section>
+  </div>
+  <div class="tab-pane<?= $tab === 'members' ? ' show active' : '' ?>" id="pane-members" role="tabpanel" aria-labelledby="tab-members" tabindex="0">
     <section class="panel" aria-labelledby="mem-h">
       <h2 id="mem-h">Members</h2>
       <div class="table-responsive" tabindex="0" role="region" aria-label="Scrollable table">
@@ -131,42 +177,11 @@ $kinds = ['trip' => 'Trip', 'home' => 'Home', 'family' => 'Family', 'friends' =>
       <?php endforeach; ?>
       <?php endif; ?>
     </section>
-
+    <div class="mt-3">
     <form method="post" action="<?= e(url("/groups/$gid/leave")) ?>"><?= csrf_field() ?>
       <button class="btn btn-sm btn-danger-quiet">Leave group</button>
       <span class="note ms-2">Only possible once you are settled up.</span>
     </form>
-  </div>
-
-  <div class="stack">
-    <section class="panel" aria-labelledby="exp-h">
-      <div class="panel-head"><h2 id="exp-h">Expenses</h2><a href="<?= e(url('/expenses?group=' . $gid)) ?>">See all</a></div>
-      <?php $showGroup = false; require __DIR__ . '/../partials/expense_rows.php'; ?>
-    </section>
-
-    <section class="panel" aria-labelledby="set-h">
-      <h2 id="set-h">Payments</h2>
-      <?php if (!$settlements): ?>
-        <div class="empty"><i class="bi bi-cash-coin" aria-hidden="true"></i><p>No payments recorded yet.</p></div>
-      <?php else: ?>
-      <ul class="rows">
-        <?php foreach ($settlements as $s): [$day, $mon] = date_parts($s['settlement_date']); ?>
-          <li><div class="row-item">
-            <div class="row-date" aria-hidden="true"><b><?= e($day) ?></b><span><?= e($mon) ?></span></div>
-            <div class="row-main"><span class="fw-semibold"><?= e($s['payer_name']) ?> paid <?= e($s['payee_name']) ?></span>
-              <div class="row-sub"><?php require __DIR__ . '/../settlements/_status.php'; ?> <?= e(str_replace('_', ' ', $s['method'])) ?></div></div>
-            <div class="row-amounts"><span class="total"><?= e(inr($s['amount'])) ?></span></div>
-          </div></li>
-        <?php endforeach; ?>
-      </ul>
-      <?php endif; ?>
-    </section>
-
-    <?php if ($budgets): ?>
-    <section class="panel" aria-labelledby="bud-h">
-      <h2 id="bud-h">Group budget</h2>
-      <?php foreach ($budgets as $b): require __DIR__ . '/../budgets/_bar.php'; endforeach; ?>
-    </section>
-    <?php endif; ?>
+    </div>
   </div>
 </div>

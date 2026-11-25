@@ -1,5 +1,11 @@
 # CHANGELOG — SplitWise+
 
+## [0.10.0] — calmer UI (branch feature/ui-polish, 2026-11-25)
+### Changed
+- Theme "Slate + indigo" (owner's choice from previews): slate-grey surfaces, one indigo accent (#4F46E5), system font instead of Baloo/Mukta, lighter headings and amounts, white sidebar with a hairline, "Settle up"/"Record" as neutral outline buttons instead of yellow, debt lists as one bordered list. Green = gets back and red = owes unchanged; warnings stay amber.
+- Group page split into tabs: **Expenses** (default, + budget) · **Balances** (suggested settlements + who owes whom) · **Payments** · **Members** (members, invite, leave). Tabs are links (`?tab=`) so they work without JavaScript; an invite/member error opens Members.
+- Checked: axe 0 on all screens, no sideways scroll at 320–1280 px, unit 101, functional 182, scenarios 23, deployment 34.
+
 ## [0.9.4] — "evens out" only while the group is unsettled (2026-11-25)
 ### Fixed
 - After a simplified payment that skips a middleman (Priya pays Aarav ₹200 instead of paying Rohan, who pays Aarav), every net balance is ₹0 but the leftover pair debts cancel in a cycle; the group showed "evens out" for everyone instead of "settled up". Open debts are now counted only while someone in the group still has a non-zero net.
