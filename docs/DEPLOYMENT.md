@@ -154,7 +154,7 @@ Dockerfile, never in Git, never in browser JavaScript. Do not paste them into ch
 | `SESSION_LIFETIME` | `7200` | no | idle timeout, seconds |
 | `SCAN_PROVIDER` | `off`, `groq` or `anthropic` | no | bill scanning (Phase 6). `mock` is refused when `APP_ENV=production` |
 | `SCAN_API_KEY` | (secret) | **yes** if `SCAN_PROVIDER=groq` or `anthropic` | enter in the host's secret settings only; never in git, the image or chat |
-| `SCAN_MODEL` | empty | no | override the vision model (Groq default `qwen/qwen3.8-27b`; Groq renames models, so check its vision docs) |
+| `SCAN_MODEL` | empty | no | override the vision model (Groq default `qwen/qwen3.8-27b`; must be a **vision** model: e.g. `openai/gpt-oss-120b` is text-only and fails; Groq renames models, so check its vision docs) |
 | `SCAN_DAILY_LIMIT` | `20` | no | scans per user per day |
 | `SCAN_MONTHLY_LIMIT` | `1000` | no | whole-site scans per month (hard spending cap) |
 | `SCAN_COST_PAISE` | `70` | no | estimated cost of one scan, shown on the admin page |
