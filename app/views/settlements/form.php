@@ -51,6 +51,13 @@ $upiHref  = $payerSel === $uid && $payeeSel !== $uid && isset($upi[$payeeSel])
               Outstanding: <strong><?= e(inr($maxPayable)) ?></strong> (after pending payments).
               <a href="<?= e(url("/groups/$gid/settle?" . http_build_query(['payer' => $prefill['payer_id'], 'payee' => $prefill['payee_id'], 'amount' => $maxPayable]))) ?>" id="useFull"><?= (int) $prefill['payer_id'] === $uid ? 'Pay the full amount' : 'Use the full amount' ?></a> or type less for a part payment.
             </div>
+          <?php elseif ((int) $prefill['payee_id'] > 0 && (int) $prefill['payer_id'] > 0 && (int) $prefill['payee_id'] !== (int) $prefill['payer_id']): ?>
+            <div class="form-text" id="nothingToPay">
+              <strong>Nothing to pay here right now.</strong> Payments follow each person's total in the group:
+              the payer owes nothing overall here (what they owe one person may even out with what others owe them),
+              or the receiver is owed nothing overall, or it is already in a pending payment.
+              See the <a href="<?= e(url('/groups/' . (int) $gid)) ?>">suggested payments</a> on the group page.
+            </div>
           <?php endif; ?>
         </div>
         <div class="col-sm-6">

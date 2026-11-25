@@ -2,7 +2,9 @@
 
 ## [0.9.4] — "evens out" only while the group is unsettled (2026-11-25)
 ### Fixed
-- After a simplified payment that skips a middleman (Priya pays Aarav ₹200 instead of paying Rohan, who pays Aarav), every net balance is ₹0 but the leftover pair debts cancel in a cycle; the group showed "evens out" for everyone instead of "settled up". Open debts are now counted only while someone in the group still has a non-zero net. Functional 181.
+- After a simplified payment that skips a middleman (Priya pays Aarav ₹200 instead of paying Rohan, who pays Aarav), every net balance is ₹0 but the leftover pair debts cancel in a cycle; the group showed "evens out" for everyone instead of "settled up". Open debts are now counted only while someone in the group still has a non-zero net.
+- Settle page: opening "pay X" when the payer's group total is ₹0 (or X is owed nothing) showed an empty amount and only failed on submit; it now says "Nothing to pay here right now" and links to the suggested payments (BL6).
+- Full bug sweep: every page crawled as 6 users with PHP notices logged (0 errors, 0 warnings), axe 0 on all screens, all suites pass. Functional 182.
 
 ## [0.9.3] — scan failures explained (2026-11-25)
 ### Fixed

@@ -1151,6 +1151,9 @@ $rB = login($BASE, 'rohan');
 $rB->get('/balances');
 $rowMm = preg_match('~Middleman Test</a>(.*?)</li>~s', $rB->body, $mm) ? $mm[1] : '';
 check('BL4', 'Before paying: Rohan (owed 100 by Priya, owes Aarav 100, net 0) sees "evens out"', str_contains($rowMm, 'evens out'));
+$rB->get("/groups/$gMm/settle?payer=4&payee=2");
+check('BL6', 'Rohan opens "pay Aarav" (he owes Aarav 100 but nets 0): page explains there is nothing to pay and points to the suggested payments',
+    $rB->status === 200 && $rB->has('Nothing to pay here right now') && !$rB->has('id="useFull"'));
 $st = $db->prepare('CALL sp_record_settlement(?, 3, 2, 200.00, ?, \'cash\', NULL, 2, UUID(), @sid)');
 $st->execute([$gMm, $today]);
 $st->closeCursor();
