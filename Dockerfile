@@ -4,12 +4,11 @@
 # The image contains NO credentials: every secret comes from environment variables
 # at runtime (Vercel: Project -> Settings -> Environment Variables).
 #
-# Base image tag: verify the current tag on https://hub.docker.com/r/dunglas/frankenphp
-# before the first real build (could not be pulled from the build sandbox).
+# Base image tag 1-php8.3-bookworm checked on Docker Hub 2026-11-26 (updated 2026-11-25).
 FROM dunglas/frankenphp:1-php8.3-bookworm
 
-# Only what the app needs: PDO MySQL + OPcache (mbstring, fileinfo, openssl, json are built in)
-RUN install-php-extensions pdo_mysql opcache
+# Only what the app needs: PDO MySQL + OPcache + GD (shrinks big phone photos before bill scanning; curl, mbstring, fileinfo, openssl, json are built in)
+RUN install-php-extensions pdo_mysql opcache gd
 
 # Production php.ini + our limits (receipts up to 5 MB, no PHP version header, opcache)
 RUN cp "$PHP_INI_DIR/php.ini-production" "$PHP_INI_DIR/php.ini"

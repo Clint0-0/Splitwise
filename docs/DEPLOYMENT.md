@@ -207,6 +207,20 @@ backups (daily, 7 days).
 
 ## 9. Preview and production steps (to do with your accounts)
 
+### 9a. Railway (chosen host, 2026-11-26) — not deployed yet until `/readyz` and the workflows below pass
+1. New Project → Deploy from GitHub repo (`main`); Railway builds the `Dockerfile` and injects `PORT` (Caddy listens on it).
+2. + New → Database → MySQL. **Before first use** set its source image to `mysql:8.0` (the template default can be
+   MySQL 9; changing the version after data exists means wiping the volume). Check `SELECT VERSION()` starts with 8.0.
+3. Locally: `APP_DB_PASSWORD` (hidden prompt) → `php database/build_hosted.php --db=railway` (demo data, sample users get
+   `DEMO_PASSWORD`, never `Password@123`) or `--no-sample`. Import `build/hosted_schema.sql`, `hosted_app_user.sql`,
+   `hosted_verify.sql` as root through the MySQL service's TCP proxy with the MySQL 8.0 client (`--ssl-mode=REQUIRED`).
+4. App variables: `DB_HOST=${{MySQL.MYSQLHOST}}`, `DB_PORT=${{MySQL.MYSQLPORT}}`, `DB_NAME=railway`,
+   `DB_USER=splitwise_app`, `DB_PASSWORD`, `DB_SSL=true`, `DB_SSL_VERIFY=false` (MySQL's auto-generated certificate is
+   self-signed; traffic stays on Railway's private network — documented trade-off), `APP_URL`, `SCAN_*`.
+5. Generate Domain; healthcheck path `/readyz`.
+6. E-mail: Railway disables outbound SMTP on Trial/Hobby plans (Pro only). Leave `MAIL_DRIVER=log`; password-reset
+   links are then **not** delivered and (in production) not logged. An HTTPS mail API (e.g. Resend) would need new code.
+
 Credentials are entered **only** in the provider consoles and Vercel's dashboard — never in chat or files in the repo.
 1. Create the managed MySQL server (§3) and run the migration (§4).
 2. In Vercel: import the GitHub repo; follow the official FrankenPHP/container guide so the `Dockerfile` is used **(verify)**.
