@@ -99,6 +99,7 @@ Phase 2 acceptance criteria: tables create ✓ · FKs work ✓ · constraints re
 - ⛔ Staging/production deployment, real SMTP, real scan API, real-phone UPI tests (`docs/UPI_DEVICE_TESTS.md`), real-bill OCR measurement: need the owner's accounts/devices.
 - ✅ Tag `v1.0-submission` → `b92fb91` pushed to GitHub by the owner (verified with `git ls-remote`).
 - ✅ Groq vision provider for bill scanning, **Pick from bill** in each item row, receipt photo used for the scan when no separate bill photo is chosen (0.9.2). Owner confirmed on 2026-11-25 that a real Groq scan works on XAMPP (default vision model; `openai/gpt-oss-120b` is text-only and cannot read photos). Accuracy over 30–50 real bills: still to be measured.
+- ✅ Owner's Windows PC (XAMPP PHP 8.2 + MySQL 8.0), 2026-11-25: `php tests\run_all.php` all pass: unit 101, SQL scripts 11, database 89, functional 179, money scenarios 23.
 - ✅ Balances: a group where you owe one person and are owed the same by another now shows "evens out · N open debts" instead of "settled up".
 - Tests: unit 90, DB 89, functional 173 (incl. E2E1–E2E5), deployment 34, scenarios 23, deployment 30; axe 0 violations incl. itemized and UPI pages.
 
