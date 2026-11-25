@@ -1138,6 +1138,30 @@ $db->exec("DELETE FROM expenses WHERE group_id = $gEv");
 $pB->get('/balances');
 $rowEv = preg_match('~Evens Out Test</a>(.*?)</li>~s', $pB->body, $mm) ? $mm[1] : '';
 check('BL3', 'With no open debts the same group shows "settled up"', str_contains($rowEv, 'settled up') && !str_contains($rowEv, 'evens out'));
+// Owner's question: Priya owes Aarav 100 and Rohan 100, Rohan owes Aarav 100 -> Priya pays Aarav 200
+$db->exec("INSERT INTO expense_groups (name, group_type, created_by) VALUES ('Middleman Test', 'friends', 2)");
+$gMm = (int) $db->lastInsertId();
+$db->exec("INSERT INTO group_members (group_id, user_id, role) VALUES ($gMm, 2, 'admin'), ($gMm, 3, 'member'), ($gMm, 4, 'member')");
+foreach ([[2, 'A for P', '3'], [4, 'R for P', '3'], [2, 'A for R', '4']] as [$payer, $desc, $who]) {
+    $st = $db->prepare("CALL sp_add_equal_expense(?, ?, ?, 2, ?, 100.00, ?, ?, @x)");
+    $st->execute([$gMm, $payer, $payer, $desc, $today, $who]);
+    $st->closeCursor();
+}
+$rB = login($BASE, 'rohan');
+$rB->get('/balances');
+$rowMm = preg_match('~Middleman Test</a>(.*?)</li>~s', $rB->body, $mm) ? $mm[1] : '';
+check('BL4', 'Before paying: Rohan (owed 100 by Priya, owes Aarav 100, net 0) sees "evens out"', str_contains($rowMm, 'evens out'));
+$st = $db->prepare('CALL sp_record_settlement(?, 3, 2, 200.00, ?, \'cash\', NULL, 2, UUID(), @sid)');
+$st->execute([$gMm, $today]);
+$st->closeCursor();
+$nets = $db->query("SELECT GROUP_CONCAT(net_balance ORDER BY user_id) FROM v_group_member_balances WHERE group_id = $gMm")->fetchColumn();
+$labels = [];
+foreach (['priya' => $pB, 'rohan' => $rB, 'aarav' => login($BASE, 'aarav')] as $who => $c) {
+    $c->get('/balances');
+    $labels[$who] = preg_match('~Middleman Test</a>(.*?)</li>~s', $c->body, $mm) ? trim(strip_tags($mm[1])) : '';
+}
+check('BL5', 'Priya pays Aarav 200 (skipping Rohan): every net is 0 and all three see "settled up", not "evens out"',
+    $nets === '0.00,0.00,0.00' && count(array_filter($labels, fn($l) => str_contains($l, 'settled up'))) === 3, json_encode($labels) . " $nets");
 
 // ======================================================================= misc
 $aarav->get('/does-not-exist');

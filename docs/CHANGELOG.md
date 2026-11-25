@@ -1,5 +1,9 @@
 # CHANGELOG — SplitWise+
 
+## [0.9.4] — "evens out" only while the group is unsettled (2026-11-25)
+### Fixed
+- After a simplified payment that skips a middleman (Priya pays Aarav ₹200 instead of paying Rohan, who pays Aarav), every net balance is ₹0 but the leftover pair debts cancel in a cycle; the group showed "evens out" for everyone instead of "settled up". Open debts are now counted only while someone in the group still has a non-zero net. Functional 181.
+
 ## [0.9.3] — scan failures explained (2026-11-25)
 ### Fixed
 - Owner report: real Groq scan on XAMPP showed only "Couldn't read the bill right now". Likely causes on Windows are handled: PHP there usually has **no CA certificate list**, so HTTPS fails; the scanner now uses `SCAN_CA_BUNDLE`, else php.ini `curl.cainfo`/`openssl.cafile`, else the CA files XAMPP ships (`php\extras\ssl\cacert.pem`, `apache\bin\curl-ca-bundle.crt`). Certificate checking stays on.

@@ -8,11 +8,15 @@ final class GroupModel extends Model
     /**
      * Person-to-person debts still open, counted per (group, member). A member whose net is 0
      * can still owe one person and be owed by another: the views show "evens out", not "settled up".
+     * Only counted while the group itself is unsettled (someone's net is not 0): once every net
+     * is 0 nobody has to pay anyone (e.g. after a simplified payment that skipped a middleman,
+     * the leftover pair debts form a cycle that cancels), so that group is "settled up".
      */
     private const OPEN_DEBTS = "SELECT group_id, user_id, COUNT(*) AS n FROM (
             SELECT group_id, user_a AS user_id FROM v_pairwise_debts WHERE outstanding <> 0
             UNION ALL
             SELECT group_id, user_b FROM v_pairwise_debts WHERE outstanding <> 0) x
+          WHERE group_id IN (SELECT group_id FROM v_group_member_balances WHERE net_balance <> 0)
           GROUP BY group_id, user_id";
 
     public const TYPES = ['trip', 'home', 'family', 'friends', 'work', 'other'];
