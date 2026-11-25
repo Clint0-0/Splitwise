@@ -243,6 +243,11 @@ if (function_exists('imagecreatetruecolor')) {
 } else {
     check('Scan: Groq: large-photo shrink (skipped: GD not installed)', true);
 }
+// a "photo" claiming 10000 x 10000 px is refused before GD tries to allocate ~500 MB
+$ihdr = pack('N', 13) . 'IHDR' . pack('NN', 10000, 10000) . "\x08\x02\x00\x00\x00";
+$bomb = "\x89PNG\r\n\x1a\n" . $ihdr . pack('N', crc32(substr($ihdr, 4))) . str_repeat("\0", 3_000_000);
+check('Scan: Groq: a 100-megapixel image is refused with a message, no memory blow-up',
+    throwsValidation(fn() => $scanner->read($bomb, 'image/png'), 'too large for the bill reader'));
 $envSet(['SCAN_API_KEY' => 'gsk_busy']);
 check('Scan: Groq rate limit (429) -> "busy, wait a minute" message', throwsValidation(fn() => $scanner->read($png, 'image/png'), 'rate limit'));
 $envSet(['SCAN_API_KEY' => 'gsk_wrong']);

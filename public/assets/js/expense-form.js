@@ -193,6 +193,17 @@
       markUsedLines();
       updateItems();
     });
+    // typed over a picked line? then the row no longer shows that bill line
+    itemList.addEventListener('input', (ev) => {
+      const row = ev.target.closest('.item-row');
+      const sel = row && row.querySelector('select[data-pick]');
+      if (!sel || !sel.value || !/\[(name|amount)\]$/.test(ev.target.name || '')) return;
+      const o = sel.selectedOptions[0];
+      const idx = row.dataset.index;
+      const val = (f) => (row.querySelector('[name="items[' + idx + '][' + f + ']"]') || {}).value || '';
+      const same = val('name').trim() === o.dataset.name && Number(val('amount')) === Number(o.dataset.amount);
+      if (!same) { sel.value = ''; markUsedLines(); }
+    });
     markUsedLines();
   }
 
@@ -221,6 +232,7 @@
       const leg = clone.querySelector('legend');
       if (leg) leg.textContent = 'Who had item ' + (rows.length + 1);
       itemList.appendChild(clone);
+      markUsedLines();
       clone.querySelector('input').focus();
     });
   }

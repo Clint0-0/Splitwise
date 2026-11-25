@@ -595,6 +595,9 @@ Also: JS item preview = PHP on 3,000 random **weighted** bills; browser runs of 
 | 80 | Owner report: Priya "owes Aarav ₹3,516.67" (Person by person) but Goa Trip said "settled up" (Group by group). Not a money error: her group net was ₹0 because others owed her the same amount; the label hid open debts | `open_debts` count per member from `v_pairwise_debts`; net 0 with open debts shows "evens out · N open debts" (BL1–BL3) |
 | 81 | "Add another item" cloned the last row's "hard to read" note and orange border | cleared on the new row |
 | 82 | `run_all.php` on Windows failed with "could not start: mysql" (installer does not add MySQL to PATH; XAMPP's client is MariaDB and cannot use caching_sha2_password) | auto-detects the MySQL 8.x client in Program Files |
+| 83 | `open_debts` ran a correlated subquery over `v_pairwise_debts` for every group row (the view is re-aggregated each time) | one derived table, joined once |
+| 84 | Shrinking a photo for Groq decoded it at full size: a 100-megapixel image (or a crafted header) could exhaust PHP memory | size read from the header first, > 40 MP refused with a message (unit test) |
+| 85 | Transparent PNG shrunk to JPEG turned black; editing a picked row kept the select pointing at the old bill line | white background; select cleared when the row no longer matches |
 
 Bug round 3 checks: migrations v1.0 → part 1 → part 2 give exactly the fresh schema; malformed input on all new endpoints (arrays, huge values, bad tokens, bad ids) → no 500s; login/forgot/reset pages fit 390–1280 px. Totals: unit 90, DB 89, functional 173, scenarios 23, deployment 34, Exp 10/11/12 18/11/31, axe 0.
 

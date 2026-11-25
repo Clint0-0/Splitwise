@@ -5,6 +5,16 @@ namespace App\Models;
 
 final class GroupModel extends Model
 {
+    /**
+     * Person-to-person debts still open, counted per (group, member). A member whose net is 0
+     * can still owe one person and be owed by another: the views show "evens out", not "settled up".
+     */
+    private const OPEN_DEBTS = "SELECT group_id, user_id, COUNT(*) AS n FROM (
+            SELECT group_id, user_a AS user_id FROM v_pairwise_debts WHERE outstanding <> 0
+            UNION ALL
+            SELECT group_id, user_b FROM v_pairwise_debts WHERE outstanding <> 0) x
+          GROUP BY group_id, user_id";
+
     public const TYPES = ['trip', 'home', 'family', 'friends', 'work', 'other'];
 
     public function create(string $name, ?string $description, string $type, int $createdBy): int
@@ -40,12 +50,11 @@ final class GroupModel extends Model
                                     WHERE x.group_id = g.group_id AND x.status = 'active') AS member_count,
                                   (SELECT COALESCE(SUM(e.total_amount), 0) FROM expenses e
                                     WHERE e.group_id = g.group_id AND e.is_deleted = 0) AS total_spent,
-                                  (SELECT COUNT(*) FROM v_pairwise_debts p
-                                    WHERE p.group_id = g.group_id AND gm.user_id IN (p.user_a, p.user_b)
-                                      AND p.outstanding <> 0) AS open_debts
+                                  COALESCE(od.n, 0) AS open_debts
                              FROM group_members gm
                              JOIN expense_groups g ON g.group_id = gm.group_id
                              LEFT JOIN v_group_member_balances b ON b.group_id = gm.group_id AND b.user_id = gm.user_id
+                             LEFT JOIN (" . self::OPEN_DEBTS . ") od ON od.group_id = gm.group_id AND od.user_id = gm.user_id
                             WHERE gm.user_id = ? AND gm.status = 'active'
                             ORDER BY g.is_archived, g.name", [$userId]);
     }
@@ -61,12 +70,11 @@ final class GroupModel extends Model
         return $this->all("SELECT gm.user_id, gm.role, gm.status, gm.joined_at, gm.left_at,
                                   u.full_name, u.username,
                                   b.total_paid, b.total_owed, b.settled_paid, b.settled_received, b.net_balance,
-                                  (SELECT COUNT(*) FROM v_pairwise_debts p
-                                    WHERE p.group_id = gm.group_id AND gm.user_id IN (p.user_a, p.user_b)
-                                      AND p.outstanding <> 0) AS open_debts
+                                  COALESCE(od.n, 0) AS open_debts
                              FROM group_members gm
                              JOIN users u ON u.user_id = gm.user_id
                              JOIN v_group_member_balances b ON b.group_id = gm.group_id AND b.user_id = gm.user_id
+                             LEFT JOIN (" . self::OPEN_DEBTS . ") od ON od.group_id = gm.group_id AND od.user_id = gm.user_id
                             WHERE gm.group_id = ?
                             ORDER BY gm.status = 'active' DESC, gm.role = 'admin' DESC, u.full_name", [$groupId]);
     }

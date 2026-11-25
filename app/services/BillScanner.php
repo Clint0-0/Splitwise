@@ -281,13 +281,21 @@ final class BillScanner
         if (strlen($bytes) <= self::GROQ_MAX_RAW) {
             return [$bytes, $mime];
         }
+        // decoding takes ~5 bytes per pixel: refuse absurd sizes before GD allocates them
+        $dim = @getimagesizefromstring($bytes);
+        if ($dim === false || $dim[0] * $dim[1] > 40_000_000) {
+            throw ValidationException::single('bill', 'That photo is too large for the bill reader (maximum about 3 MB). Use a smaller photo.');
+        }
         $img = function_exists('imagecreatefromstring') ? @imagecreatefromstring($bytes) : false;
         if ($img === false) {
             throw ValidationException::single('bill', 'That photo is too large for the bill reader (maximum about 3 MB). Use a smaller photo.');
         }
         [$w, $h] = [imagesx($img), imagesy($img)];
         $scale = min(1.0, 2000 / max($w, $h));
-        $small = imagescale($img, max(1, (int) round($w * $scale)), max(1, (int) round($h * $scale)));
+        $small = imagecreatetruecolor(max(1, (int) round($w * $scale)), max(1, (int) round($h * $scale)));
+        // white background: a transparent PNG would otherwise turn black as a JPEG
+        imagefill($small, 0, 0, imagecolorallocate($small, 255, 255, 255));
+        imagecopyresampled($small, $img, 0, 0, 0, 0, imagesx($small), imagesy($small), $w, $h);
         imagedestroy($img);
         foreach ([85, 70, 55] as $q) {
             ob_start();

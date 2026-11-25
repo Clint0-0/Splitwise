@@ -9,7 +9,8 @@
 ### Fixed
 - Balances / dashboard / groups showed **"settled up"** for a group where your net is ₹0 but you still owe one member and are owed by another (Person by person listed the debt). Now: "evens out · N open debts".
 - "Add another item" copied the "hard to read" warning from the row it cloned.
-- Tests: unit 96, functional 179.
+- Bug round: open-debt count computed in one pass (was one view scan per group row); a huge-resolution photo is refused before GD decodes it (memory); transparent PNGs get a white background when shrunk for Groq; editing a picked row's name/amount clears its "Pick from bill" choice so "(used)" stays true.
+- Tests: unit 97, functional 179; axe 0 on the scanned form and balances (1366 / 390 px).
 
 ## [0.9.1] — bug fixes (2026-11-24)
 ### Fixed
