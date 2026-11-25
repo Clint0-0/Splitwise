@@ -207,7 +207,7 @@ backups (daily, 7 days).
 
 ## 9. Preview and production steps (to do with your accounts)
 
-### 9a. Railway (chosen host, 2026-11-26) — not deployed yet until `/readyz` and the workflows below pass
+### 9a. Railway (chosen host) — deployed 2026-11-26: https://splitwise-production-fe83c389.up.railway.app
 1. New Project → Deploy from GitHub repo (`main`); Railway builds the `Dockerfile` and injects `PORT` (Caddy listens on it).
 2. + New → Database → MySQL. **Before first use** set its source image to `mysql:8.0` (the template default can be
    MySQL 9; changing the version after data exists means wiping the volume). Check `SELECT VERSION()` starts with 8.0.
@@ -241,7 +241,10 @@ debts · 16 budgets + alerts · 17 analytics charts + tables · 18 notifications
 |---|---|
 | App runs with DB sessions, DB throttle, DB receipts locally (unit 53, DB 76, functional 120, scenarios 23) | **Passed** |
 | Deployment suite `tests/deployment/run.sh` — config checks, hosted-style import, production mode behind simulated proxy, 2 instances sharing sessions, TLS-only DB user, DB-down behaviour (29 checks) | **Passed** (local, PHP built-in server, not FrankenPHP) |
-| `docker build` / container run | **Blocked** — Docker Hub pulls refused in the build sandbox |
+| `docker build` / container run | **Passed on Railway** (2026-11-26): image built from `main`, healthcheck `/readyz` green |
+| Hosted DB | Railway MySQL **8.0.46** (`mysql:8.0` image; the template default was 8.4 and was wiped while empty). Schema + least-privilege TLS-only `splitwise_app` + `hosted_verify.sql` imported through a temporary TCP proxy, removed afterwards |
+| Hosted end-to-end (owner, 2026-11-26) | **Passed**: login (demo user), group balances, add expense, Groq bill scan, record payment, logout/login, phone browser |
+| Lessons | first deploy ran before the variables existed; then `1045 Access denied` because the schema/app user had not been imported with the password in `DB_PASSWORD` — fixed by regenerating one password for both and importing `hosted_schema.sql` then `hosted_app_user.sql` |
 | Running FrankenPHP binary locally | **Blocked** — downloaded binary execution not permitted in the build sandbox |
 | Vercel docs check of container setup / `vercel.json` / limits | **Not done** — fetch not approved; marked (verify) |
 | Managed MySQL provisioning + import | **Blocked** — needs your provider account |

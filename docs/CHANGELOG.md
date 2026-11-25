@@ -1,5 +1,13 @@
 # CHANGELOG — SplitWise+
 
+## [0.10.1] — hosted on Railway (2026-11-26)
+### Added
+- Live at https://splitwise-production-fe83c389.up.railway.app (Docker image from `main`, Railway MySQL 8.0.46 over the private network, demo data with a non-public demo password). Owner's end-to-end check passed.
+- Image now includes GD (big phone photos are shrunk before bill scanning). Railway steps and notes in `DEPLOYMENT.md` §9a.
+### Known limits
+- No e-mail delivery: Railway Hobby blocks outbound SMTP; forgot-password e-mails are not sent (needs an HTTPS mail API such as Resend).
+- Hosted backups are manual for now.
+
 ## [0.10.0] — calmer UI (branch feature/ui-polish, 2026-11-25)
 ### Changed
 - Theme "Slate + indigo" (owner's choice from previews): slate-grey surfaces, one indigo accent (#4F46E5), system font instead of Baloo/Mukta, lighter headings and amounts, white sidebar with a hairline, "Settle up"/"Record" as neutral outline buttons instead of yellow, debt lists as one bordered list. Green = gets back and red = owes unchanged; warnings stay amber.

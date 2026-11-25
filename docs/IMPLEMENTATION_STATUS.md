@@ -1,7 +1,7 @@
 # IMPLEMENTATION_STATUS.md — SplitWise+
 
-**Current phase:** Phase 6 (itemized bills, bill scanning, UPI, production readiness) on `main` · **State:** implemented; all suites pass on the owner's Windows PC (XAMPP PHP 8.2 + MySQL 8.0.46) and the manual check passed; DBMS Experiments 10–12 done (Exp 11 run on Atlas by the team). Earlier submission snapshot kept as tag `v1.0-submission`. Not yet done: hosted deployment (needs accounts), real-phone UPI tests, scan accuracy over 30–50 bills. Phase 6 sign-off: pending the owner's approval.
-**Last updated:** 2026-11-25
+**Current phase:** Phase 6 (itemized bills, bill scanning, UPI, production readiness) on `main` · **State:** implemented; all suites pass on the owner's Windows PC (XAMPP PHP 8.2 + MySQL 8.0.46) and the manual check passed; DBMS Experiments 10–12 done (Exp 11 run on Atlas by the team). Earlier submission snapshot kept as tag `v1.0-submission`. Hosted on Railway (app container + MySQL 8.0.46, demo data) at https://splitwise-production-fe83c389.up.railway.app — `/readyz` ready and the owner's end-to-end check passed on 2026-11-26. Not yet done: e-mail delivery (Railway Hobby blocks SMTP), automated hosted backups, real-phone UPI tests, scan accuracy over 30–50 bills. Phase 6 sign-off: pending the owner's approval.
+**Last updated:** 2026-11-26
 
 ## Repository
 `https://github.com/Clint0-0/Splitwise` was empty on 2026-11-08. Phase 1 + 2 work is committed locally on branch `develop` (see CHANGELOG). Pushing needs write access (see the Phase 2 review message).
